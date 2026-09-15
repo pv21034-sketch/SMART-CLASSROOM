@@ -1,6 +1,6 @@
 //Importaciones necesarias
 use chrono::Utc;
-use Axum::{extract::Path, http::StatusCode, response::IntoResponse, routing::get, Json, Router};
+use axum::{extract::Path, http::StatusCode, response::IntoResponse, routing::get, Json, Router};
 
 // Importaciones lo de que se creo en schemas/medicion.rs
 use crate::schemas::medicion::{Medicion, MensajeRespuesta, NuevaMedicion, TipoMedicion};
