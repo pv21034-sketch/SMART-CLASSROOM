@@ -1,3 +1,8 @@
+
+// Agregamos los modulos de las nuevas carpetas 
+mod routes;
+mod schemas;
+
 // ============================================================
 // IMPORTACIONES
 // ============================================================
@@ -126,7 +131,10 @@ async fn main() {
         // de nuestro proyecto.
         //
         // El ESP32 enviará las mediciones mediante esta ruta.
-        .route("/api/mediciones", post(crear_medicion));
+        .route("/api/mediciones", post(crear_medicion)) // SIN punto y coma aquí
+
+               // unimos las nuevas rutas...
+            .merge(routes::create_router()); 
 
     // ========================================================
     // CONFIGURACIÓN DE LA DIRECCIÓN DEL SERVIDOR
@@ -256,4 +264,4 @@ async fn crear_medicion(
         // Devolvemos la medición que acabamos de recibir.
         medicion,
     })
-}
+} 
