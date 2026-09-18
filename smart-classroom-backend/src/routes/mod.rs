@@ -1,7 +1,8 @@
 pub mod mediciones;
 pub mod aulas; 
 //Luego agregare  pub mod sensor; y otras cosas 
-
+pub mod sensores;
+pub mod alertas;
 
 
 
@@ -12,4 +13,6 @@ pub fn create_router()-> Router{
     //Usamos merge 
     .merge(mediciones::mediciones_routes())
     .merge(aulas::aulas_routes()) // actilizamos para crear la ruta de aulas 
+    .merge(sensores::sensores_routes())  
+    .merge(alertas::alertas_routes())
 }
