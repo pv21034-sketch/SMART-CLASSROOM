@@ -1,5 +1,14 @@
+//! SMART CLASSROOM — Backend
+//!
+//! Servicio HTTP/WebSocket que recibe las mediciones de los dispositivos ESP32,
+//! las valida, las almacena en PostgreSQL y expone la API para el dashboard.
 
-// Agregamos los modulos de las nuevas carpetas 
+// ============================================================
+// MÓDULOS
+// ============================================================
+
+mod db;
+mod models;
 mod routes;
 mod schemas;
 
@@ -7,261 +16,230 @@ mod schemas;
 // IMPORTACIONES
 // ============================================================
 
-// Json permite recibir y devolver información en formato JSON.
-use axum::extract::Json;
+use std::{env, net::SocketAddr};
 
-// Importamos las funciones necesarias para crear rutas HTTP.
-// get  -> solicitudes GET
-// post -> solicitudes POST
-use axum::routing::{get, post};
-
-// Router permite definir las diferentes rutas de nuestra API.
-use axum::Router;
-
-// Serde permite convertir estructuras de Rust desde/hacia JSON.
-//
-// Deserialize -> permite convertir un JSON recibido en una
-//                estructura de Rust.
-//
-// Serialize   -> permite convertir una estructura de Rust
-//                en JSON para enviarla como respuesta.
-use serde::{Deserialize, Serialize};
-
-// SocketAddr representa una dirección IP y un puerto.
-use std::net::SocketAddr;
+use anyhow::Context;
+use axum::{http::StatusCode, routing::get, Extension, Json, Router};
+use serde_json::{json, Value};
+use sqlx::PgPool;
+use tokio::{net::TcpListener, signal};
+use tower_http::{
+    cors::{Any, CorsLayer},
+    trace::TraceLayer,
+};
+use tracing_subscriber::EnvFilter;
 
 // ============================================================
-// MODELO DE DATOS: NUEVA MEDICIÓN
+// CONSTANTES
 // ============================================================
 
-// Esta estructura representa los datos que recibiremos
-// desde el ESP32.
-//
-// El ESP32 eventualmente enviará algo como:
-//
-// {
-//     "dispositivo_id": 1,
-//     "temperatura": 28.6,
-//     "humedad": 64.2,
-//     "iluminacion": 380.0,
-//     "ruido": 48.0
-// }
-//
-// #[derive(Deserialize)] permite que Serde convierta
-// automáticamente ese JSON en una estructura NuevaMedicion.
-#[derive(Debug, Deserialize, Serialize)]
-struct NuevaMedicion {
-    // Identificador del dispositivo ESP32.
-    dispositivo_id: i32,
+const NOMBRE_SERVICIO: &str = "smart-classroom-backend";
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-    // Temperatura medida en grados Celsius.
-    temperatura: f64,
+// ============================================================
+// CONFIGURACIÓN
+// ============================================================
 
-    // Humedad relativa expresada en porcentaje.
-    humedad: f64,
-
-    // Iluminación medida en lux.
-    iluminacion: f64,
-
-    // Nivel de ruido medido en decibelios.
-    ruido: f64,
+/// Configuración del servidor, leída desde variables de entorno (.env).
+///
+/// - `SERVER_HOST` (por defecto `0.0.0.0`, necesario para que el ESP32
+///   pueda conectarse desde otro dispositivo de la red).
+/// - `SERVER_PORT` (por defecto `3000`).
+struct Config {
+    direccion: SocketAddr,
 }
 
-// ============================================================
-// MODELO DE RESPUESTA
-// ============================================================
+impl Config {
+    fn desde_entorno() -> anyhow::Result<Self> {
+        let host = env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+        let puerto = env::var("SERVER_PORT").unwrap_or_else(|_| "3000".to_string());
 
-// Esta estructura representa la respuesta que nuestro
-// servidor devolverá al dispositivo.
-//
-// #[derive(Serialize)] permite convertir esta estructura
-// automáticamente a formato JSON.
-#[derive(Debug, Serialize)]
-struct Respuesta {
-    // Mensaje que indica si la medición fue recibida.
-    mensaje: String,
+        let direccion: SocketAddr = format!("{host}:{puerto}")
+            .parse()
+            .with_context(|| format!("Dirección de servidor inválida: {host}:{puerto}"))?;
 
-    // Devolvemos también los datos recibidos.
-    medicion: NuevaMedicion,
+        Ok(Self { direccion })
+    }
 }
 
 // ============================================================
 // FUNCIÓN PRINCIPAL
 // ============================================================
 
-// #[tokio::main] permite ejecutar nuestra aplicación
-// utilizando el entorno asíncrono de Tokio.
-//
-// Esto es necesario porque nuestro servidor debe poder
-// atender solicitudes sin bloquearse.
 #[tokio::main]
-async fn main() {
-    // --------------------------------------------------------
-    // CREACIÓN DEL ROUTER
-    // --------------------------------------------------------
+async fn main() -> anyhow::Result<()> {
+    // Variables de entorno definidas en .env (si el archivo no existe, se ignora).
+    dotenvy::dotenv().ok();
 
-    // Creamos nuestro Router de Axum.
-    //
-    // Aquí vamos registrando las diferentes rutas
-    // que tendrá nuestra API.
-    let app = Router::new()
-        // ----------------------------------------------------
-        // Ruta principal
-        // ----------------------------------------------------
-        //
-        // GET /
-        //
-        // Sirve para comprobar que el backend está funcionando.
-        .route("/", get(inicio))
-        // ----------------------------------------------------
-        // Ruta de salud
-        // ----------------------------------------------------
-        //
-        // GET /api/salud
-        //
-        // Permite comprobar que nuestra API está disponible.
-        .route("/api/salud", get(salud))
-        // ----------------------------------------------------
-        // Ruta para recibir mediciones
-        // ----------------------------------------------------
-        //
-        // POST /api/mediciones
-        //
-        // Esta será una de las rutas más importantes
-        // de nuestro proyecto.
-        //
-        // El ESP32 enviará las mediciones mediante esta ruta.
-        .route("/api/mediciones", post(crear_medicion)) // SIN punto y coma aquí
+    iniciar_logging();
 
-               // unimos las nuevas rutas...
-            .merge(routes::create_router()); 
+    let config = Config::desde_entorno()?;
 
-    // ========================================================
-    // CONFIGURACIÓN DE LA DIRECCIÓN DEL SERVIDOR
-    // ========================================================
-
-    // Nuestro servidor funcionará inicialmente en:
-    //
-    // 127.0.0.1 -> nuestra propia computadora
-    // 3000      -> puerto utilizado por el backend
-    //
-    // Más adelante podremos configurarlo para que otros
-    // dispositivos de la red puedan comunicarse con él.
-    let direccion = SocketAddr::from(([127, 0, 0, 1], 3000));
-
-    // Mostramos en la terminal dónde está funcionando
-    // nuestro servidor.
-    println!("Servidor iniciado en http://{}", direccion);
-
-    // ========================================================
-    // CREACIÓN DEL LISTENER
-    // ========================================================
-
-    // TcpListener se encarga de escuchar las conexiones
-    // que lleguen al puerto 3000.
-    //
-    // .await significa que esperamos de manera asíncrona
-    // hasta que el puerto esté disponible.
-    let listener = tokio::net::TcpListener::bind(direccion)
+    // Base de datos
+    let pool = db::crear_pool()
         .await
-        .expect("No se pudo iniciar el servidor");
+        .context("No se pudo establecer la conexión con PostgreSQL")?;
+    tracing::info!("Conexión con PostgreSQL establecida correctamente");
 
-    // ========================================================
-    // INICIAR SERVIDOR AXUM
-    // ========================================================
+    db::ejecutar_migraciones(&pool)
+        .await
+        .context("No se pudieron aplicar las migraciones de la base de datos")?;
+    tracing::info!("Migraciones aplicadas correctamente");
 
-    // axum::serve inicia nuestro servidor HTTP.
-    //
-    // El servidor permanecerá ejecutándose y esperando
-    // solicitudes HTTP.
+    // Aplicación
+    let app = construir_app(pool);
+
+    let listener = TcpListener::bind(config.direccion)
+        .await
+        .with_context(|| format!("No se pudo enlazar el servidor a {}", config.direccion))?;
+
+    tracing::info!(
+        "{NOMBRE_SERVICIO} v{VERSION} ejecutándose en http://{}",
+        config.direccion
+    );
+
     axum::serve(listener, app)
+        .with_graceful_shutdown(senal_de_apagado())
         .await
-        .expect("Error en el servidor");
+        .context("Error en el servidor")?;
+
+    tracing::info!("Servidor detenido correctamente");
+    Ok(())
 }
 
 // ============================================================
-// FUNCIÓN: INICIO
+// CONSTRUCCIÓN DEL ROUTER
 // ============================================================
 
-// Esta función responde cuando alguien visita:
-//
-// GET /
-//
-// Por ejemplo:
-//
-// http://127.0.0.1:3000/
-async fn inicio() -> &'static str {
-    // Devolvemos un mensaje simple.
-    "Smart Classroom Backend"
+/// Arma el router completo con rutas base, rutas del sistema y middlewares.
+///
+/// El pool de PostgreSQL se comparte con todos los handlers mediante
+/// `Extension<PgPool>`.
+fn construir_app(pool: PgPool) -> Router {
+    // CORS abierto para desarrollo: permite que el dashboard (HTML/JS) consuma la API
+    // desde otro origen. En producción conviene restringir `allow_origin`.
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
+    Router::new()
+        // Rutas base
+        .route("/", get(inicio))
+        .route("/api/salud", get(salud))
+        // Rutas del sistema (mediciones, aulas, sensores, alertas, WebSocket…)
+        .merge(routes::create_router())
+        // Respuesta JSON para rutas inexistentes
+        .fallback(no_encontrado)
+        // Middlewares (el último en agregarse es el primero en ejecutarse)
+        .layer(Extension(pool))
+        .layer(TraceLayer::new_for_http())
+        .layer(cors)
 }
 
 // ============================================================
-// FUNCIÓN: SALUD
+// LOGGING
 // ============================================================
 
-// Esta función responde cuando alguien visita:
-//
-// GET /api/salud
-//
-// Sirve para comprobar que el backend está funcionando.
-async fn salud() -> &'static str {
-    // Si recibimos "OK", significa que el servidor
-    // respondió correctamente.
-    "OK"
+/// Inicializa el sistema de logs. El nivel se controla con `RUST_LOG`
+/// (por ejemplo: `RUST_LOG=debug`). Por defecto: `info`.
+fn iniciar_logging() {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
+        .with_target(false)
+        .init();
 }
 
 // ============================================================
-// FUNCIÓN: CREAR MEDICIÓN
+// APAGADO CONTROLADO
 // ============================================================
 
-// Esta función recibe:
-//
-// POST /api/mediciones
-//
-// El ESP32 enviará un JSON con las mediciones.
-//
-// Ejemplo:
-//
-// {
-//     "dispositivo_id": 1,
-//     "temperatura": 28.6,
-//     "humedad": 64.2,
-//     "iluminacion": 380.0,
-//     "ruido": 48.0
-// }
+/// Espera Ctrl+C (o SIGTERM en Unix) para que el servidor termine
+/// las peticiones en curso antes de cerrarse.
+async fn senal_de_apagado() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("No se pudo instalar el manejador de Ctrl+C");
+    };
 
-async fn crear_medicion(
-    // Axum toma automáticamente el JSON enviado
-    // en el cuerpo de la solicitud HTTP.
-    //
-    // Después Serde lo convierte en nuestra estructura
-    // NuevaMedicion.
-    Json(medicion): Json<NuevaMedicion>,
-) -> Json<Respuesta> {
-    // --------------------------------------------------------
-    // MOSTRAR LA MEDICIÓN EN LA TERMINAL
-    // --------------------------------------------------------
+    #[cfg(unix)]
+    let terminar = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("No se pudo instalar el manejador de SIGTERM")
+            .recv()
+            .await;
+    };
 
-    // Por ahora NO guardamos los datos en PostgreSQL.
-    //
-    // Simplemente mostramos la medición recibida
-    // en la terminal.
-    println!("Medición recibida: {:?}", medicion);
+    #[cfg(not(unix))]
+    let terminar = std::future::pending::<()>();
 
-    // --------------------------------------------------------
-    // CREAR RESPUESTA
-    // --------------------------------------------------------
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminar => {},
+    }
 
-    // Construimos una respuesta para quien envió
-    // la medición.
-    //
-    // Json convierte automáticamente nuestra estructura
-    // Respuesta en formato JSON.
-    Json(Respuesta {
-        // Mensaje que enviaremos al cliente.
-        mensaje: "Medición recibida correctamente".to_string(),
+    tracing::info!("Señal de apagado recibida, cerrando el servidor...");
+}
 
-        // Devolvemos la medición que acabamos de recibir.
-        medicion,
-    })
-} 
+// ============================================================
+// ENDPOINT: INICIO
+// ============================================================
+
+/// Información básica del servicio.
+///
+/// GET /
+async fn inicio() -> Json<Value> {
+    Json(json!({
+        "servicio": NOMBRE_SERVICIO,
+        "version": VERSION,
+    }))
+}
+
+// ============================================================
+// ENDPOINT: SALUD
+// ============================================================
+
+/// Comprueba que el backend esté activo y que la base de datos responda.
+/// Devuelve 200 si todo está bien y 503 si PostgreSQL no responde.
+///
+/// GET /api/salud
+async fn salud(Extension(pool): Extension<PgPool>) -> (StatusCode, Json<Value>) {
+    match db::verificar_conexion(&pool).await {
+        Ok(()) => (
+            StatusCode::OK,
+            Json(json!({
+                "estado": "ok",
+                "servicio": NOMBRE_SERVICIO,
+                "version": VERSION,
+                "base_de_datos": "conectada",
+            })),
+        ),
+        Err(error) => {
+            tracing::error!("La comprobación de salud falló: {error}");
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({
+                    "estado": "error",
+                    "servicio": NOMBRE_SERVICIO,
+                    "version": VERSION,
+                    "base_de_datos": "sin conexión",
+                })),
+            )
+        }
+    }
+}
+
+// ============================================================
+// FALLBACK: RUTA NO ENCONTRADA
+// ============================================================
+
+/// Respuesta uniforme (JSON) para cualquier ruta que no exista.
+async fn no_encontrado() -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::NOT_FOUND,
+        Json(json!({ "error": "Recurso no encontrado" })),
+    )
+}

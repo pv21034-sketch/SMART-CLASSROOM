@@ -15,3 +15,4 @@ sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "chron
 chrono = { version = "0.4", features = ["serde"] }
 dotenvy = "0.15"
 futures-util = "0.3"
+anyhow = "1.0.104"
