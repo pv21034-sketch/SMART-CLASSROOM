@@ -11,6 +11,7 @@ mod db;
 mod models;
 mod routes;
 mod schemas;
+mod services;
 
 // ============================================================
 // IMPORTACIONES
