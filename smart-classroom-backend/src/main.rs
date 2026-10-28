@@ -7,7 +7,9 @@
 // MÓDULOS
 // ============================================================
 
+mod config;
 mod db;
+mod errors;
 mod models;
 mod routes;
 mod schemas;
@@ -16,8 +18,6 @@ mod services;
 // ============================================================
 // IMPORTACIONES
 // ============================================================
-
-use std::{env, net::SocketAddr};
 
 use anyhow::Context;
 use axum::{http::StatusCode, routing::get, Extension, Json, Router};
@@ -30,38 +30,14 @@ use tower_http::{
 };
 use tracing_subscriber::EnvFilter;
 
+use crate::config::Config;
+
 // ============================================================
 // CONSTANTES
 // ============================================================
 
 const NOMBRE_SERVICIO: &str = "smart-classroom-backend";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-// ============================================================
-// CONFIGURACIÓN
-// ============================================================
-
-/// Configuración del servidor, leída desde variables de entorno (.env).
-///
-/// - `SERVER_HOST` (por defecto `0.0.0.0`, necesario para que el ESP32
-///   pueda conectarse desde otro dispositivo de la red).
-/// - `SERVER_PORT` (por defecto `3000`).
-struct Config {
-    direccion: SocketAddr,
-}
-
-impl Config {
-    fn desde_entorno() -> anyhow::Result<Self> {
-        let host = env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
-        let puerto = env::var("SERVER_PORT").unwrap_or_else(|_| "3000".to_string());
-
-        let direccion: SocketAddr = format!("{host}:{puerto}")
-            .parse()
-            .with_context(|| format!("Dirección de servidor inválida: {host}:{puerto}"))?;
-
-        Ok(Self { direccion })
-    }
-}
 
 // ============================================================
 // FUNCIÓN PRINCIPAL
@@ -87,17 +63,32 @@ async fn main() -> anyhow::Result<()> {
         .context("No se pudieron aplicar las migraciones de la base de datos")?;
     tracing::info!("Migraciones aplicadas correctamente");
 
+        // if let (Some(usuario), Some(password)) = (&config.admin_usuario, &config.admin_password) {
+    //     match services::usuarios::crear_admin_inicial(&pool, usuario, password).await {
+    //         Ok(true) => tracing::info!("Administrador inicial '{usuario}' creado"),
+    //         Ok(false) => {}
+    //         Err(e) => tracing::error!("No se pudo crear el administrador inicial: {e}"),
+    //     }
+    // }
+    // Primer administrador (solo si la tabla usuarios está vacía y hay credenciales en .env)
+   // if let (Some(usuario), Some(password)) = (&config.admin_usuario, &config.admin_password) {
+     //  match services::usuarios::crear_admin_inicial(&pool, usuario, password).await {
+     //       Ok(true) => tracing::info!("Administrador inicial '{usuario}' creado"),
+      //      Ok(false) => {}
+       //     Err(e) => tracing::error!("No se pudo crear el administrador inicial: {e}"),
+        //}
+   // }
+    //
+
     // Aplicación
-    let app = construir_app(pool);
+    let direccion = config.direccion;
+    let app = construir_app(pool, config);
 
-    let listener = TcpListener::bind(config.direccion)
+    let listener = TcpListener::bind(direccion)
         .await
-        .with_context(|| format!("No se pudo enlazar el servidor a {}", config.direccion))?;
+        .with_context(|| format!("No se pudo enlazar el servidor a {direccion}"))?;
 
-    tracing::info!(
-        "{NOMBRE_SERVICIO} v{VERSION} ejecutándose en http://{}",
-        config.direccion
-    );
+    tracing::info!("{NOMBRE_SERVICIO} v{VERSION} ejecutándose en http://{direccion}");
 
     axum::serve(listener, app)
         .with_graceful_shutdown(senal_de_apagado())
@@ -114,9 +105,9 @@ async fn main() -> anyhow::Result<()> {
 
 /// Arma el router completo con rutas base, rutas del sistema y middlewares.
 ///
-/// El pool de PostgreSQL se comparte con todos los handlers mediante
-/// `Extension<PgPool>`.
-fn construir_app(pool: PgPool) -> Router {
+/// El pool de PostgreSQL y la configuración se comparten con todos los
+/// handlers mediante `Extension<PgPool>` y `Extension<Config>`.
+fn construir_app(pool: PgPool, config: Config) -> Router {
     // CORS abierto para desarrollo: permite que el dashboard (HTML/JS) consuma la API
     // desde otro origen. En producción conviene restringir `allow_origin`.
     let cors = CorsLayer::new()
@@ -128,12 +119,13 @@ fn construir_app(pool: PgPool) -> Router {
         // Rutas base
         .route("/", get(inicio))
         .route("/api/salud", get(salud))
-        // Rutas del sistema (mediciones, aulas, sensores, alertas, WebSocket…)
+        // Rutas del sistema (mediciones, aulas, sensores, alertas, auth, WebSocket…)
         .merge(routes::create_router())
         // Respuesta JSON para rutas inexistentes
         .fallback(no_encontrado)
         // Middlewares (el último en agregarse es el primero en ejecutarse)
         .layer(Extension(pool))
+        .layer(Extension(config))
         .layer(TraceLayer::new_for_http())
         .layer(cors)
 }
