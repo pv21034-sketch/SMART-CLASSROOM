@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historial de mediciones - Smart Classroom</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/historial.css">
+</head>
+<body>
+    <!-- Navegación compartida (la llena layout.js) -->
+    <div id="navegacion"></div>
+
+    <main class="historial">
+        <h1 class="historial__titulo">Historial de mediciones</h1>
+
+        <form id="form-filtros" class="filtros">
+            <div class="filtros__campo">
+                <label for="filtro-aula">Aula</label>
+                <select id="filtro-aula" name="aula">
+                    <option value="">Todas las aulas</option>
+                </select>
+            </div>
+
+            <div class="filtros__campo">
+                <label for="filtro-sensor">Sensor</label>
+                <select id="filtro-sensor" name="sensor">
+                    <option value="">Todos los sensores</option>
+                    <option value="temperatura">Temperatura</option>
+                    <option value="humedad">Humedad</option>
+                    <option value="iluminacion">Iluminación</option>
+                    <option value="ruido">Ruido</option>
+                </select>
+            </div>
+
+            <div class="filtros__campo">
+                <label for="filtro-variable">Variable</label>
+                <select id="filtro-variable" name="variable">
+                    <option value="">Todas las variables</option>
+                    <option value="temperatura">Temperatura</option>
+                    <option value="humedad">Humedad</option>
+                    <option value="iluminacion">Iluminación</option>
+                    <option value="ruido">Ruido</option>
+                    <option value="confort">Confort</option>
+                </select>
+            </div>
+
+            <div class="filtros__campo">
+                <label for="fecha-inicial">Fecha inicial</label>
+                <input type="date" id="fecha-inicial" name="fechaInicial">
+            </div>
+
+            <div class="filtros__campo">
+                <label for="fecha-final">Fecha final</label>
+                <input type="date" id="fecha-final" name="fechaFinal">
+            </div>
+
+            <button type="submit" id="boton-buscar" class="boton">Buscar</button>
+        </form>
+
+        <!-- Mensajes para el usuario: errores, sin datos, validaciones -->
+        <p id="mensaje" class="mensaje" role="status" hidden></p>
+
+        <div class="tabla-contenedor">
+            <table id="tabla-mediciones" class="tabla" hidden>
+                <thead>
+                    <tr>
+                        <th>Fecha y hora</th>
+                        <th>Aula</th>
+                        <th>Sensor</th>
+                        <th>Variable</th>
+                        <th>Valor</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-cuerpo"></tbody>
+            </table>
+        </div>
+
+        <nav id="paginacion" class="paginacion" aria-label="Paginación" hidden>
+            <button type="button" id="boton-anterior" class="boton">Anterior</button>
+            <span id="texto-pagina" class="paginacion__texto"></span>
+            <button type="button" id="boton-siguiente" class="boton">Siguiente</button>
+        </nav>
+    </main>
+  <!--Aca van las rutas para raconectar las demas secciones de la pagina wed -->
+    <script src="../js/api.js"></script>
+    <script src="../js/layout.js"></script>
+    <script src="../js/historial.js"></script>
+</body>
+</html>
