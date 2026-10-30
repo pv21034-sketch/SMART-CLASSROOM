@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Smart Classroom</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+    <!-- Navegación compartida (la llena layout.js) -->
+    <div id="navegacion"></div>
+
+    <main class="dashboard">
+        <h1 class="dashboard__titulo">Dashboard</h1>
+
+        <!-- Selector de aula -->
+        <div class="dashboard__controles">
+            <div class="filtros__campo">
+                <label for="selector-aula">Aula</label>
+                <select id="selector-aula" name="aula">
+                    <option value="">Seleccione un aula</option>
+                </select>
+            </div>
+            <button type="button" id="boton-actualizar" class="boton">Actualizar</button>
+        </div>
+
+        <!-- Mensajes para el usuario: errores, sin datos, avisos -->
+        <p id="mensaje" class="mensaje" role="status" hidden></p>
+
+        <!-- Mediciones -->
+        <section class="dashboard__mediciones" aria-label="Mediciones del aula">
+            <article class="tarjeta tarjeta--temperatura">
+                <h2 class="tarjeta__titulo">Temperatura</h2>
+                <p id="valor-temperatura" class="tarjeta__valor">—</p>
+            </article>
+
+            <article class="tarjeta tarjeta--humedad">
+                <h2 class="tarjeta__titulo">Humedad</h2>
+                <p id="valor-humedad" class="tarjeta__valor">—</p>
+            </article>
+
+            <article class="tarjeta tarjeta--iluminacion">
+                <h2 class="tarjeta__titulo">Iluminación</h2>
+                <p id="valor-iluminacion" class="tarjeta__valor">—</p>
+            </article>
+
+            <article class="tarjeta tarjeta--ruido">
+                <h2 class="tarjeta__titulo">Ruido</h2>
+                <p id="valor-ruido" class="tarjeta__valor">—</p>
+            </article>
+
+            <article class="tarjeta tarjeta--confort">
+                <h2 class="tarjeta__titulo">Índice de confort</h2>
+                <p id="valor-confort" class="tarjeta__valor">—</p>
+                <p class="tarjeta__nota">Escala de 0 a 1</p>
+            </article>
+
+            <article class="tarjeta tarjeta--estado">
+                <h2 class="tarjeta__titulo">Estado general del aula</h2>
+                <p id="estado-aula" class="tarjeta__valor">—</p>
+            </article>
+        </section>
+
+        <!-- Última actualización -->
+        <p class="dashboard__actualizacion">
+            Última actualización:
+            <span id="ultima-actualizacion">—</span>
+        </p>
+    </main>
+
+    <script src="../js/api.js"></script>
+    <script src="../js/layout.js"></script>
+    <script src="../js/dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,194 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Gráficas - Smart Classroom</title>
+
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/graficas.css">
+
+    <!-- Chart.js: versión fija -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+
+    <!-- Navegación compartida -->
+    <div id="navegacion"></div>
+
+    <main class="graficas">
+
+        <h1 class="graficas__titulo">Gráficas ambientales</h1>
+
+        <!-- Filtros -->
+        <section class="filtros">
+
+            <div class="filtros__campo">
+                <label for="select-aula">Aula:</label>
+
+                <select id="select-aula" name="aula">
+                    <option value="">Seleccione un aula</option>
+                </select>
+            </div>
+
+            <div class="filtros__campo">
+                <label for="select-periodo">Período:</label>
+
+                <select id="select-periodo" name="periodo">
+                    <option value="">Seleccione un período</option>
+                    <option value="1h">Última hora</option>
+                    <option value="24h">Últimas 24 horas</option>
+                    <option value="7d">Últimos 7 días</option>
+                </select>
+            </div>
+
+        </section>
+
+        <!-- Mensajes de carga, información y errores -->
+        <p
+            id="mensaje-estado"
+            class="mensaje-estado"
+            role="status"
+            aria-live="polite"
+            hidden>
+        </p>
+
+        <!-- Gráficas ambientales -->
+        <section
+            class="contenedor-graficas"
+            aria-label="Gráficas de las mediciones ambientales">
+
+            <!-- Temperatura -->
+            <article class="grafica grafica--temperatura">
+
+                <h2 class="grafica__titulo">Temperatura (°C)</h2>
+
+                <p
+                    id="aviso-temperatura"
+                    class="grafica__aviso"
+                    role="status"
+                    hidden>
+                </p>
+
+                <canvas
+                    id="grafica-temperatura"
+                    role="img"
+                    aria-label="Gráfica de temperatura">
+                </canvas>
+
+            </article>
+
+            <!-- Humedad -->
+            <article class="grafica grafica--humedad">
+
+                <h2 class="grafica__titulo">Humedad (%)</h2>
+
+                <p
+                    id="aviso-humedad"
+                    class="grafica__aviso"
+                    role="status"
+                    hidden>
+                </p>
+
+                <canvas
+                    id="grafica-humedad"
+                    role="img"
+                    aria-label="Gráfica de humedad">
+                </canvas>
+
+            </article>
+
+            <!-- Iluminación -->
+            <article class="grafica grafica--iluminacion">
+
+                <h2 class="grafica__titulo">Iluminación (lux)</h2>
+
+                <p
+                    id="aviso-iluminacion"
+                    class="grafica__aviso"
+                    role="status"
+                    hidden>
+                </p>
+
+                <canvas
+                    id="grafica-iluminacion"
+                    role="img"
+                    aria-label="Gráfica de iluminación">
+                </canvas>
+
+            </article>
+
+            <!-- Ruido -->
+            <article class="grafica grafica--ruido">
+
+                <h2 class="grafica__titulo">Ruido (dB)</h2>
+
+                <p
+                    id="aviso-ruido"
+                    class="grafica__aviso"
+                    role="status"
+                    hidden>
+                </p>
+
+                <canvas
+                    id="grafica-ruido"
+                    role="img"
+                    aria-label="Gráfica de ruido">
+                </canvas>
+
+            </article>
+
+            <!-- Confort -->
+            <article class="grafica grafica--confort grafica--ancha">
+
+                <h2 class="grafica__titulo">
+                    Índice de confort (0 a 1)
+                </h2>
+
+                <p
+                    id="aviso-confort"
+                    class="grafica__aviso"
+                    role="status"
+                    hidden>
+                </p>
+
+                <canvas
+                    id="grafica-confort"
+                    role="img"
+                    aria-label="Gráfica del índice de confort">
+                </canvas>
+
+            </article>
+
+        </section>
+
+        <!-- Resumen de mediciones -->
+        <section id="resumenes" class="resumenes">
+
+            <h2 class="resumenes__titulo">
+                Resumen del período
+            </h2>
+
+            <ul id="lista-resumenes" class="resumenes__lista">
+
+                <li>
+                    Seleccione un aula y un período para consultar las mediciones.
+                </li>
+
+            </ul>
+
+        </section>
+
+    </main>
+
+    <!-- Archivos JavaScript -->
+    <script src="../js/api.js"></script>
+    <script src="../js/layout.js"></script>
+    <script src="../js/charts.js"></script>
+
+</body>
+</html>
+//HOLI
