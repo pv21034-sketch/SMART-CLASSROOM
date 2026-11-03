@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración - Smart Classroom</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/configuracion.css">
+</head>
+<body>
+    <!-- Navegación compartida (la llena layout.js) -->
+    <div id="navegacion"></div>
+
+    <main class="configuracion">
+        <h1 class="configuracion__titulo">Configuración</h1>
+
+        <!-- Rangos de sensores -->
+        <section id="seccion-rangos" class="seccion">
+            <h2 class="seccion__titulo">Rangos de sensores</h2>
+
+            <p id="mensaje-rangos" class="mensaje" role="status" hidden></p>
+
+            <form id="form-rangos" class="rangos" novalidate>
+                <div class="tabla-contenedor">
+                    <table id="tabla-rangos" class="tabla">
+                        <thead>
+                            <tr>
+                                <th>Sensor</th>
+                                <th>Valor mínimo</th>
+                                <th>Valor máximo</th>
+                                <th>Unidad</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row">Temperatura</th>
+                                <td><input type="number" step="any" id="rango-temperatura-min" name="temperaturaMin" aria-label="Temperatura, valor mínimo"></td>
+                                <td><input type="number" step="any" id="rango-temperatura-max" name="temperaturaMax" aria-label="Temperatura, valor máximo"></td>
+                                <td id="unidad-temperatura">°C</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Humedad</th>
+                                <td><input type="number" step="any" id="rango-humedad-min" name="humedadMin" aria-label="Humedad, valor mínimo"></td>
+                                <td><input type="number" step="any" id="rango-humedad-max" name="humedadMax" aria-label="Humedad, valor máximo"></td>
+                                <td id="unidad-humedad">%</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Iluminación</th>
+                                <td><input type="number" step="any" id="rango-iluminacion-min" name="iluminacionMin" aria-label="Iluminación, valor mínimo"></td>
+                                <td><input type="number" step="any" id="rango-iluminacion-max" name="iluminacionMax" aria-label="Iluminación, valor máximo"></td>
+                                <td id="unidad-iluminacion">lux</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Ruido</th>
+                                <td><input type="number" step="any" id="rango-ruido-min" name="ruidoMin" aria-label="Ruido, valor mínimo"></td>
+                                <td><input type="number" step="any" id="rango-ruido-max" name="ruidoMax" aria-label="Ruido, valor máximo"></td>
+                                <td id="unidad-ruido">dB</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <button type="submit" id="boton-guardar-rangos" class="boton">Guardar rangos</button>
+            </form>
+        </section>
+
+        <!-- Aulas -->
+        <section id="seccion-aulas" class="seccion">
+            <h2 class="seccion__titulo">Aulas</h2>
+
+            <p id="mensaje-aulas" class="mensaje" role="status" hidden></p>
+
+            <div class="tabla-contenedor">
+                <table id="tabla-aulas" class="tabla" hidden>
+                    <thead>
+                        <tr>
+                            <th>Aula</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpo-aulas"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Dispositivos -->
+        <section id="seccion-dispositivos" class="seccion">
+            <h2 class="seccion__titulo">Dispositivos</h2>
+
+            <p id="mensaje-dispositivos" class="mensaje" role="status" hidden></p>
+
+            <div class="tabla-contenedor">
+                <table id="tabla-dispositivos" class="tabla" hidden>
+                    <thead>
+                        <tr>
+                            <th>Dispositivo</th>
+                            <th>Aula</th>
+                            <th>Sensor</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpo-dispositivos"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Usuarios -->
+        <section id="seccion-usuarios" class="seccion">
+            <h2 class="seccion__titulo">Usuarios</h2>
+
+            <p id="mensaje-usuarios" class="mensaje" role="status" hidden></p>
+
+            <div class="tabla-contenedor">
+                <table id="tabla-usuarios" class="tabla" hidden>
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Correo</th>
+                            <th>Rol</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpo-usuarios"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Sistema -->
+        <section id="seccion-sistema" class="seccion">
+            <h2 class="seccion__titulo">Sistema</h2>
+
+            <p id="mensaje-sistema" class="mensaje" role="status" hidden></p>
+
+            <div class="tabla-contenedor">
+                <table id="tabla-sistema" class="tabla" hidden>
+                    <thead>
+                        <tr>
+                            <th>Parámetro</th>
+                            <th>Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpo-sistema"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script src="../js/api.js"></script>
+    <script src="../js/layout.js"></script>
+    <script src="../js/configuracion.js"></script>
+</body>
+</html>

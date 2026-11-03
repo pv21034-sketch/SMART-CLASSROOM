@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alertas - Smart Classroom</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/alertas.css">
+</head>
+<body>
+    <!-- Navegación compartida (la llena layout.js) -->
+    <div id="navegacion"></div>
+
+    <main class="alertas">
+        <h1 class="alertas__titulo">Alertas</h1>
+
+        <form id="form-filtros" class="filtros">
+            <div class="filtros__campo">
+                <label for="filtro-estado">Estado de la alerta</label>
+                <select id="filtro-estado" name="estado">
+                    <option value="">Todos los estados</option>
+                    <option value="activa">Activa</option>
+                    <option value="atendida">Atendida</option>
+                </select>
+            </div>
+
+            <button type="submit" id="boton-buscar" class="boton">Buscar</button>
+        </form>
+
+        <!-- Mensajes para el usuario: errores, sin datos, confirmaciones -->
+        <p id="mensaje" class="mensaje" role="status" hidden></p>
+
+        <div class="tabla-contenedor">
+            <table id="tabla-alertas" class="tabla" hidden>
+                <thead>
+                    <tr>
+                        <th>Variable</th>
+                        <th>Valor registrado</th>
+                        <th>Fecha y hora</th>
+                        <th>Descripción</th>
+                        <th>Estado</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-cuerpo"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <script src="../js/api.js"></script>
+    <script src="../js/layout.js"></script>
+    <script src="../js/alertas.js"></script>
+</body>
+</html>
