@@ -8,6 +8,7 @@
 
 -- gen_random_uuid() es nativa desde PostgreSQL 13; la extension se
 -- conserva por compatibilidad con versiones anteriores.
+
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ============================================================
