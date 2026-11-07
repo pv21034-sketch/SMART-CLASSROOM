@@ -1,107 +1,187 @@
 use axum::{
-    extract::Path,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::get,
+    extract::{Extension, Path, Query},
+    routing::{get, put},
     Json, Router,
 };
-use chrono::Utc;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use sqlx::PgPool;
+use uuid::Uuid;
 
-use crate::schemas::alerta::{Alerta, NivelAlerta, NuevaAlerta, RespuestaAlerta};
+use crate::errors::{ApiError, ApiResult};
+
+// ============================================================
+// REGISTRO DE RUTAS
+// ============================================================
 
 pub fn alertas_routes() -> Router {
     Router::new()
-        .route("/alertas", get(listar_alertas).post(crear_alerta))
-        .route("/alertas/:id", get(obtener_alerta).delete(eliminar_alerta))
+        .route("/api/alertas", get(listar))
+        .route("/api/alertas/:id/estado", put(cambiar_estado))
 }
 
-fn mock_alertas() -> Vec<Alerta> {
-    vec![
-        Alerta {
-            id: 1,
-            sensor_id: 1,
-            aula_id: 101,
-            mensaje: "Temperatura por encima del limite".to_string(),
-            nivel: NivelAlerta::Alta,
-            atendida: false,
-            fecha: Utc::now(),
-        },
-        Alerta {
-            id: 2,
-            sensor_id: 3,
-            aula_id: 102,
-            mensaje: "Nivel de CO2 elevado".to_string(),
-            nivel: NivelAlerta::Media,
-            atendida: false,
-            fecha: Utc::now(),
-        },
-        Alerta {
-            id: 3,
-            sensor_id: 2,
-            aula_id: 101,
-            mensaje: "Humedad fuera de rango normal".to_string(),
-            nivel: NivelAlerta::Baja,
-            atendida: true,
-            fecha: Utc::now(),
-        },
-    ]
+// ============================================================
+// FILTROS Y RESPUESTAS
+// ============================================================
+
+#[derive(Debug, Deserialize)]
+struct FiltroAlertas {
+    estado: Option<String>,
+    aula_id: Option<Uuid>,
+    limit: Option<i64>,
 }
 
-async fn listar_alertas() -> impl IntoResponse {
-    let alertas = mock_alertas();
-    (StatusCode::OK, Json(alertas))
+#[derive(Debug, Serialize, sqlx::FromRow)]
+struct FilaAlerta {
+    id: Uuid,
+    estado: String,
+    tipo: String,
+    mensaje: Option<String>,
+    generada_en: DateTime<Utc>,
+    resuelta_en: Option<DateTime<Utc>>,
+    aula_id: Uuid,
+    aula_codigo: String,
+    dispositivo_id: Uuid,
+    sensor_id: Uuid,
+    tipo_sensor: String,
+    unidad: String,
+    valor: f64,
+    valor_minimo: f64,
+    valor_maximo: f64,
+    medido_en: DateTime<Utc>,
 }
 
-async fn obtener_alerta(Path(id): Path<u32>) -> impl IntoResponse {
-    let alertas = mock_alertas();
+// ============================================================
+// GET /api/alertas
+// ============================================================
 
-    match alertas.into_iter().find(|a| a.id == id) {
-        Some(alerta) => (StatusCode::OK, Json(alerta)).into_response(),
-        None => {
-            let error = RespuestaAlerta {
-                mensaje: format!("No se encontro una alerta con id {}", id),
-            };
-            (StatusCode::NOT_FOUND, Json(error)).into_response()
+async fn listar(
+    Extension(pool): Extension<PgPool>,
+    Query(filtro): Query<FiltroAlertas>,
+) -> ApiResult<Json<Vec<FilaAlerta>>> {
+    if let Some(estado) = &filtro.estado {
+        if !["activa", "revisada", "resuelta"].contains(&estado.as_str()) {
+            return Err(ApiError::BadRequest(
+                "estado debe ser: activa, revisada o resuelta".into(),
+            ));
         }
     }
+
+    let limite = filtro.limit.unwrap_or(100).clamp(1, 1000);
+
+    let filas = sqlx::query_as::<_, FilaAlerta>(
+        r#"
+        SELECT
+            id,
+            estado,
+            tipo,
+            mensaje,
+            generada_en,
+            resuelta_en,
+            aula_id,
+            aula_codigo,
+            dispositivo_id,
+            sensor_id,
+            tipo_sensor,
+            unidad,
+            valor,
+            valor_minimo,
+            valor_maximo,
+            medido_en
+        FROM vw_alertas_detalle
+        WHERE ($1::text IS NULL OR estado = $1)
+          AND ($2::uuid IS NULL OR aula_id = $2)
+        ORDER BY generada_en DESC
+        LIMIT $3
+        "#,
+    )
+    .bind(filtro.estado)
+    .bind(filtro.aula_id)
+    .bind(limite)
+    .fetch_all(&pool)
+    .await?;
+
+    Ok(Json(filas))
 }
 
-async fn crear_alerta(Json(payload): Json<NuevaAlerta>) -> impl IntoResponse {
-    if payload.mensaje.trim().is_empty() {
-        let error = RespuestaAlerta {
-            mensaje: "El campo 'mensaje' no puede estar vacio".to_string(),
-        };
-        return (StatusCode::BAD_REQUEST, Json(error)).into_response();
+// ============================================================
+// PUT /api/alertas/:id/estado
+// ============================================================
+
+#[derive(Debug, Deserialize)]
+struct CambioEstado {
+    estado: String,
+}
+
+async fn cambiar_estado(
+    Extension(pool): Extension<PgPool>,
+    Path(id): Path<Uuid>,
+    Json(datos): Json<CambioEstado>,
+) -> ApiResult<Json<Value>> {
+    let nuevo_estado = datos.estado.trim().to_lowercase();
+
+    if !["revisada", "resuelta"].contains(&nuevo_estado.as_str()) {
+        return Err(ApiError::BadRequest(
+            "estado debe ser: revisada o resuelta".into(),
+        ));
     }
 
-    let nueva_alerta = Alerta {
-        id: 99,
-        sensor_id: payload.sensor_id,
-        aula_id: payload.aula_id,
-        mensaje: payload.mensaje,
-        nivel: payload.nivel,
-        atendida: false,
-        fecha: Utc::now(),
-    };
+    // Transiciones permitidas:
+    //
+    // activa   -> revisada
+    // activa   -> resuelta
+    // revisada -> resuelta
+    //
+    // Una alerta resuelta no puede reabrirse.
 
-    (StatusCode::CREATED, Json(nueva_alerta)).into_response()
-}
+    let actualizada: Option<(Uuid,)> = sqlx::query_as(
+        r#"
+        UPDATE alertas
+        SET
+            estado = $2,
+            resuelta_en = CASE
+                WHEN $2 = 'resuelta' THEN NOW()
+                ELSE NULL
+            END
+        WHERE id = $1
+          AND (
+              (estado = 'activa'
+                  AND $2 IN ('revisada', 'resuelta'))
+              OR
+              (estado = 'revisada'
+                  AND $2 = 'resuelta')
+          )
+        RETURNING id
+        "#,
+    )
+    .bind(id)
+    .bind(&nuevo_estado)
+    .fetch_optional(&pool)
+    .await?;
 
-async fn eliminar_alerta(Path(id): Path<u32>) -> impl IntoResponse {
-    let alertas = mock_alertas();
+    if actualizada.is_some() {
+        return Ok(Json(json!({
+            "id": id,
+            "estado": nuevo_estado,
+            "mensaje": "Estado actualizado correctamente"
+        })));
+    }
 
-    match alertas.into_iter().find(|a| a.id == id) {
-        Some(_) => {
-            let respuesta = RespuestaAlerta {
-                mensaje: format!("Alerta con id {} eliminada correctamente", id),
-            };
-            (StatusCode::OK, Json(respuesta)).into_response()
-        }
-        None => {
-            let error = RespuestaAlerta {
-                mensaje: format!("No se encontro una alerta con id {}", id),
-            };
-            (StatusCode::NOT_FOUND, Json(error)).into_response()
-        }
+    // Si no se actualizo, determinar si no existe
+    // o si la transicion solicitada no esta permitida.
+
+    let estado_actual: Option<(String,)> =
+        sqlx::query_as("SELECT estado FROM alertas WHERE id = $1")
+            .bind(id)
+            .fetch_optional(&pool)
+            .await?;
+
+    match estado_actual {
+        None => Err(ApiError::NotFound(format!("No existe la alerta {id}"))),
+
+        Some((estado,)) => Err(ApiError::BadRequest(format!(
+            "No se permite cambiar una alerta de '{estado}' a '{nuevo_estado}'"
+        ))),
     }
 }

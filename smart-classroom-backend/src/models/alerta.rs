@@ -1,32 +1,71 @@
-use serde::{Deserialize, Serialize};
+//! SMART CLASSROOM — Modelo Alerta
+//!
+//! Representa una alerta ambiental generada
+//! cuando una medición supera los límites
+//! configurados para un sensor.
+//!
+//! Corresponde a la tabla `alertas` de PostgreSQL.
+//!
+//! Los valores mínimo y máximo aplicados se
+//! conservan como referencia histórica, incluso
+//! si posteriormente cambia la configuración
+//! del rango del sensor.
 
-/// Representa una alerta generada por el sistema
-/// SMART CLASSROOM.
-///
-/// Las alertas permiten informar sobre condiciones ambientales
-/// que requieren atención dentro de un aula.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use uuid::Uuid;
+
+// ============================================================
+// MODELO DE ALERTA
+// ============================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Alerta {
     /// Identificador único de la alerta.
-    pub id: i32,
+    /// PostgreSQL: UUID PRIMARY KEY.
+    pub id: Uuid,
 
-    /// Identificador del aula donde se generó la alerta.
-    pub aula_id: i32,
+    /// Identificador de la medición que originó la alerta.
+    /// PostgreSQL: mediciones(id).
+    pub medicion_id: Uuid,
 
-    /// Tipo de condición que originó la alerta.
+    /// Identificador del rango de sensor aplicado.
+    /// PostgreSQL: rangos_sensor(id).
+    pub rango_sensor_id: Uuid,
+
+    /// Tipo de condición que generó la alerta.
+    ///
+    /// Valores permitidos:
+    /// - por_debajo
+    /// - por_encima
     pub tipo: String,
 
-    /// Descripción de la alerta.
-    pub mensaje: String,
+    /// Mensaje descriptivo de la alerta.
+    /// Puede ser NULL en PostgreSQL.
+    pub mensaje: Option<String>,
 
-    /// Nivel de prioridad de la alerta.
+    /// Estado actual de la alerta.
     ///
-    /// Ejemplos: baja, media, alta o crítica.
-    pub nivel: String,
+    /// Valores permitidos:
+    /// - activa
+    /// - revisada
+    /// - resuelta
+    pub estado: String,
 
-    /// Indica si la alerta continúa activa.
-    pub activa: bool,
+    /// Valor mínimo vigente cuando se generó la alerta.
+    /// Se conserva como dato histórico.
+    pub valor_minimo_aplicado: f64,
 
-    /// Fecha y hora en que se generó la alerta.
-    pub fecha_hora: String,
+    /// Valor máximo vigente cuando se generó la alerta.
+    /// Se conserva como dato histórico.
+    pub valor_maximo_aplicado: f64,
+
+    /// Fecha y hora de generación de la alerta.
+    pub generada_en: DateTime<Utc>,
+
+    /// Fecha y hora de resolución.
+    ///
+    /// Es None mientras la alerta no esté resuelta.
+    pub resuelta_en: Option<DateTime<Utc>>,
 }

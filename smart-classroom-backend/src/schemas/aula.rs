@@ -1,27 +1,31 @@
-// Importamos la serde para Serializar y Desarializar 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
-
-// Depurar y poder recibir datos externos 
 #[derive(Debug, Deserialize)]
-pub struct NuevaAula{
+pub struct NuevaAula {
+    pub codigo: String,
     pub nombre: String,
-    pub ubicacion: String,
-    pub capacidad: u32,
+    pub ubicacion: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ActualizarAula {
+    pub codigo: Option<String>,
+    pub nombre: Option<String>,
+    pub ubicacion: Option<String>,
+}
 
-
-#[derive(Debug, Clone, Serialize)]
-pub struct Aula{
-    pub id: u32,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Aula {
+    pub id: Uuid,
+    pub codigo: String,
     pub nombre: String,
-    pub ubicacion: String,
-    pub capacidad: u32,
+    pub ubicacion: Option<String>,
+    pub creado_en: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize)]
-pub struct RespuestaAula{
-    //mensaje que se enviara como respuesta
+pub struct RespuestaAula {
     pub mensaje: String,
 }

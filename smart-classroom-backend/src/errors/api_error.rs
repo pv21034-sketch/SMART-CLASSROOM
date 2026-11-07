@@ -26,6 +26,9 @@ pub enum ApiError {
     #[error("Solicitud inválida: {0}")]
     BadRequest(String),
 
+    #[error("Acceso denegado: {0}")]
+    Forbidden(String),
+
     #[error("Error interno del servidor: {0}")]
     Internal(String),
 
@@ -42,8 +45,9 @@ impl IntoResponse for ApiError {
         // Elegimos el código de estado HTTP según el tipo de error.
         // El `&self` es porque solo estamos "mirando" el valor, no consumiéndolo todavía.
         let status = match &self {
-            ApiError::NotFound(_) => StatusCode::NOT_FOUND,       // 404
-            ApiError::BadRequest(_) => StatusCode::BAD_REQUEST,   // 400
+            ApiError::NotFound(_) => StatusCode::NOT_FOUND, // 404
+            ApiError::BadRequest(_) => StatusCode::BAD_REQUEST, // 400
+            ApiError::Forbidden(_) => StatusCode::FORBIDDEN, // 403
             ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR, // 500
             ApiError::WebSocket(_) => StatusCode::INTERNAL_SERVER_ERROR, // 500
         };
@@ -63,3 +67,12 @@ impl IntoResponse for ApiError {
 // Result "alias" para no escribir Result<T, ApiError> en cada función.
 // Con esto en el resto del proyecto se puede escribir: fn algo() -> ApiResult<Medicion>
 pub type ApiResult<T> = Result<T, ApiError>;
+
+// Permite usar `?` directamente con consultas sqlx dentro de los handlers y servicios.
+// El detalle del error se registra en el log, pero NO se envía al cliente.
+impl From<sqlx::Error> for ApiError {
+    fn from(error: sqlx::Error) -> Self {
+        tracing::error!("Error de base de datos: {error}");
+        ApiError::Internal("error de base de datos".to_string())
+    }
+}

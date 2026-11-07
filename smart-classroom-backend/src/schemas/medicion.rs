@@ -1,36 +1,40 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+// ============================================================
+// MEDICION INDIVIDUAL
+// ============================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum TipoMedicion{
-    Temperatura,
-    Humedad,
-    Co2,
-    Ruido,
-    Luminosidad, 
+pub struct Medicion {
+    pub id: Uuid,
+    pub sensor_id: Uuid,
+    pub valor: f64,
+    pub medido_en: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct NuevaMedicion{
-    // definimos nuestra estructura con los siguientes parametros 
-    pub aula_id: u32,
-    pub sensor_id: u32,
-    pub tipo: TipoMedicion,
-    pub valor: f32,
+// ============================================================
+// MEDICION CON INFORMACION DEL SENSOR Y AULA
+// ============================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct MedicionDetalle {
+    pub id: Uuid,
+    pub sensor_id: Uuid,
+    pub dispositivo_id: Uuid,
+    pub aula_id: Uuid,
+    pub tipo_sensor: String,
+    pub unidad: String,
+    pub valor: f64,
+    pub medido_en: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct Medicion{
-    pub id: u32,
-    pub aula_id: u32,
-    pub sensor_id: u32,
-    pub tipo: TipoMedicion,
-    pub valor: f32,
-    pub fecha: DateTime<Utc>,
-}
+// ============================================================
+// RESPUESTA GENERAL DE LA API
+// ============================================================
 
 #[derive(Debug, Serialize)]
-pub struct MensajeRespuesta{
-    pub mensaje: String, 
+pub struct MensajeRespuesta {
+    pub mensaje: String,
 }

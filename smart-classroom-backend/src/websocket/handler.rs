@@ -1,13 +1,13 @@
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
-        State,
+        Extension,
     },
     response::IntoResponse,
 };
-use futures::{SinkExt, StreamExt};
+use futures_util::{SinkExt, StreamExt};
 use std::sync::Arc;
-use tokio::sync::broadcast;
+use tokio::sync::broadcast::{self, error::RecvError};
 use tracing::{info, warn};
 
 // Estado compartido de todo el sistema de WebSocket.
@@ -31,8 +31,8 @@ impl WsState {
         Arc::new(Self { tx })
     }
 
-    // Función pública que usará el resto del sistema (por ejemplo, el servicio
-    // que lee sensores) para publicar una nueva medición a todos los clientes.
+    // Función pública que usa el resto del sistema (la ruta POST /api/mediciones)
+    // para publicar una nueva medición a todos los clientes.
     pub fn broadcast_measurement(&self, payload: String) {
         // send() devuelve Err solo si NO hay ningún cliente escuchando.
         // Eso no es un error grave para nosotros, así que lo ignoramos con `let _ =`.
@@ -40,21 +40,17 @@ impl WsState {
     }
 }
 
-// Este es el handler HTTP normal (una ruta más de axum). Su trabajo es
-// "upgradear" (elevar) la conexión HTTP inicial a una conexión WebSocket real.
+// Handler HTTP normal que "upgradea" la conexión a WebSocket.
+// Usa `Extension` (igual que el pool y la config) porque el router no usa `with_state`.
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
-    State(state): State<Arc<WsState>>,
+    Extension(state): Extension<Arc<WsState>>,
 ) -> impl IntoResponse {
-    // on_upgrade recibe una función que se ejecutará cuando el navegador/cliente
-    // termine el "handshake" de WebSocket y la conexión ya esté lista para usarse.
     ws.on_upgrade(move |socket| handle_socket(socket, state))
 }
 
 // Lógica de UNA conexión WebSocket individual (se ejecuta una vez por cada cliente conectado).
 async fn handle_socket(socket: WebSocket, state: Arc<WsState>) {
-    // Dividimos el socket en dos mitades independientes:
-    // `sender` para escribir hacia el cliente, `receiver` para leer lo que él envía.
     let (mut sender, mut receiver) = socket.split();
 
     // Cada cliente se suscribe de forma independiente al canal de broadcast.
@@ -62,23 +58,30 @@ async fn handle_socket(socket: WebSocket, state: Arc<WsState>) {
 
     info!("Nuevo cliente WebSocket conectado");
 
-    // TAREA 1: escucha el canal broadcast y reenvía cada medición nueva a ESTE cliente.
+    // TAREA 1: reenvía cada medición nueva a ESTE cliente.
     let mut send_task = tokio::spawn(async move {
-        while let Ok(msg) = rx.recv().await {
-            // Si sender.send() falla, significa que el cliente ya se desconectó.
-            if sender.send(Message::Text(msg)).await.is_err() {
-                break;
+        loop {
+            match rx.recv().await {
+                Ok(msg) => {
+                    // Si falla el envío, el cliente ya se desconectó.
+                    if sender.send(Message::Text(msg)).await.is_err() {
+                        break;
+                    }
+                }
+                // Cliente lento: se perdieron mensajes viejos, pero la conexión sigue.
+                Err(RecvError::Lagged(omitidos)) => {
+                    warn!("Cliente WebSocket lento: se omitieron {omitidos} mensajes");
+                }
+                Err(RecvError::Closed) => break,
             }
         }
     });
 
-    // TAREA 2: escucha lo que el cliente envía (mensajes de control, cierre, etc.)
+    // TAREA 2: escucha lo que el cliente envía (cierre, mensajes de control).
     let mut recv_task = tokio::spawn(async move {
         while let Some(Ok(msg)) = receiver.next().await {
             match msg {
                 Message::Text(text) => {
-                    // Aquí se podrían interpretar comandos del cliente,
-                    // por ejemplo: {"accion": "suscribirse", "sensor_id": 3}
                     info!("Mensaje recibido del cliente: {}", text);
                 }
                 Message::Close(_) => {
@@ -90,8 +93,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<WsState>) {
         }
     });
 
-    // Esperamos a que UNA de las dos tareas termine (por desconexión o error)
-    // y cancelamos la otra, para no dejar tareas "huérfanas" corriendo en segundo plano.
+    // Cuando una de las dos tareas termina, se cancela la otra.
     tokio::select! {
         _ = (&mut send_task) => recv_task.abort(),
         _ = (&mut recv_task) => send_task.abort(),

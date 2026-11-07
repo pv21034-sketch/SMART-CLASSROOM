@@ -1,79 +1,196 @@
-//Importaciones necesarias
-use chrono::Utc;
-use axum::{extract::Path, http::StatusCode, response::IntoResponse, routing::get, Json, Router};
+//! Rutas de mediciones.
+//!
+//! - `POST /api/mediciones`            → el ESP32 envía una lectura (Fase 8).
+//! - `GET  /api/mediciones`            → historial con filtros, para gráficas e historial.
+//! - `GET  /api/aulas/:id/ultima`      → últimos valores, confort y estado para el dashboard.
 
-// Importaciones lo de que se creo en schemas/medicion.rs
-use crate::schemas::medicion::{Medicion, MensajeRespuesta, NuevaMedicion, TipoMedicion};
+use std::sync::Arc;
+
+use axum::{
+    extract::{Extension, Path, Query},
+    http::StatusCode,
+    routing::get,
+    Json, Router,
+};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Map, Value};
+use sqlx::PgPool;
+use uuid::Uuid;
+
+use crate::errors::{ApiError, ApiResult};
+use crate::schemas::ingesta::NuevaMedicion;
+use crate::services::{confort, ingesta};
+use crate::websocket::WsState;
+
 pub fn mediciones_routes() -> Router {
     Router::new()
-        .route("/mediciones", get(listar_mediciones).post(crear_medicion))
-        .route("/mediciones/:id", get(obtener_medicion))
+        .route("/api/mediciones", get(historial).post(recibir))
+        .route("/api/aulas/:id/ultima", get(ultima))
 }
 
-fn mock_mediciones() -> Vec<Medicion> {
-    vec![
-        Medicion {
-            id: 1,
-            aula_id: 101,
-            sensor_id: 1,
-            tipo: TipoMedicion::Temperatura,
-            valor: 23.5,
-            fecha: Utc::now(),
-        },
-        Medicion {
-            id: 2,
-            aula_id: 101,
-            sensor_id: 2,
-            tipo: TipoMedicion::Humedad,
-            valor: 55.0,
-            fecha: Utc::now(),
-        },
-        Medicion {
-            id: 3,
-            aula_id: 102,
-            sensor_id: 3,
-            tipo: TipoMedicion::Co2,
-            valor: 800.0,
-            fecha: Utc::now(),
-        },
-    ]
+// ============================================================
+// POST /api/mediciones  (ESP32 → backend)
+// ============================================================
+
+/// Mensaje que se difunde por WebSocket a todos los dashboards conectados.
+#[derive(Serialize)]
+struct EventoMedicion<'a> {
+    evento: &'static str,
+    #[serde(flatten)]
+    datos: &'a ingesta::ResultadoIngesta,
 }
 
-async fn listar_mediciones() -> impl IntoResponse {
-    let mediciones = mock_mediciones();
-    (StatusCode::OK, Json(mediciones))
-}
+async fn recibir(
+    Extension(pool): Extension<PgPool>,
+    Extension(ws): Extension<Arc<WsState>>,
+    Json(datos): Json<NuevaMedicion>,
+) -> ApiResult<(StatusCode, Json<Value>)> {
+    let resultado = ingesta::procesar(&pool, datos).await?;
 
-async fn obtener_medicion(Path(id): Path<u32>) -> impl IntoResponse {
-    let mediciones = mock_mediciones();
-
-    match mediciones.into_iter().find(|m| m.id == id) {
-        Some(medicion) => (StatusCode::OK, Json(medicion)).into_response(),
-        None => {
-            let error = MensajeRespuesta {
-                mensaje: format!("No se encontro una medicion con id {}", id),
-            };
-            (StatusCode::NOT_FOUND, Json(error)).into_response()
-        }
-    }
-}
-
-async fn crear_medicion(Json(payload): Json<NuevaMedicion>) -> impl IntoResponse {
-    if !payload.valor.is_finite() {
-        let error = MensajeRespuesta {
-            mensaje: "El campo 'valor' debe ser un numero valido".to_string(),
-        };
-        return (StatusCode::BAD_REQUEST, Json(error)).into_response();
-    }
-
-    let nueva_medicion = Medicion {
-        id: 99,
-        aula_id: payload.aula_id,
-        sensor_id: payload.sensor_id,
-        tipo: payload.tipo,
-        valor: payload.valor,
-        fecha: Utc::now(),
+    // Tiempo real: se difunde DESPUÉS de guardar en PostgreSQL (el commit ya se hizo).
+    let evento = EventoMedicion {
+        evento: "medicion",
+        datos: &resultado,
     };
+    match serde_json::to_string(&evento) {
+        Ok(texto) => ws.broadcast_measurement(texto),
+        Err(e) => tracing::error!("No se pudo serializar el evento WebSocket: {e}"),
+    }
 
-    (StatusCode::CREATED, Json(nueva_medicion)).into_response()
+    // Respuesta mínima: el ESP32 no necesita nada más.
+    Ok((
+        StatusCode::CREATED,
+        Json(json!({
+            "estado": "ok",
+            "medido_en": resultado.medido_en,
+            "alertas": resultado.alertas.len(),
+        })),
+    ))
+}
+
+// ============================================================
+// GET /api/mediciones  (historial / gráficas)
+// ============================================================
+
+#[derive(Debug, Deserialize)]
+struct FiltroHistorial {
+    aula_id: Option<Uuid>,
+    /// temperatura | humedad | iluminacion | ruido
+    tipo: Option<String>,
+    /// Fecha ISO 8601 (ej. 2026-10-30T00:00:00Z)
+    desde: Option<DateTime<Utc>>,
+    hasta: Option<DateTime<Utc>>,
+    /// Máximo de filas (por defecto 500, tope 5000).
+    limit: Option<i64>,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+struct FilaMedicion {
+    id: Uuid,
+    sensor_id: Uuid,
+    dispositivo_id: Uuid,
+    aula_id: Uuid,
+    tipo_sensor: String,
+    unidad: String,
+    valor: f64,
+    medido_en: DateTime<Utc>,
+}
+
+/// Devuelve las filas de la más reciente a la más antigua.
+/// Para Chart.js conviene invertir el arreglo en el frontend (`.reverse()`).
+async fn historial(
+    Extension(pool): Extension<PgPool>,
+    Query(filtro): Query<FiltroHistorial>,
+) -> ApiResult<Json<Vec<FilaMedicion>>> {
+    let limite = filtro.limit.unwrap_or(500).clamp(1, 5000);
+
+    let filas = sqlx::query_as::<_, FilaMedicion>(
+        "SELECT id, sensor_id, dispositivo_id, aula_id, tipo_sensor, unidad, valor, medido_en
+           FROM vw_mediciones_detalle
+          WHERE ($1::uuid        IS NULL OR aula_id     = $1)
+            AND ($2::text        IS NULL OR tipo_sensor = $2)
+            AND ($3::timestamptz IS NULL OR medido_en  >= $3)
+            AND ($4::timestamptz IS NULL OR medido_en  <= $4)
+          ORDER BY medido_en DESC
+          LIMIT $5",
+    )
+    .bind(filtro.aula_id)
+    .bind(filtro.tipo)
+    .bind(filtro.desde)
+    .bind(filtro.hasta)
+    .bind(limite)
+    .fetch_all(&pool)
+    .await?;
+
+    Ok(Json(filas))
+}
+
+// ============================================================
+// GET /api/aulas/:id/ultima  (dashboard)
+// ============================================================
+
+async fn ultima(
+    Extension(pool): Extension<PgPool>,
+    Path(aula_id): Path<Uuid>,
+) -> ApiResult<Json<Value>> {
+    let aula: Option<(String, String)> =
+        sqlx::query_as("SELECT codigo, nombre FROM aulas WHERE id = $1")
+            .bind(aula_id)
+            .fetch_optional(&pool)
+            .await?;
+
+    let (codigo, nombre) =
+        aula.ok_or_else(|| ApiError::NotFound(format!("No existe el aula {aula_id}")))?;
+
+    // Último valor de cada variable.
+    let filas: Vec<(String, String, f64, DateTime<Utc>)> = sqlx::query_as(
+        "SELECT DISTINCT ON (tipo_sensor) tipo_sensor, unidad, valor, medido_en
+           FROM vw_mediciones_detalle
+          WHERE aula_id = $1
+          ORDER BY tipo_sensor, medido_en DESC",
+    )
+    .bind(aula_id)
+    .fetch_all(&pool)
+    .await?;
+
+    let mut valores = Map::new();
+    for (tipo, unidad, valor, medido_en) in filas {
+        valores.insert(
+            tipo,
+            json!({ "valor": valor, "unidad": unidad, "medido_en": medido_en }),
+        );
+    }
+
+    // Último índice de confort (0–100).
+    let indice: Option<(f64, DateTime<Utc>)> = sqlx::query_as(
+        "SELECT valor, calculado_en FROM indices_confort
+          WHERE aula_id = $1 ORDER BY calculado_en DESC LIMIT 1",
+    )
+    .bind(aula_id)
+    .fetch_optional(&pool)
+    .await?;
+
+    let confort_json = indice.map(|(valor, calculado_en)| {
+        json!({
+            "valor": valor,
+            "estado": confort::obtener_estado_confort(valor / 100.0),
+            "calculado_en": calculado_en,
+        })
+    });
+
+    let (alertas_activas,): (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM vw_alertas_detalle WHERE aula_id = $1 AND estado = 'activa'",
+    )
+    .bind(aula_id)
+    .fetch_one(&pool)
+    .await?;
+
+    Ok(Json(json!({
+        "aula": { "id": aula_id, "codigo": codigo, "nombre": nombre },
+        "valores": valores,
+        "confort": confort_json,
+        "alertas_activas": alertas_activas,
+        "estado": if alertas_activas > 0 { "ALERTA" } else { "NORMAL" },
+    })))
 }

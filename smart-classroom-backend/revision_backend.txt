@@ -1,0 +1,4349 @@
+﻿========== C:\smart-classroom\smart-classroom-backend\src\config\mod.rs ==========
+//! SMART CLASSROOM â€” ConfiguraciÃ³n del servidor
+//!
+//! Lee y valida las variables de entorno.
+//!
+//! Variables:
+//! - SERVER_HOST o HOST: direcciÃ³n del servidor.
+//! - SERVER_PORT o PORT: puerto HTTP.
+//! - JWT_SECRET: clave de firma de tokens JWT.
+//! - ADMIN_USUARIO: usuario administrador inicial (opcional).
+//! - ADMIN_PASSWORD: contraseÃ±a inicial (opcional).
+//!
+//! La conexiÃ³n DATABASE_URL se administra desde db/.
+
+use std::{
+    env, fmt,
+    net::{IpAddr, SocketAddr},
+};
+
+use anyhow::{bail, Context, Result};
+
+// ============================================================
+// CONFIGURACIÃ“N
+// ============================================================
+
+#[derive(Clone)]
+pub struct Config {
+    pub direccion: SocketAddr,
+    pub jwt_secret: String,
+    pub admin_usuario: Option<String>,
+    pub admin_password: Option<String>,
+}
+
+// ImplementaciÃ³n segura de Debug:
+// nunca muestra contraseÃ±as ni secretos.
+impl fmt::Debug for Config {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Config")
+            .field("direccion", &self.direccion)
+            .field("jwt_secret", &"[OCULTO]")
+            .field("admin_usuario", &self.admin_usuario)
+            .field(
+                "admin_password",
+                &self.admin_password.as_ref().map(|_| "[OCULTO]"),
+            )
+            .finish()
+    }
+}
+
+// ============================================================
+// IMPLEMENTACIÃ“N
+// ============================================================
+
+impl Config {
+    /// Construye y valida la configuraciÃ³n del backend.
+    pub fn desde_entorno() -> Result<Self> {
+        let host = leer_variable_compatible("SERVER_HOST", "HOST", "0.0.0.0")?;
+
+        let puerto = leer_variable_compatible("SERVER_PORT", "PORT", "3000")?;
+
+        // Validar direcciÃ³n IP.
+        let ip: IpAddr = host.parse().with_context(|| {
+            format!("SERVER_HOST/HOST debe ser una direcciÃ³n IP vÃ¡lida: {host}")
+        })?;
+
+        // Validar puerto.
+        let puerto: u16 = puerto
+            .parse()
+            .with_context(|| "SERVER_PORT/PORT debe ser un nÃºmero entre 1 y 65535")?;
+
+        if puerto == 0 {
+            bail!("El puerto del servidor no puede ser 0");
+        }
+
+        let direccion = SocketAddr::new(ip, puerto);
+
+        // JWT obligatorio.
+        let jwt_secret =
+            env::var("JWT_SECRET").context("Falta JWT_SECRET en las variables de entorno")?;
+
+        if jwt_secret.trim().is_empty() {
+            bail!("JWT_SECRET no puede estar vacÃ­o");
+        }
+
+        if jwt_secret.as_bytes().len() < 32 {
+            bail!("JWT_SECRET debe contener al menos 32 bytes");
+        }
+
+        // Credenciales opcionales del administrador.
+        let admin_usuario = leer_opcional("ADMIN_USUARIO")?;
+        let admin_password = leer_opcional("ADMIN_PASSWORD")?;
+
+        // Evitar configuraciones incompletas.
+        if admin_usuario.is_some() != admin_password.is_some() {
+            bail!("ADMIN_USUARIO y ADMIN_PASSWORD deben configurarse juntos");
+        }
+
+        if let Some(ref usuario) = admin_usuario {
+            if usuario.chars().count() < 3 {
+                bail!("ADMIN_USUARIO debe contener al menos 3 caracteres");
+            }
+        }
+
+        if let Some(ref password) = admin_password {
+            if password.chars().count() < 12 {
+                bail!("ADMIN_PASSWORD debe contener al menos 12 caracteres");
+            }
+        }
+
+        Ok(Self {
+            direccion,
+            jwt_secret,
+            admin_usuario,
+            admin_password,
+        })
+    }
+}
+
+// ============================================================
+// FUNCIONES AUXILIARES
+// ============================================================
+
+/// Lee la variable principal o su alternativa.
+///
+/// Prioridad:
+/// 1. Variable principal.
+/// 2. Variable alternativa.
+/// 3. Valor predeterminado.
+fn leer_variable_compatible(
+    principal: &str,
+    alternativa: &str,
+    predeterminado: &str,
+) -> Result<String> {
+    if let Some(valor) = leer_opcional(principal)? {
+        return Ok(valor);
+    }
+
+    if let Some(valor) = leer_opcional(alternativa)? {
+        return Ok(valor);
+    }
+
+    Ok(predeterminado.to_string())
+}
+
+/// Lee una variable opcional y descarta cadenas vacÃ­as.
+fn leer_opcional(nombre: &str) -> Result<Option<String>> {
+    match env::var(nombre) {
+        Ok(valor) => {
+            let valor = valor.trim();
+
+            if valor.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(valor.to_string()))
+            }
+        }
+
+        Err(env::VarError::NotPresent) => Ok(None),
+
+        Err(error) => Err(error).with_context(|| format!("No se pudo leer la variable {nombre}")),
+    }
+}
+
+// ============================================================
+// PRUEBAS UNITARIAS
+// ============================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn direccion_ipv4_valida() {
+        let ip: IpAddr = "0.0.0.0".parse().unwrap();
+        let direccion = SocketAddr::new(ip, 3000);
+
+        assert_eq!(direccion.port(), 3000);
+        assert!(direccion.is_ipv4());
+    }
+
+    #[test]
+    fn direccion_ipv6_valida() {
+        let ip: IpAddr = "::1".parse().unwrap();
+        let direccion = SocketAddr::new(ip, 3000);
+
+        assert!(direccion.is_ipv6());
+    }
+
+    #[test]
+    fn debug_no_revela_secretos() {
+        let config = Config {
+            direccion: "127.0.0.1:3000".parse().unwrap(),
+            jwt_secret: "clave-super-secreta".to_string(),
+            admin_usuario: Some("admin".to_string()),
+            admin_password: Some("password-super-secreto".to_string()),
+        };
+
+        let salida = format!("{config:?}");
+
+        assert!(!salida.contains("clave-super-secreta"));
+        assert!(!salida.contains("password-super-secreto"));
+    }
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\db\mod.rs ==========
+//! SMART CLASSROOM â€” Capa de acceso a datos
+//!
+//! Centraliza la conexiÃ³n y las operaciones
+//! relacionadas con PostgreSQL.
+
+pub mod postgres;
+
+pub use postgres::{crear_pool, ejecutar_migraciones, verificar_conexion};
+
+========== C:\smart-classroom\smart-classroom-backend\src\db\postgres.rs ==========
+//! SMART CLASSROOM â€” PostgreSQL
+//!
+//! ConfiguraciÃ³n del pool SQLx, ejecuciÃ³n de migraciones
+//! y verificaciÃ³n de conectividad.
+//!
+//! Compatible con PostgreSQL y Supabase.
+
+use std::{env, time::Duration};
+
+use sqlx::{postgres::PgPoolOptions, PgPool};
+
+// ============================================================
+// CONFIGURACIÃ“N DEL POOL
+// ============================================================
+
+/// Lee una variable numÃ©rica positiva.
+fn leer_entero(nombre: &str, predeterminado: u32) -> Result<u32, sqlx::Error> {
+    match env::var(nombre) {
+        Ok(valor) => {
+            let numero = valor.parse::<u32>().map_err(|_| {
+                error_configuracion(format!("{nombre} debe ser un nÃºmero entero positivo"))
+            })?;
+
+            if numero == 0 {
+                return Err(error_configuracion(format!(
+                    "{nombre} debe ser mayor que cero"
+                )));
+            }
+
+            Ok(numero)
+        }
+
+        Err(env::VarError::NotPresent) => Ok(predeterminado),
+
+        Err(error) => Err(error_configuracion(format!(
+            "No se pudo leer {nombre}: {error}"
+        ))),
+    }
+}
+
+/// Construye un error de configuraciÃ³n SQLx.
+fn error_configuracion(mensaje: String) -> sqlx::Error {
+    sqlx::Error::Configuration(mensaje.into())
+}
+
+// ============================================================
+// CONEXIÃ“N POSTGRESQL
+// ============================================================
+
+/// Crea un pool de conexiones PostgreSQL.
+///
+/// Variables:
+/// - DATABASE_URL
+/// - DB_MAX_CONNECTIONS (por defecto 5)
+/// - DB_MIN_CONNECTIONS (por defecto 0)
+/// - DB_ACQUIRE_TIMEOUT (por defecto 10 segundos)
+///
+/// Los valores predeterminados son conservadores
+/// para entornos con conexiones limitadas.
+pub async fn crear_pool() -> Result<PgPool, sqlx::Error> {
+    // Obtener URL.
+    let database_url = env::var("DATABASE_URL")
+        .map_err(|_| error_configuracion("DATABASE_URL no estÃ¡ configurada".to_string()))?;
+
+    if database_url.trim().is_empty() {
+        return Err(error_configuracion(
+            "DATABASE_URL no puede estar vacÃ­a".to_string(),
+        ));
+    }
+
+    // ConfiguraciÃ³n del pool.
+    let max_conexiones = leer_entero("DB_MAX_CONNECTIONS", 5)?;
+
+    let min_conexiones = match env::var("DB_MIN_CONNECTIONS") {
+        Ok(valor) => valor.parse::<u32>().map_err(|_| {
+            error_configuracion("DB_MIN_CONNECTIONS debe ser un entero no negativo".to_string())
+        })?,
+
+        Err(env::VarError::NotPresent) => 0,
+
+        Err(error) => {
+            return Err(error_configuracion(format!(
+                "No se pudo leer DB_MIN_CONNECTIONS: {error}"
+            )));
+        }
+    };
+
+    if min_conexiones > max_conexiones {
+        return Err(error_configuracion(
+            "DB_MIN_CONNECTIONS no puede superar DB_MAX_CONNECTIONS".to_string(),
+        ));
+    }
+
+    let timeout = leer_entero("DB_ACQUIRE_TIMEOUT", 10)?;
+
+    tracing::info!(
+        "Configurando pool PostgreSQL: mÃ­nimo={}, mÃ¡ximo={}",
+        min_conexiones,
+        max_conexiones
+    );
+
+    // Crear y conectar el pool.
+    let pool = PgPoolOptions::new()
+        .max_connections(max_conexiones)
+        .min_connections(min_conexiones)
+        .acquire_timeout(Duration::from_secs(u64::from(timeout)))
+        .idle_timeout(Duration::from_secs(300))
+        .max_lifetime(Duration::from_secs(1800))
+        .connect(&database_url)
+        .await?;
+
+    tracing::info!("Pool de conexiones PostgreSQL creado correctamente");
+
+    Ok(pool)
+}
+
+// ============================================================
+// MIGRACIONES
+// ============================================================
+
+/// Ejecuta migraciones pendientes.
+///
+/// La ejecuciÃ³n se controla desde main.rs
+/// mediante RUN_MIGRATIONS.
+///
+/// No ejecuta SQL directamente si no se invoca.
+pub async fn ejecutar_migraciones(pool: &PgPool) -> Result<(), sqlx::migrate::MigrateError> {
+    tracing::info!("Verificando migraciones SQLx");
+
+    sqlx::migrate!("./migrations").run(pool).await?;
+
+    tracing::info!("Migraciones SQLx finalizadas");
+
+    Ok(())
+}
+
+// ============================================================
+// VERIFICACIÃ“N DE CONEXIÃ“N
+// ============================================================
+
+/// Ejecuta SELECT 1 para comprobar PostgreSQL.
+///
+/// No modifica registros ni tablas.
+pub async fn verificar_conexion(pool: &PgPool) -> Result<(), sqlx::Error> {
+    let resultado: i32 = sqlx::query_scalar("SELECT 1").fetch_one(pool).await?;
+
+    if resultado != 1 {
+        return Err(sqlx::Error::Protocol(
+            "PostgreSQL devolviÃ³ un resultado inesperado".to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\errors\api_error.rs ==========
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Json,
+};
+use serde::Serialize;
+use thiserror::Error;
+
+// Estructura que se envÃ­a al cliente en formato JSON cuando ocurre un error.
+// AsÃ­ TODOS los errores de la API tienen la misma forma (consistentes).
+#[derive(Serialize)]
+pub struct ErrorResponse {
+    pub status: u16,
+    pub message: String,
+}
+
+// Enum central de errores. Cada variante representa un tipo de error distinto
+// que puede ocurrir en cualquier parte de la aplicaciÃ³n (rutas, servicios, websocket, etc.)
+// #[derive(Error)] (de la crate `thiserror`) genera automÃ¡ticamente el trait `std::error::Error`
+// y el mensaje de cada variante se define con el atributo #[error("...")]
+#[derive(Debug, Error)]
+pub enum ApiError {
+    #[error("Recurso no encontrado: {0}")]
+    NotFound(String),
+
+    #[error("Solicitud invÃ¡lida: {0}")]
+    BadRequest(String),
+
+    #[error("Acceso denegado: {0}")]
+    Forbidden(String),
+
+    #[error("Error interno del servidor: {0}")]
+    Internal(String),
+
+    #[error("Error de WebSocket: {0}")]
+    WebSocket(String),
+}
+
+// IntoResponse es el trait de axum que le dice al framework cÃ³mo convertir
+// un valor en una respuesta HTTP real. Al implementarlo para ApiError,
+// podemos hacer `return Err(ApiError::NotFound(...))` directamente en un handler
+// y axum lo transforma solo en la respuesta correcta.
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        // Elegimos el cÃ³digo de estado HTTP segÃºn el tipo de error.
+        // El `&self` es porque solo estamos "mirando" el valor, no consumiÃ©ndolo todavÃ­a.
+        let status = match &self {
+            ApiError::NotFound(_) => StatusCode::NOT_FOUND, // 404
+            ApiError::BadRequest(_) => StatusCode::BAD_REQUEST, // 400
+            ApiError::Forbidden(_) => StatusCode::FORBIDDEN, // 403
+            ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR, // 500
+            ApiError::WebSocket(_) => StatusCode::INTERNAL_SERVER_ERROR, // 500
+        };
+
+        // Construimos el cuerpo JSON de la respuesta.
+        // self.to_string() usa el mensaje definido en #[error("...")] de arriba.
+        let body = Json(ErrorResponse {
+            status: status.as_u16(),
+            message: self.to_string(),
+        });
+
+        // (status, body) implementa IntoResponse en axum, asÃ­ que solo lo convertimos.
+        (status, body).into_response()
+    }
+}
+
+// Result "alias" para no escribir Result<T, ApiError> en cada funciÃ³n.
+// Con esto en el resto del proyecto se puede escribir: fn algo() -> ApiResult<Medicion>
+pub type ApiResult<T> = Result<T, ApiError>;
+
+// Permite usar `?` directamente con consultas sqlx dentro de los handlers y servicios.
+// El detalle del error se registra en el log, pero NO se envÃ­a al cliente.
+impl From<sqlx::Error> for ApiError {
+    fn from(error: sqlx::Error) -> Self {
+        tracing::error!("Error de base de datos: {error}");
+        ApiError::Internal("error de base de datos".to_string())
+    }
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\errors\mod.rs ==========
+// Este archivo es la "puerta de entrada" del mÃ³dulo errors.
+// Declara que api_error.rs es parte de este mÃ³dulo...
+pub mod api_error;
+
+// ...y reexporta ApiError y ApiResult para que el resto del proyecto
+// pueda escribir `use crate::errors::ApiError` en vez de
+// `use crate::errors::api_error::ApiError` (mÃ¡s corto y limpio).
+pub use api_error::{ApiError, ApiResult};
+
+========== C:\smart-classroom\smart-classroom-backend\src\main.rs ==========
+//! SMART CLASSROOM â€” Backend
+//!
+//! Servicio HTTP/WebSocket para recibir mediciones del ESP32,
+//! procesarlas, almacenarlas en PostgreSQL y exponer la API.
+
+// ============================================================
+// MÃ“DULOS
+// ============================================================
+
+mod config;
+mod db;
+mod errors;
+mod models;
+mod routes;
+mod schemas;
+mod services;
+mod websocket;
+
+// ============================================================
+// IMPORTACIONES
+// ============================================================
+
+use std::{env, net::SocketAddr, sync::Arc, time::Duration};
+
+use anyhow::Context;
+use axum::{
+    http::{HeaderValue, Method, StatusCode},
+    routing::get,
+    Extension, Json, Router,
+};
+use serde_json::{json, Value};
+use sqlx::PgPool;
+use tokio::{net::TcpListener, signal};
+use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use tracing_subscriber::EnvFilter;
+
+use crate::config::Config;
+use crate::websocket::WsState;
+
+// ============================================================
+// CONSTANTES
+// ============================================================
+
+const NOMBRE_SERVICIO: &str = "smart-classroom-backend";
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+// ============================================================
+// FUNCIÃ“N PRINCIPAL
+// ============================================================
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // Cargar variables locales si existe .env.
+    dotenvy::dotenv().ok();
+
+    iniciar_logging();
+
+    tracing::info!("Iniciando {} v{}", NOMBRE_SERVICIO, VERSION);
+
+    // Validar configuraciÃ³n.
+    let config = Config::desde_entorno().context("ConfiguraciÃ³n del servidor invÃ¡lida")?;
+
+    let direccion: SocketAddr = config.direccion;
+
+    // Conectar a PostgreSQL.
+    let pool = db::crear_pool()
+        .await
+        .context("No se pudo conectar con PostgreSQL")?;
+
+    tracing::info!("Pool PostgreSQL inicializado");
+
+    // Las migraciones se ejecutan solo si se habilitan.
+    // Valor predeterminado: false.
+    if variable_booleana("RUN_MIGRATIONS", false)? {
+        tracing::info!("Ejecutando migraciones SQLx...");
+
+        db::ejecutar_migraciones(&pool)
+            .await
+            .context("Error ejecutando migraciones")?;
+
+        tracing::info!("Migraciones verificadas");
+    } else {
+        tracing::info!("Migraciones automÃ¡ticas desactivadas");
+    }
+
+    // Construir aplicaciÃ³n.
+    let app = construir_app(pool, config)?;
+
+    // Iniciar servidor HTTP.
+    let listener = TcpListener::bind(direccion)
+        .await
+        .with_context(|| format!("No se pudo iniciar el servidor en {direccion}"))?;
+
+    tracing::info!(
+        "{} v{} escuchando en http://{}",
+        NOMBRE_SERVICIO,
+        VERSION,
+        direccion
+    );
+
+    axum::serve(listener, app)
+        .with_graceful_shutdown(senal_de_apagado())
+        .await
+        .context("Error durante la ejecuciÃ³n del servidor")?;
+
+    tracing::info!("Servidor detenido correctamente");
+
+    Ok(())
+}
+
+// ============================================================
+// VARIABLES DE ENTORNO
+// ============================================================
+
+/// Lee una variable booleana.
+/// Acepta true/false y 1/0.
+fn variable_booleana(nombre: &str, predeterminado: bool) -> anyhow::Result<bool> {
+    match env::var(nombre) {
+        Ok(valor) => match valor.trim().to_ascii_lowercase().as_str() {
+            "true" | "1" => Ok(true),
+            "false" | "0" => Ok(false),
+            _ => anyhow::bail!("{nombre} debe ser true, false, 1 o 0"),
+        },
+        Err(env::VarError::NotPresent) => Ok(predeterminado),
+        Err(error) => Err(error.into()),
+    }
+}
+
+// ============================================================
+// CONSTRUCCIÃ“N DEL ROUTER
+// ============================================================
+
+/// Configura las rutas y los middlewares del backend.
+fn construir_app(pool: PgPool, config: Config) -> anyhow::Result<Router> {
+    let cors = configurar_cors()?;
+
+    // Estado compartido para WebSocket.
+    let ws_state: Arc<WsState> = WsState::new(256);
+
+    let app = Router::new()
+        // Rutas pÃºblicas del servidor.
+        .route("/", get(inicio))
+        .route("/api/salud", get(salud))
+        // Rutas de SMART CLASSROOM.
+        .merge(routes::create_router())
+        // Rutas inexistentes.
+        .fallback(no_encontrado)
+        // Dependencias compartidas.
+        .layer(Extension(pool))
+        .layer(Extension(config))
+        .layer(Extension(ws_state))
+        // Observabilidad.
+        .layer(TraceLayer::new_for_http())
+        // CORS.
+        .layer(cors);
+
+    Ok(app)
+}
+
+// ============================================================
+// CONFIGURACIÃ“N CORS
+// ============================================================
+
+/// Lee CORS_ORIGINS como una lista separada por comas.
+///
+/// Ejemplo:
+/// CORS_ORIGINS=http://localhost:5500,http://127.0.0.1:5500
+///
+/// Sin configuraciÃ³n, no se autorizan orÃ­genes
+/// de navegador adicionales.
+fn configurar_cors() -> anyhow::Result<CorsLayer> {
+    let origenes = env::var("CORS_ORIGINS").unwrap_or_default();
+
+    let mut permitidos = Vec::new();
+
+    for origen in origenes.split(',') {
+        let origen = origen.trim();
+
+        if origen.is_empty() {
+            continue;
+        }
+
+        let header = HeaderValue::from_str(origen)
+            .with_context(|| format!("Origen CORS invÃ¡lido: {origen}"))?;
+
+        permitidos.push(header);
+    }
+
+    let cors = CorsLayer::new()
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::PATCH,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        .allow_headers([
+            axum::http::header::CONTENT_TYPE,
+            axum::http::header::AUTHORIZATION,
+        ])
+        .allow_origin(permitidos);
+
+    Ok(cors)
+}
+
+// ============================================================
+// LOGGING
+// ============================================================
+
+fn iniciar_logging() {
+    let filtro = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+
+    tracing_subscriber::fmt()
+        .with_env_filter(filtro)
+        .with_target(false)
+        .init();
+}
+
+// ============================================================
+// APAGADO CONTROLADO
+// ============================================================
+
+async fn senal_de_apagado() {
+    let ctrl_c = async {
+        if let Err(error) = signal::ctrl_c().await {
+            tracing::error!("No se pudo escuchar Ctrl+C: {error}");
+            std::future::pending::<()>().await
+        }
+    };
+
+    #[cfg(unix)]
+    let terminar = async {
+        match signal::unix::signal(signal::unix::SignalKind::terminate()) {
+            Ok(mut senal) => {
+                senal.recv().await;
+            }
+            Err(error) => {
+                tracing::error!("No se pudo escuchar SIGTERM: {error}");
+                std::future::pending::<()>().await
+            }
+        }
+    };
+
+    #[cfg(not(unix))]
+    let terminar = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminar => {},
+    }
+
+    tracing::info!("SeÃ±al de apagado recibida. Cerrando servidor...");
+}
+
+// ============================================================
+// ENDPOINT: INICIO
+// ============================================================
+
+/// GET /
+async fn inicio() -> Json<Value> {
+    Json(json!({
+        "servicio": NOMBRE_SERVICIO,
+        "version": VERSION,
+        "estado": "activo"
+    }))
+}
+
+// ============================================================
+// ENDPOINT: SALUD
+// ============================================================
+
+/// GET /api/salud
+///
+/// Comprueba la disponibilidad de PostgreSQL.
+async fn salud(Extension(pool): Extension<PgPool>) -> (StatusCode, Json<Value>) {
+    // Evitar que una consulta bloqueada deje esperando
+    // indefinidamente la comprobaciÃ³n de salud.
+    let resultado =
+        tokio::time::timeout(Duration::from_secs(3), db::verificar_conexion(&pool)).await;
+
+    match resultado {
+        Ok(Ok(())) => (
+            StatusCode::OK,
+            Json(json!({
+                "estado": "ok",
+                "servicio": NOMBRE_SERVICIO,
+                "version": VERSION,
+                "base_de_datos": "conectada"
+            })),
+        ),
+
+        Ok(Err(error)) => {
+            tracing::error!("Error verificando PostgreSQL: {error}");
+
+            respuesta_salud_no_disponible()
+        }
+
+        Err(_) => {
+            tracing::warn!("Tiempo de espera agotado verificando PostgreSQL");
+
+            respuesta_salud_no_disponible()
+        }
+    }
+}
+
+fn respuesta_salud_no_disponible() -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(json!({
+            "estado": "error",
+            "servicio": NOMBRE_SERVICIO,
+            "version": VERSION,
+            "base_de_datos": "no disponible"
+        })),
+    )
+}
+
+// ============================================================
+// FALLBACK
+// ============================================================
+
+/// Respuesta JSON para rutas no encontradas.
+async fn no_encontrado() -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::NOT_FOUND,
+        Json(json!({
+            "error": "Recurso no encontrado",
+            "codigo": 404
+        })),
+    )
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\models\alerta.rs ==========
+//! SMART CLASSROOM â€” Modelo Alerta
+//!
+//! Representa una alerta ambiental generada
+//! cuando una mediciÃ³n supera los lÃ­mites
+//! configurados para un sensor.
+//!
+//! Corresponde a la tabla `alertas` de PostgreSQL.
+//!
+//! Los valores mÃ­nimo y mÃ¡ximo aplicados se
+//! conservan como referencia histÃ³rica, incluso
+//! si posteriormente cambia la configuraciÃ³n
+//! del rango del sensor.
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use uuid::Uuid;
+
+// ============================================================
+// MODELO DE ALERTA
+// ============================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct Alerta {
+    /// Identificador Ãºnico de la alerta.
+    /// PostgreSQL: UUID PRIMARY KEY.
+    pub id: Uuid,
+
+    /// Identificador de la mediciÃ³n que originÃ³ la alerta.
+    /// PostgreSQL: mediciones(id).
+    pub medicion_id: Uuid,
+
+    /// Identificador del rango de sensor aplicado.
+    /// PostgreSQL: rangos_sensor(id).
+    pub rango_sensor_id: Uuid,
+
+    /// Tipo de condiciÃ³n que generÃ³ la alerta.
+    ///
+    /// Valores permitidos:
+    /// - por_debajo
+    /// - por_encima
+    pub tipo: String,
+
+    /// Mensaje descriptivo de la alerta.
+    /// Puede ser NULL en PostgreSQL.
+    pub mensaje: Option<String>,
+
+    /// Estado actual de la alerta.
+    ///
+    /// Valores permitidos:
+    /// - activa
+    /// - revisada
+    /// - resuelta
+    pub estado: String,
+
+    /// Valor mÃ­nimo vigente cuando se generÃ³ la alerta.
+    /// Se conserva como dato histÃ³rico.
+    pub valor_minimo_aplicado: f64,
+
+    /// Valor mÃ¡ximo vigente cuando se generÃ³ la alerta.
+    /// Se conserva como dato histÃ³rico.
+    pub valor_maximo_aplicado: f64,
+
+    /// Fecha y hora de generaciÃ³n de la alerta.
+    pub generada_en: DateTime<Utc>,
+
+    /// Fecha y hora de resoluciÃ³n.
+    ///
+    /// Es None mientras la alerta no estÃ© resuelta.
+    pub resuelta_en: Option<DateTime<Utc>>,
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\models\aula.rs ==========
+//! SMART CLASSROOM â€” Modelo Aula
+//!
+//! Representa una fila de la tabla `aulas`
+//! definida en PostgreSQL.
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use uuid::Uuid;
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct Aula {
+    /// Llave primaria UUID.
+    pub id: Uuid,
+
+    /// CÃ³digo Ãºnico del aula.
+    pub codigo: String,
+
+    /// Nombre del aula.
+    pub nombre: String,
+
+    /// UbicaciÃ³n fÃ­sica, si estÃ¡ registrada.
+    pub ubicacion: Option<String>,
+
+    /// Fecha de creaciÃ³n del registro.
+    pub creado_en: DateTime<Utc>,
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\models\dispositivo.rs ==========
+//! SMART CLASSROOM â€” Modelo Dispositivo
+//!
+//! Representa un dispositivo ESP32 registrado
+//! en el sistema SMART CLASSROOM.
+//!
+//! Un dispositivo puede asignarse manualmente
+//! a diferentes aulas desde el frontend.
+//!
+//! Corresponde a la tabla `dispositivos`.
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use uuid::Uuid;
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct Dispositivo {
+    /// Identificador Ãºnico del dispositivo.
+    pub id: Uuid,
+
+    /// Aula actualmente asignada al dispositivo.
+    pub aula_id: Uuid,
+
+    /// Nombre descriptivo del dispositivo.
+    pub nombre: String,
+
+    /// Identificador Ãºnico enviado por el ESP32.
+    pub identificador: String,
+
+    /// Estado operativo:
+    /// activo, inactivo o mantenimiento.
+    pub estado: String,
+
+    /// Fecha y hora de la Ãºltima conexiÃ³n.
+    pub ultima_conexion: Option<DateTime<Utc>>,
+
+    /// Fecha y hora de registro.
+    pub creado_en: DateTime<Utc>,
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\models\indice_confort.rs ==========
+//! SMART CLASSROOM â€” Modelo IndiceConfort
+//!
+//! Representa el Ã­ndice de confort ambiental
+//! calculado para un aula.
+//!
+//! Corresponde a la tabla `indices_confort`
+//! definida en PostgreSQL.
+//!
+//! Los registros forman parte del historial:
+//! Ãºnicamente se permite INSERT.
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use uuid::Uuid;
+
+// ============================================================
+// MODELO DE ÃNDICE DE CONFORT
+// ============================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct IndiceConfort {
+    /// Identificador Ãºnico del registro.
+    pub id: Uuid,
+
+    /// Identificador del aula evaluada.
+    pub aula_id: Uuid,
+
+    /// Ãndice de confort ambiental.
+    ///
+    /// PostgreSQL permite valores entre 0 y 100.
+    pub valor: f64,
+
+    /// Fecha y hora del cÃ¡lculo.
+    pub calculado_en: DateTime<Utc>,
+}
+
+// ============================================================
+// VALIDACIONES
+// ============================================================
+
+impl IndiceConfort {
+    /// Comprueba que el Ã­ndice sea un nÃºmero
+    /// finito comprendido entre 0 y 100.
+    pub fn valor_valido(valor: f64) -> bool {
+        valor.is_finite() && (0.0..=100.0).contains(&valor)
+    }
+
+    /// Determina si el valor almacenado es vÃ¡lido.
+    pub fn es_valido(&self) -> bool {
+        Self::valor_valido(self.valor)
+    }
+}
+
+// ============================================================
+// PRUEBAS UNITARIAS
+// ============================================================
+
+#[cfg(test)]
+mod tests {
+    use super::IndiceConfort;
+
+    #[test]
+    fn acepta_valores_dentro_del_rango() {
+        assert!(IndiceConfort::valor_valido(0.0));
+        assert!(IndiceConfort::valor_valido(75.5));
+        assert!(IndiceConfort::valor_valido(100.0));
+    }
+
+    #[test]
+    fn rechaza_valores_fuera_del_rango() {
+        assert!(!IndiceConfort::valor_valido(-1.0));
+        assert!(!IndiceConfort::valor_valido(100.1));
+    }
+
+    #[test]
+    fn rechaza_valores_no_finitos() {
+        assert!(!IndiceConfort::valor_valido(f64::NAN));
+        assert!(!IndiceConfort::valor_valido(f64::INFINITY));
+        assert!(!IndiceConfort::valor_valido(f64::NEG_INFINITY));
+    }
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\models\medicion.rs ==========
+//! SMART CLASSROOM â€” Modelo MediciÃ³n
+//!
+//! Representa una mediciÃ³n ambiental individual
+//! registrada por un sensor del sistema.
+//!
+//! Corresponde a la tabla `mediciones` de PostgreSQL.
+//!
+//! Cada registro almacena el valor de un Ãºnico sensor.
+//! El tipo de variable se determina mediante la relaciÃ³n:
+//!
+//! mediciones -> sensores -> tipos_sensor
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use uuid::Uuid;
+
+// ============================================================
+// MODELO DE MEDICIÃ“N
+// ============================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct Medicion {
+    /// Identificador Ãºnico de la mediciÃ³n.
+    /// PostgreSQL: UUID PRIMARY KEY.
+    pub id: Uuid,
+
+    /// Identificador del sensor que generÃ³ la lectura.
+    /// PostgreSQL: sensores(id).
+    pub sensor_id: Uuid,
+
+    /// Valor ambiental registrado.
+    ///
+    /// Su unidad depende del tipo de sensor:
+    /// - Temperatura: Â°C
+    /// - Humedad: %
+    /// - IluminaciÃ³n: lux
+    /// - Ruido: dB
+    ///
+    /// PostgreSQL exige un valor finito.
+    pub valor: f64,
+
+    /// Fecha y hora en que se registrÃ³ la mediciÃ³n.
+    /// PostgreSQL: TIMESTAMPTZ.
+    pub medido_en: DateTime<Utc>,
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\models\mod.rs ==========
+//! SMART CLASSROOM â€” MÃ³dulo de modelos
+//!
+//! Centraliza las entidades del sistema
+//! y permite utilizarlas desde otros mÃ³dulos.
+
+// ============================================================
+// DECLARACIÃ“N DE MÃ“DULOS
+// ============================================================
+
+pub mod alerta;
+pub mod aula;
+pub mod dispositivo;
+pub mod indice_confort;
+pub mod medicion;
+pub mod rango_sensor;
+pub mod sensor;
+pub mod tipo_sensor;
+pub mod usuario;
+
+// ============================================================
+// REEXPORTACIÃ“N DE MODELOS
+// ============================================================
+
+pub use alerta::Alerta;
+pub use aula::Aula;
+pub use dispositivo::Dispositivo;
+pub use indice_confort::IndiceConfort;
+pub use medicion::Medicion;
+pub use rango_sensor::RangoSensor;
+pub use sensor::Sensor;
+pub use tipo_sensor::TipoSensor;
+pub use usuario::{Usuario, UsuarioPublico};
+
+========== C:\smart-classroom\smart-classroom-backend\src\models\rango_sensor.rs ==========
+// SMART CLASSROOM â€” Modelo RangoSensor
+//
+// Representa los lÃ­mites ambientales configurados
+// para un tipo de sensor dentro de un aula.
+//
+// Corresponde a la tabla `rangos_sensor` de PostgreSQL.
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use uuid::Uuid;
+
+// ============================================================
+// MODELO DE RANGO DE SENSOR
+// ============================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct RangoSensor {
+    /// Identificador Ãºnico del rango.
+    pub id: Uuid,
+
+    /// Identificador del aula a la que pertenece.
+    pub aula_id: Uuid,
+
+    /// Identificador del tipo de sensor.
+    pub tipo_sensor_id: Uuid,
+
+    /// Valor mÃ­nimo permitido.
+    pub valor_minimo: f64,
+
+    /// Valor mÃ¡ximo permitido.
+    pub valor_maximo: f64,
+
+    /// Indica si el rango estÃ¡ habilitado.
+    pub activo: bool,
+
+    /// Fecha y hora de creaciÃ³n.
+    pub creado_en: DateTime<Utc>,
+}
+
+// ============================================================
+// VALIDACIÃ“N DE RANGOS
+// ============================================================
+
+impl RangoSensor {
+    /// Comprueba si los lÃ­mites son vÃ¡lidos.
+    pub fn limites_validos(&self) -> bool {
+        self.valor_minimo.is_finite()
+            && self.valor_maximo.is_finite()
+            && self.valor_minimo < self.valor_maximo
+    }
+
+    /// Determina si un valor estÃ¡ fuera de los lÃ­mites.
+    ///
+    /// Devuelve:
+    /// - Some("por_debajo") cuando es inferior al mÃ­nimo.
+    /// - Some("por_encima") cuando supera el mÃ¡ximo.
+    /// - None cuando estÃ¡ dentro del rango, el rango estÃ¡
+    ///   desactivado o los valores no son vÃ¡lidos.
+    pub fn evaluar_valor(&self, valor: f64) -> Option<&'static str> {
+        if !self.activo || !self.limites_validos() || !valor.is_finite() {
+            return None;
+        }
+
+        if valor < self.valor_minimo {
+            Some("por_debajo")
+        } else if valor > self.valor_maximo {
+            Some("por_encima")
+        } else {
+            None
+        }
+    }
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\models\sensor.rs ==========
+//! SMART CLASSROOM â€” Modelo Sensor
+//!
+//! Representa un sensor fÃ­sico asociado a un dispositivo
+//! ESP32 dentro del sistema SMART CLASSROOM.
+//!
+//! Este modelo corresponde a la tabla `sensores`
+//! definida en PostgreSQL.
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use uuid::Uuid;
+
+// ============================================================
+// MODELO DE SENSOR
+// ============================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct Sensor {
+    /// Identificador Ãºnico del sensor.
+    /// PostgreSQL: UUID PRIMARY KEY.
+    pub id: Uuid,
+
+    /// Identificador del dispositivo ESP32 al que pertenece.
+    /// PostgreSQL: dispositivos(id).
+    pub dispositivo_id: Uuid,
+
+    /// Identificador del tipo de sensor.
+    /// PostgreSQL: tipos_sensor(id).
+    pub tipo_sensor_id: Uuid,
+
+    /// Nombre descriptivo del sensor.
+    pub nombre: String,
+
+    /// Pin GPIO utilizado en el ESP32.
+    ///
+    /// Puede ser NULL cuando no corresponde
+    /// asignar un pin fÃ­sico.
+    pub pin_gpio: Option<i16>,
+
+    /// Estado operativo del sensor.
+    ///
+    /// Valores permitidos por PostgreSQL:
+    /// - activo
+    /// - inactivo
+    /// - mantenimiento
+    pub estado: String,
+
+    /// Fecha y hora de creaciÃ³n del registro.
+    pub creado_en: DateTime<Utc>,
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\models\tipo_sensor.rs ==========
+//! SMART CLASSROOM â€” Modelo TipoSensor
+//!
+//! Representa los tipos de sensores disponibles
+//! dentro del sistema SMART CLASSROOM.
+//!
+//! Corresponde a la tabla `tipos_sensor`
+//! definida en PostgreSQL.
+//!
+//! Permite identificar quÃ© variable ambiental
+//! mide cada sensor y su unidad correspondiente.
+
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use uuid::Uuid;
+
+// ============================================================
+// MODELO DE TIPO DE SENSOR
+// ============================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct TipoSensor {
+    /// Identificador Ãºnico del tipo de sensor.
+    /// PostgreSQL: UUID PRIMARY KEY.
+    pub id: Uuid,
+
+    /// Nombre del tipo de sensor.
+    ///
+    /// Ejemplos:
+    /// - temperatura
+    /// - humedad
+    /// - iluminacion
+    /// - ruido
+    pub nombre: String,
+
+    /// Unidad de medida correspondiente.
+    ///
+    /// Ejemplos:
+    /// - Â°C
+    /// - %
+    /// - lux
+    /// - dB
+    pub unidad: String,
+
+    /// DescripciÃ³n opcional del tipo de sensor.
+    pub descripcion: Option<String>,
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\models\usuario.rs ==========
+//! SMART CLASSROOM â€” Modelo Usuario
+//!
+//! Representa un usuario registrado en el sistema.
+//!
+//! Corresponde a la tabla `usuarios` de PostgreSQL.
+//!
+//! IMPORTANTE:
+//! El campo password_hash contiene informaciÃ³n sensible.
+//! Nunca debe enviarse al frontend en una respuesta JSON.
+
+use chrono::{DateTime, Utc};
+use serde::Serialize;
+use sqlx::FromRow;
+use uuid::Uuid;
+
+// ============================================================
+// MODELO DE USUARIO
+// ============================================================
+
+#[derive(Clone, FromRow)]
+pub struct Usuario {
+    /// Identificador Ãºnico del usuario.
+    pub id: Uuid,
+
+    /// Nombre de usuario utilizado para iniciar sesiÃ³n.
+    pub nombre_usuario: String,
+
+    /// Hash de la contraseÃ±a almacenada.
+    /// Nunca debe contener una contraseÃ±a en texto plano.
+    pub password_hash: String,
+
+    /// Rol asignado al usuario.
+    ///
+    /// Valores permitidos:
+    /// - administrador
+    /// - estudiante
+    /// - observador
+    pub rol: String,
+
+    /// Indica si la cuenta estÃ¡ habilitada.
+    pub activo: bool,
+
+    /// Fecha del Ãºltimo acceso.
+    pub ultimo_acceso: Option<DateTime<Utc>>,
+
+    /// Fecha de creaciÃ³n del usuario.
+    pub creado_en: DateTime<Utc>,
+}
+
+// ============================================================
+// REPRESENTACIÃ“N PÃšBLICA DEL USUARIO
+// ============================================================
+
+/// InformaciÃ³n que puede devolverse al frontend
+/// sin exponer el hash de la contraseÃ±a.
+#[derive(Debug, Clone, Serialize)]
+pub struct UsuarioPublico {
+    pub id: Uuid,
+    pub nombre_usuario: String,
+    pub rol: String,
+    pub activo: bool,
+    pub ultimo_acceso: Option<DateTime<Utc>>,
+    pub creado_en: DateTime<Utc>,
+}
+
+impl From<&Usuario> for UsuarioPublico {
+    fn from(usuario: &Usuario) -> Self {
+        Self {
+            id: usuario.id,
+            nombre_usuario: usuario.nombre_usuario.clone(),
+            rol: usuario.rol.clone(),
+            activo: usuario.activo,
+            ultimo_acceso: usuario.ultimo_acceso,
+            creado_en: usuario.creado_en,
+        }
+    }
+}
+
+// ============================================================
+// DEBUG SEGURO
+// ============================================================
+
+/// Evita imprimir accidentalmente el hash
+/// de la contraseÃ±a en los registros del servidor.
+impl std::fmt::Debug for Usuario {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Usuario")
+            .field("id", &self.id)
+            .field("nombre_usuario", &self.nombre_usuario)
+            .field("password_hash", &"[PROTEGIDO]")
+            .field("rol", &self.rol)
+            .field("activo", &self.activo)
+            .field("ultimo_acceso", &self.ultimo_acceso)
+            .field("creado_en", &self.creado_en)
+            .finish()
+    }
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\routes\alertas.rs ==========
+use axum::{
+    extract::{Extension, Path, Query},
+    routing::{get, put},
+    Json, Router,
+};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use sqlx::PgPool;
+use uuid::Uuid;
+
+use crate::errors::{ApiError, ApiResult};
+
+// ============================================================
+// REGISTRO DE RUTAS
+// ============================================================
+
+pub fn alertas_routes() -> Router {
+    Router::new()
+        .route("/api/alertas", get(listar))
+        .route("/api/alertas/:id/estado", put(cambiar_estado))
+}
+
+// ============================================================
+// FILTROS Y RESPUESTAS
+// ============================================================
+
+#[derive(Debug, Deserialize)]
+struct FiltroAlertas {
+    estado: Option<String>,
+    aula_id: Option<Uuid>,
+    limit: Option<i64>,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+struct FilaAlerta {
+    id: Uuid,
+    estado: String,
+    tipo: String,
+    mensaje: Option<String>,
+    generada_en: DateTime<Utc>,
+    resuelta_en: Option<DateTime<Utc>>,
+    aula_id: Uuid,
+    aula_codigo: String,
+    dispositivo_id: Uuid,
+    sensor_id: Uuid,
+    tipo_sensor: String,
+    unidad: String,
+    valor: f64,
+    valor_minimo: f64,
+    valor_maximo: f64,
+    medido_en: DateTime<Utc>,
+}
+
+// ============================================================
+// GET /api/alertas
+// ============================================================
+
+async fn listar(
+    Extension(pool): Extension<PgPool>,
+    Query(filtro): Query<FiltroAlertas>,
+) -> ApiResult<Json<Vec<FilaAlerta>>> {
+    if let Some(estado) = &filtro.estado {
+        if !["activa", "revisada", "resuelta"].contains(&estado.as_str()) {
+            return Err(ApiError::BadRequest(
+                "estado debe ser: activa, revisada o resuelta".into(),
+            ));
+        }
+    }
+
+    let limite = filtro.limit.unwrap_or(100).clamp(1, 1000);
+
+    let filas = sqlx::query_as::<_, FilaAlerta>(
+        r#"
+        SELECT
+            id,
+            estado,
+            tipo,
+            mensaje,
+            generada_en,
+            resuelta_en,
+            aula_id,
+            aula_codigo,
+            dispositivo_id,
+            sensor_id,
+            tipo_sensor,
+            unidad,
+            valor,
+            valor_minimo,
+            valor_maximo,
+            medido_en
+        FROM vw_alertas_detalle
+        WHERE ($1::text IS NULL OR estado = $1)
+          AND ($2::uuid IS NULL OR aula_id = $2)
+        ORDER BY generada_en DESC
+        LIMIT $3
+        "#,
+    )
+    .bind(filtro.estado)
+    .bind(filtro.aula_id)
+    .bind(limite)
+    .fetch_all(&pool)
+    .await?;
+
+    Ok(Json(filas))
+}
+
+// ============================================================
+// PUT /api/alertas/:id/estado
+// ============================================================
+
+#[derive(Debug, Deserialize)]
+struct CambioEstado {
+    estado: String,
+}
+
+async fn cambiar_estado(
+    Extension(pool): Extension<PgPool>,
+    Path(id): Path<Uuid>,
+    Json(datos): Json<CambioEstado>,
+) -> ApiResult<Json<Value>> {
+    let nuevo_estado = datos.estado.trim().to_lowercase();
+
+    if !["revisada", "resuelta"].contains(&nuevo_estado.as_str()) {
+        return Err(ApiError::BadRequest(
+            "estado debe ser: revisada o resuelta".into(),
+        ));
+    }
+
+    // Transiciones permitidas:
+    //
+    // activa   -> revisada
+    // activa   -> resuelta
+    // revisada -> resuelta
+    //
+    // Una alerta resuelta no puede reabrirse.
+
+    let actualizada: Option<(Uuid,)> = sqlx::query_as(
+        r#"
+        UPDATE alertas
+        SET
+            estado = $2,
+            resuelta_en = CASE
+                WHEN $2 = 'resuelta' THEN NOW()
+                ELSE NULL
+            END
+        WHERE id = $1
+          AND (
+              (estado = 'activa'
+                  AND $2 IN ('revisada', 'resuelta'))
+              OR
+              (estado = 'revisada'
+                  AND $2 = 'resuelta')
+          )
+        RETURNING id
+        "#,
+    )
+    .bind(id)
+    .bind(&nuevo_estado)
+    .fetch_optional(&pool)
+    .await?;
+
+    if actualizada.is_some() {
+        return Ok(Json(json!({
+            "id": id,
+            "estado": nuevo_estado,
+            "mensaje": "Estado actualizado correctamente"
+        })));
+    }
+
+    // Si no se actualizo, determinar si no existe
+    // o si la transicion solicitada no esta permitida.
+
+    let estado_actual: Option<(String,)> =
+        sqlx::query_as("SELECT estado FROM alertas WHERE id = $1")
+            .bind(id)
+            .fetch_optional(&pool)
+            .await?;
+
+    match estado_actual {
+        None => Err(ApiError::NotFound(format!("No existe la alerta {id}"))),
+
+        Some((estado,)) => Err(ApiError::BadRequest(format!(
+            "No se permite cambiar una alerta de '{estado}' a '{nuevo_estado}'"
+        ))),
+    }
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\routes\aulas.rs ==========
+use axum::{
+    extract::Path,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    routing::get,
+    Extension, Json, Router,
+};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use sqlx::{FromRow, PgPool};
+use uuid::Uuid;
+
+// ============================================================
+// ESTRUCTURAS PARA POSTGRESQL Y JSON
+// ============================================================
+
+#[derive(Debug, Serialize, FromRow)]
+struct Aula {
+    id: Uuid,
+    codigo: String,
+    nombre: String,
+    ubicacion: Option<String>,
+    creado_en: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+struct NuevaAula {
+    codigo: String,
+    nombre: String,
+    ubicacion: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ActualizarAula {
+    codigo: String,
+    nombre: String,
+    ubicacion: Option<String>,
+}
+
+// ============================================================
+// REGISTRO DE RUTAS
+// ============================================================
+
+pub fn aulas_routes() -> Router {
+    Router::new()
+        .route("/aulas", get(listar_aulas).post(crear_aula))
+        .route(
+            "/aulas/:id",
+            get(obtener_aula).put(actualizar_aula).delete(eliminar_aula),
+        )
+}
+
+// ============================================================
+// RESPUESTAS Y ERRORES
+// ============================================================
+
+fn error_http(estado: StatusCode, mensaje: &str) -> Response {
+    (
+        estado,
+        Json(json!({
+            "error": mensaje
+        })),
+    )
+        .into_response()
+}
+
+fn error_bd(error: sqlx::Error) -> Response {
+    tracing::error!("Error PostgreSQL en aulas: {error}");
+
+    if let sqlx::Error::Database(ref db_error) = error {
+        match db_error.code().as_deref() {
+            Some("23505") => {
+                return error_http(
+                    StatusCode::CONFLICT,
+                    "Ya existe un aula con esos datos unicos",
+                );
+            }
+            Some("23503") => {
+                return error_http(
+                    StatusCode::CONFLICT,
+                    "La operacion afecta registros relacionados",
+                );
+            }
+            _ => {}
+        }
+    }
+
+    error_http(
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "Error interno de base de datos",
+    )
+}
+
+fn validar_aula(codigo: &str, nombre: &str) -> Result<(), Response> {
+    if codigo.trim().is_empty() {
+        return Err(error_http(
+            StatusCode::BAD_REQUEST,
+            "El codigo del aula no puede estar vacio",
+        ));
+    }
+
+    if nombre.trim().is_empty() {
+        return Err(error_http(
+            StatusCode::BAD_REQUEST,
+            "El nombre del aula no puede estar vacio",
+        ));
+    }
+
+    Ok(())
+}
+
+// ============================================================
+// GET /aulas
+// LISTAR TODAS LAS AULAS
+// ============================================================
+
+async fn listar_aulas(Extension(pool): Extension<PgPool>) -> Response {
+    let resultado = sqlx::query_as::<_, Aula>(
+        r#"
+        SELECT id, codigo, nombre, ubicacion, creado_en
+        FROM aulas
+        ORDER BY codigo
+        "#,
+    )
+    .fetch_all(&pool)
+    .await;
+
+    match resultado {
+        Ok(aulas) => (StatusCode::OK, Json(aulas)).into_response(),
+        Err(error) => error_bd(error),
+    }
+}
+
+// ============================================================
+// GET /aulas/:id
+// OBTENER AULA POR UUID
+// ============================================================
+
+async fn obtener_aula(Path(id): Path<Uuid>, Extension(pool): Extension<PgPool>) -> Response {
+    let resultado = sqlx::query_as::<_, Aula>(
+        r#"
+        SELECT id, codigo, nombre, ubicacion, creado_en
+        FROM aulas
+        WHERE id = $1
+        "#,
+    )
+    .bind(id)
+    .fetch_optional(&pool)
+    .await;
+
+    match resultado {
+        Ok(Some(aula)) => (StatusCode::OK, Json(aula)).into_response(),
+        Ok(None) => error_http(StatusCode::NOT_FOUND, "Aula no encontrada"),
+        Err(error) => error_bd(error),
+    }
+}
+
+// ============================================================
+// POST /aulas
+// CREAR AULA EN POSTGRESQL
+// ============================================================
+
+async fn crear_aula(
+    Extension(pool): Extension<PgPool>,
+    Json(payload): Json<NuevaAula>,
+) -> Response {
+    if let Err(respuesta) = validar_aula(&payload.codigo, &payload.nombre) {
+        return respuesta;
+    }
+
+    let resultado = sqlx::query_as::<_, Aula>(
+        r#"
+        INSERT INTO aulas (codigo, nombre, ubicacion)
+        VALUES ($1, $2, $3)
+        RETURNING id, codigo, nombre, ubicacion, creado_en
+        "#,
+    )
+    .bind(payload.codigo.trim())
+    .bind(payload.nombre.trim())
+    .bind(payload.ubicacion.as_deref())
+    .fetch_one(&pool)
+    .await;
+
+    match resultado {
+        Ok(aula) => (StatusCode::CREATED, Json(aula)).into_response(),
+        Err(error) => error_bd(error),
+    }
+}
+
+// ============================================================
+// PUT /aulas/:id
+// ACTUALIZAR AULA EN POSTGRESQL
+// ============================================================
+
+async fn actualizar_aula(
+    Path(id): Path<Uuid>,
+    Extension(pool): Extension<PgPool>,
+    Json(payload): Json<ActualizarAula>,
+) -> Response {
+    if let Err(respuesta) = validar_aula(&payload.codigo, &payload.nombre) {
+        return respuesta;
+    }
+
+    let resultado = sqlx::query_as::<_, Aula>(
+        r#"
+        UPDATE aulas
+        SET codigo = $1,
+            nombre = $2,
+            ubicacion = $3
+        WHERE id = $4
+        RETURNING id, codigo, nombre, ubicacion, creado_en
+        "#,
+    )
+    .bind(payload.codigo.trim())
+    .bind(payload.nombre.trim())
+    .bind(payload.ubicacion.as_deref())
+    .bind(id)
+    .fetch_optional(&pool)
+    .await;
+
+    match resultado {
+        Ok(Some(aula)) => (StatusCode::OK, Json(aula)).into_response(),
+        Ok(None) => error_http(StatusCode::NOT_FOUND, "Aula no encontrada"),
+        Err(error) => error_bd(error),
+    }
+}
+
+// ============================================================
+// DELETE /aulas/:id
+// ELIMINAR AULA DE POSTGRESQL
+// ============================================================
+
+async fn eliminar_aula(Path(id): Path<Uuid>, Extension(pool): Extension<PgPool>) -> Response {
+    let resultado = sqlx::query(
+        r#"
+        DELETE FROM aulas
+        WHERE id = $1
+        "#,
+    )
+    .bind(id)
+    .execute(&pool)
+    .await;
+
+    match resultado {
+        Ok(resultado) if resultado.rows_affected() > 0 => (
+            StatusCode::OK,
+            Json(json!({
+                "mensaje": "Aula eliminada correctamente",
+                "id": id
+            })),
+        )
+            .into_response(),
+        Ok(_) => error_http(StatusCode::NOT_FOUND, "Aula no encontrada"),
+        Err(error) => error_bd(error),
+    }
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\routes\Auth.rs ==========
+use axum::{http::StatusCode, routing::post, Extension, Json, Router};
+use sqlx::PgPool;
+
+use crate::config::Config;
+use crate::errors::db::mapear;
+use crate::schemas::usuario::{LoginRequest, LoginResponse};
+use crate::services::usuarios as servicio;
+
+/// POST /api/auth/login
+pub fn router() -> Router {
+    Router::new().route("/api/auth/login", post(login))
+}
+
+async fn login(
+    Extension(pool): Extension<PgPool>,
+    Extension(config): Extension<Config>,
+    Json(datos): Json<LoginRequest>,
+) -> Result<Json<LoginResponse>, (StatusCode, String)> {
+    let credenciales_invalidas =
+        || (StatusCode::UNAUTHORIZED, "Usuario o contraseÃ±a incorrectos".to_string());
+
+    if datos.identifier.trim().is_empty() || datos.password.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "Completa usuario y contraseÃ±a".into()));
+    }
+
+    let usuario = servicio::buscar_por_nombre(&pool, datos.identifier.trim())
+        .await
+        .map_err(mapear)?
+        .ok_or_else(credenciales_invalidas)?;
+
+    if !servicio::verificar(&datos.password, &usuario.password_hash) {
+        return Err(credenciales_invalidas());
+    }
+
+    let token = servicio::generar_token(&usuario, &config.jwt_secret).map_err(|e| {
+        eprintln!("Error generando token: {e}");
+        (StatusCode::INTERNAL_SERVER_ERROR, "No se pudo generar el token".to_string())
+    })?;
+
+    Ok(Json(LoginResponse { token, usuario: usuario.into() }))
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\routes\Dispositivos.rs ==========
+use axum::{
+    extract::{Extension, Path},
+    http::StatusCode,
+    routing::get,
+    Json, Router,
+};
+use sqlx::PgPool;
+use uuid::Uuid;
+
+use crate::errors::db::mapear;
+use crate::models::dispositivo::Dispositivo;
+use crate::schemas::dispositivo::{ActualizarDispositivo, NuevoDispositivo, ESTADOS_VALIDOS};
+use crate::services::dispositivos as servicio;
+
+type ApiResult<T> = Result<Json<T>, (StatusCode, String)>;
+
+pub fn router() -> Router {
+    Router::new()
+        .route("/api/dispositivos", get(listar).post(crear))
+        .route("/api/dispositivos/{id}", get(obtener).put(actualizar))
+}
+
+fn validar_estado(estado: &Option<String>) -> Result<(), (StatusCode, String)> {
+    if let Some(e) = estado {
+        if !ESTADOS_VALIDOS.contains(&e.as_str()) {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "estado debe ser: activo, inactivo o mantenimiento".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+async fn listar(Extension(pool): Extension<PgPool>) -> ApiResult<Vec<Dispositivo>> {
+    servicio::listar(&pool).await.map(Json).map_err(mapear)
+}
+
+async fn obtener(Extension(pool): Extension<PgPool>, Path(id): Path<Uuid>) -> ApiResult<Dispositivo> {
+    match servicio::obtener(&pool, id).await.map_err(mapear)? {
+        Some(d) => Ok(Json(d)),
+        None => Err((StatusCode::NOT_FOUND, "Dispositivo no encontrado".into())),
+    }
+}
+
+async fn crear(
+    Extension(pool): Extension<PgPool>,
+    Json(nuevo): Json<NuevoDispositivo>,
+) -> Result<(StatusCode, Json<Dispositivo>), (StatusCode, String)> {
+    if nuevo.nombre.trim().is_empty() || nuevo.identificador.trim().is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "nombre e identificador son obligatorios".into()));
+    }
+    validar_estado(&nuevo.estado)?;
+    let creado = servicio::crear(&pool, nuevo).await.map_err(mapear)?;
+    Ok((StatusCode::CREATED, Json(creado)))
+}
+
+async fn actualizar(
+    Extension(pool): Extension<PgPool>,
+    Path(id): Path<Uuid>,
+    Json(datos): Json<ActualizarDispositivo>,
+) -> ApiResult<Dispositivo> {
+    if let Some(n) = &datos.nombre {
+        if n.trim().is_empty() {
+            return Err((StatusCode::BAD_REQUEST, "El nombre no puede estar vacÃ­o".into()));
+        }
+    }
+    validar_estado(&datos.estado)?;
+    match servicio::actualizar(&pool, id, datos).await.map_err(mapear)? {
+        Some(d) => Ok(Json(d)),
+        None => Err((StatusCode::NOT_FOUND, "Dispositivo no encontrado".into())),
+    }
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\routes\mediciones.rs ==========
+//! Rutas de mediciones.
+//!
+//! - `POST /api/mediciones`            â†’ el ESP32 envÃ­a una lectura (Fase 8).
+//! - `GET  /api/mediciones`            â†’ historial con filtros, para grÃ¡ficas e historial.
+//! - `GET  /api/aulas/:id/ultima`      â†’ Ãºltimos valores, confort y estado para el dashboard.
+
+use std::sync::Arc;
+
+use axum::{
+    extract::{Extension, Path, Query},
+    http::StatusCode,
+    routing::get,
+    Json, Router,
+};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Map, Value};
+use sqlx::PgPool;
+use uuid::Uuid;
+
+use crate::errors::{ApiError, ApiResult};
+use crate::schemas::ingesta::NuevaMedicion;
+use crate::services::{confort, ingesta};
+use crate::websocket::WsState;
+
+pub fn mediciones_routes() -> Router {
+    Router::new()
+        .route("/api/mediciones", get(historial).post(recibir))
+        .route("/api/aulas/:id/ultima", get(ultima))
+}
+
+// ============================================================
+// POST /api/mediciones  (ESP32 â†’ backend)
+// ============================================================
+
+/// Mensaje que se difunde por WebSocket a todos los dashboards conectados.
+#[derive(Serialize)]
+struct EventoMedicion<'a> {
+    evento: &'static str,
+    #[serde(flatten)]
+    datos: &'a ingesta::ResultadoIngesta,
+}
+
+async fn recibir(
+    Extension(pool): Extension<PgPool>,
+    Extension(ws): Extension<Arc<WsState>>,
+    Json(datos): Json<NuevaMedicion>,
+) -> ApiResult<(StatusCode, Json<Value>)> {
+    let resultado = ingesta::procesar(&pool, datos).await?;
+
+    // Tiempo real: se difunde DESPUÃ‰S de guardar en PostgreSQL (el commit ya se hizo).
+    let evento = EventoMedicion {
+        evento: "medicion",
+        datos: &resultado,
+    };
+    match serde_json::to_string(&evento) {
+        Ok(texto) => ws.broadcast_measurement(texto),
+        Err(e) => tracing::error!("No se pudo serializar el evento WebSocket: {e}"),
+    }
+
+    // Respuesta mÃ­nima: el ESP32 no necesita nada mÃ¡s.
+    Ok((
+        StatusCode::CREATED,
+        Json(json!({
+            "estado": "ok",
+            "medido_en": resultado.medido_en,
+            "alertas": resultado.alertas.len(),
+        })),
+    ))
+}
+
+// ============================================================
+// GET /api/mediciones  (historial / grÃ¡ficas)
+// ============================================================
+
+#[derive(Debug, Deserialize)]
+struct FiltroHistorial {
+    aula_id: Option<Uuid>,
+    /// temperatura | humedad | iluminacion | ruido
+    tipo: Option<String>,
+    /// Fecha ISO 8601 (ej. 2026-10-30T00:00:00Z)
+    desde: Option<DateTime<Utc>>,
+    hasta: Option<DateTime<Utc>>,
+    /// MÃ¡ximo de filas (por defecto 500, tope 5000).
+    limit: Option<i64>,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+struct FilaMedicion {
+    id: Uuid,
+    sensor_id: Uuid,
+    dispositivo_id: Uuid,
+    aula_id: Uuid,
+    tipo_sensor: String,
+    unidad: String,
+    valor: f64,
+    medido_en: DateTime<Utc>,
+}
+
+/// Devuelve las filas de la mÃ¡s reciente a la mÃ¡s antigua.
+/// Para Chart.js conviene invertir el arreglo en el frontend (`.reverse()`).
+async fn historial(
+    Extension(pool): Extension<PgPool>,
+    Query(filtro): Query<FiltroHistorial>,
+) -> ApiResult<Json<Vec<FilaMedicion>>> {
+    let limite = filtro.limit.unwrap_or(500).clamp(1, 5000);
+
+    let filas = sqlx::query_as::<_, FilaMedicion>(
+        "SELECT id, sensor_id, dispositivo_id, aula_id, tipo_sensor, unidad, valor, medido_en
+           FROM vw_mediciones_detalle
+          WHERE ($1::uuid        IS NULL OR aula_id     = $1)
+            AND ($2::text        IS NULL OR tipo_sensor = $2)
+            AND ($3::timestamptz IS NULL OR medido_en  >= $3)
+            AND ($4::timestamptz IS NULL OR medido_en  <= $4)
+          ORDER BY medido_en DESC
+          LIMIT $5",
+    )
+    .bind(filtro.aula_id)
+    .bind(filtro.tipo)
+    .bind(filtro.desde)
+    .bind(filtro.hasta)
+    .bind(limite)
+    .fetch_all(&pool)
+    .await?;
+
+    Ok(Json(filas))
+}
+
+// ============================================================
+// GET /api/aulas/:id/ultima  (dashboard)
+// ============================================================
+
+async fn ultima(
+    Extension(pool): Extension<PgPool>,
+    Path(aula_id): Path<Uuid>,
+) -> ApiResult<Json<Value>> {
+    let aula: Option<(String, String)> =
+        sqlx::query_as("SELECT codigo, nombre FROM aulas WHERE id = $1")
+            .bind(aula_id)
+            .fetch_optional(&pool)
+            .await?;
+
+    let (codigo, nombre) =
+        aula.ok_or_else(|| ApiError::NotFound(format!("No existe el aula {aula_id}")))?;
+
+    // Ãšltimo valor de cada variable.
+    let filas: Vec<(String, String, f64, DateTime<Utc>)> = sqlx::query_as(
+        "SELECT DISTINCT ON (tipo_sensor) tipo_sensor, unidad, valor, medido_en
+           FROM vw_mediciones_detalle
+          WHERE aula_id = $1
+          ORDER BY tipo_sensor, medido_en DESC",
+    )
+    .bind(aula_id)
+    .fetch_all(&pool)
+    .await?;
+
+    let mut valores = Map::new();
+    for (tipo, unidad, valor, medido_en) in filas {
+        valores.insert(
+            tipo,
+            json!({ "valor": valor, "unidad": unidad, "medido_en": medido_en }),
+        );
+    }
+
+    // Ãšltimo Ã­ndice de confort (0â€“100).
+    let indice: Option<(f64, DateTime<Utc>)> = sqlx::query_as(
+        "SELECT valor, calculado_en FROM indices_confort
+          WHERE aula_id = $1 ORDER BY calculado_en DESC LIMIT 1",
+    )
+    .bind(aula_id)
+    .fetch_optional(&pool)
+    .await?;
+
+    let confort_json = indice.map(|(valor, calculado_en)| {
+        json!({
+            "valor": valor,
+            "estado": confort::obtener_estado_confort(valor / 100.0),
+            "calculado_en": calculado_en,
+        })
+    });
+
+    let (alertas_activas,): (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM vw_alertas_detalle WHERE aula_id = $1 AND estado = 'activa'",
+    )
+    .bind(aula_id)
+    .fetch_one(&pool)
+    .await?;
+
+    Ok(Json(json!({
+        "aula": { "id": aula_id, "codigo": codigo, "nombre": nombre },
+        "valores": valores,
+        "confort": confort_json,
+        "alertas_activas": alertas_activas,
+        "estado": if alertas_activas > 0 { "ALERTA" } else { "NORMAL" },
+    })))
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\routes\mod.rs ==========
+pub mod alertas;
+pub mod aulas;
+pub mod mediciones;
+pub mod sensores;
+
+use axum::{routing::get, Router};
+
+pub fn create_router() -> Router {
+    Router::new()
+        // Ingesta del ESP32, historial y Ãºltima lectura (PostgreSQL)
+        .merge(mediciones::mediciones_routes())
+        // Alertas leÃ­das de PostgreSQL
+        .merge(alertas::alertas_routes())
+        // Pendientes de pasar a PostgreSQL (siguen con datos de ejemplo)
+        .merge(aulas::aulas_routes())
+        .merge(sensores::sensores_routes())
+        // Tiempo real: el dashboard se conecta a ws://<host>:3000/ws
+        .route("/ws", get(crate::websocket::ws_handler))
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\routes\Rangos.rs ==========
+use axum::{
+    extract::{Extension, Path, Query},
+    http::StatusCode,
+    routing::get,
+    Json, Router,
+};
+use sqlx::PgPool;
+use uuid::Uuid;
+
+use crate::errors::db::mapear;
+use crate::models::rango_sensor::RangoSensor;
+use crate::schemas::rango_sensor::{ActualizarRango, FiltroRangos, NuevoRango};
+use crate::services::rangos as servicio;
+
+type ApiResult<T> = Result<Json<T>, (StatusCode, String)>;
+
+pub fn router() -> Router {
+    Router::new()
+        .route("/api/rangos", get(listar).post(crear))
+        .route("/api/rangos/{id}", get(obtener).put(actualizar))
+}
+
+/// GET /rangos            -> todos
+/// GET /rangos?aula_id=.. -> solo los de esa aula
+async fn listar(
+    Extension(pool): Extension<PgPool>,
+    Query(filtro): Query<FiltroRangos>,
+) -> ApiResult<Vec<RangoSensor>> {
+    servicio::listar(&pool, filtro.aula_id)
+        .await
+        .map(Json)
+        .map_err(mapear)
+}
+
+async fn obtener(Extension(pool): Extension<PgPool>, Path(id): Path<Uuid>) -> ApiResult<RangoSensor> {
+    match servicio::obtener(&pool, id).await.map_err(mapear)? {
+        Some(r) => Ok(Json(r)),
+        None => Err((StatusCode::NOT_FOUND, "Rango no encontrado".into())),
+    }
+}
+
+async fn crear(
+    Extension(pool): Extension<PgPool>,
+    Json(nuevo): Json<NuevoRango>,
+) -> Result<(StatusCode, Json<RangoSensor>), (StatusCode, String)> {
+    if !(nuevo.valor_minimo < nuevo.valor_maximo) {
+        return Err((StatusCode::BAD_REQUEST, "valor_minimo debe ser menor que valor_maximo".into()));
+    }
+    let creado = servicio::crear(&pool, nuevo).await.map_err(mapear)?;
+    Ok((StatusCode::CREATED, Json(creado)))
+}
+
+async fn actualizar(
+    Extension(pool): Extension<PgPool>,
+    Path(id): Path<Uuid>,
+    Json(datos): Json<ActualizarRango>,
+) -> ApiResult<RangoSensor> {
+    // Si vienen los dos, se valida aquÃ­; si viene solo uno, lo valida el CHECK de la base (400).
+    if let (Some(min), Some(max)) = (datos.valor_minimo, datos.valor_maximo) {
+        if !(min < max) {
+            return Err((StatusCode::BAD_REQUEST, "valor_minimo debe ser menor que valor_maximo".into()));
+        }
+    }
+    match servicio::actualizar(&pool, id, datos).await.map_err(mapear)? {
+        Some(r) => Ok(Json(r)),
+        None => Err((StatusCode::NOT_FOUND, "Rango no encontrado".into())),
+    }
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\routes\sensores.rs ==========
+use axum::{
+    extract::Path,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    routing::get,
+    Extension, Json, Router,
+};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use sqlx::{FromRow, PgPool};
+use uuid::Uuid;
+
+// ============================================================
+// MODELOS PARA RESPUESTAS HTTP
+// ============================================================
+
+#[derive(Debug, Serialize, FromRow)]
+struct Sensor {
+    id: Uuid,
+    dispositivo_id: Uuid,
+    tipo_sensor_id: Uuid,
+    nombre: String,
+    pin_gpio: Option<i16>,
+    estado: String,
+    creado_en: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+struct NuevoSensor {
+    dispositivo_id: Uuid,
+    tipo_sensor_id: Uuid,
+    nombre: String,
+    pin_gpio: Option<i16>,
+}
+
+#[derive(Debug, Serialize, FromRow)]
+struct SensorDetalle {
+    id: Uuid,
+    dispositivo_id: Uuid,
+    tipo_sensor_id: Uuid,
+    nombre: String,
+    pin_gpio: Option<i16>,
+    estado: String,
+    creado_en: DateTime<Utc>,
+    aula_id: Uuid,
+    tipo_nombre: String,
+    unidad: String,
+}
+
+// ============================================================
+// REGISTRO DE RUTAS
+// ============================================================
+
+pub fn sensores_routes() -> Router {
+    Router::new()
+        .route("/sensores", get(listar_sensores).post(crear_sensor))
+        .route(
+            "/sensores/:id",
+            get(obtener_sensor).delete(desactivar_sensor),
+        )
+}
+
+// ============================================================
+// MANEJO DE ERRORES
+// ============================================================
+
+fn error_http(estado: StatusCode, mensaje: &str) -> Response {
+    (
+        estado,
+        Json(json!({
+            "error": mensaje
+        })),
+    )
+        .into_response()
+}
+
+fn error_bd(error: sqlx::Error) -> Response {
+    tracing::error!("Error PostgreSQL en sensores: {error}");
+
+    if let sqlx::Error::Database(ref db_error) = error {
+        match db_error.code().as_deref() {
+            Some("23503") => {
+                return error_http(
+                    StatusCode::BAD_REQUEST,
+                    "El dispositivo o tipo de sensor no existe",
+                );
+            }
+            Some("23505") => {
+                return error_http(StatusCode::CONFLICT, "Ya existe un sensor con esos datos");
+            }
+            Some("23514") => {
+                return error_http(
+                    StatusCode::BAD_REQUEST,
+                    "Los datos incumplen una restriccion",
+                );
+            }
+            _ => {}
+        }
+    }
+
+    error_http(
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "Error interno de base de datos",
+    )
+}
+
+// ============================================================
+// GET /sensores
+// LISTAR SENSORES
+// ============================================================
+
+async fn listar_sensores(Extension(pool): Extension<PgPool>) -> Response {
+    let resultado = sqlx::query_as::<_, SensorDetalle>(
+        r#"
+        SELECT
+            s.id,
+            s.dispositivo_id,
+            s.tipo_sensor_id,
+            s.nombre,
+            s.pin_gpio,
+            s.estado,
+            s.creado_en,
+            d.aula_id,
+            ts.nombre AS tipo_nombre,
+            ts.unidad
+        FROM sensores s
+        INNER JOIN dispositivos d
+            ON d.id = s.dispositivo_id
+        INNER JOIN tipos_sensor ts
+            ON ts.id = s.tipo_sensor_id
+        ORDER BY s.nombre
+        "#,
+    )
+    .fetch_all(&pool)
+    .await;
+
+    match resultado {
+        Ok(sensores) => (StatusCode::OK, Json(sensores)).into_response(),
+        Err(error) => error_bd(error),
+    }
+}
+
+// ============================================================
+// GET /sensores/:id
+// OBTENER SENSOR POR UUID
+// ============================================================
+
+async fn obtener_sensor(Path(id): Path<Uuid>, Extension(pool): Extension<PgPool>) -> Response {
+    let resultado = sqlx::query_as::<_, SensorDetalle>(
+        r#"
+        SELECT
+            s.id,
+            s.dispositivo_id,
+            s.tipo_sensor_id,
+            s.nombre,
+            s.pin_gpio,
+            s.estado,
+            s.creado_en,
+            d.aula_id,
+            ts.nombre AS tipo_nombre,
+            ts.unidad
+        FROM sensores s
+        INNER JOIN dispositivos d
+            ON d.id = s.dispositivo_id
+        INNER JOIN tipos_sensor ts
+            ON ts.id = s.tipo_sensor_id
+        WHERE s.id = $1
+        "#,
+    )
+    .bind(id)
+    .fetch_optional(&pool)
+    .await;
+
+    match resultado {
+        Ok(Some(sensor)) => (StatusCode::OK, Json(sensor)).into_response(),
+        Ok(None) => error_http(StatusCode::NOT_FOUND, "Sensor no encontrado"),
+        Err(error) => error_bd(error),
+    }
+}
+
+// ============================================================
+// POST /sensores
+// CREAR SENSOR EN POSTGRESQL
+// ============================================================
+
+async fn crear_sensor(
+    Extension(pool): Extension<PgPool>,
+    Json(payload): Json<NuevoSensor>,
+) -> Response {
+    if payload.nombre.trim().is_empty() {
+        return error_http(
+            StatusCode::BAD_REQUEST,
+            "El nombre del sensor no puede estar vacio",
+        );
+    }
+
+    if let Some(pin) = payload.pin_gpio {
+        if pin < 0 {
+            return error_http(StatusCode::BAD_REQUEST, "El pin GPIO no puede ser negativo");
+        }
+    }
+
+    let resultado = sqlx::query_as::<_, Sensor>(
+        r#"
+        INSERT INTO sensores (
+            dispositivo_id,
+            tipo_sensor_id,
+            nombre,
+            pin_gpio,
+            estado
+        )
+        VALUES ($1, $2, $3, $4, 'activo')
+        RETURNING
+            id,
+            dispositivo_id,
+            tipo_sensor_id,
+            nombre,
+            pin_gpio,
+            estado,
+            creado_en
+        "#,
+    )
+    .bind(payload.dispositivo_id)
+    .bind(payload.tipo_sensor_id)
+    .bind(payload.nombre.trim())
+    .bind(payload.pin_gpio)
+    .fetch_one(&pool)
+    .await;
+
+    match resultado {
+        Ok(sensor) => (StatusCode::CREATED, Json(sensor)).into_response(),
+        Err(error) => error_bd(error),
+    }
+}
+
+// ============================================================
+// DELETE /sensores/:id
+// DESACTIVACION LOGICA
+// ============================================================
+
+async fn desactivar_sensor(Path(id): Path<Uuid>, Extension(pool): Extension<PgPool>) -> Response {
+    // No eliminamos el sensor fisicamente porque
+    // sus mediciones historicas deben conservarse.
+
+    let resultado = sqlx::query_as::<_, Sensor>(
+        r#"
+        UPDATE sensores
+        SET estado = 'inactivo'
+        WHERE id = $1
+        RETURNING
+            id,
+            dispositivo_id,
+            tipo_sensor_id,
+            nombre,
+            pin_gpio,
+            estado,
+            creado_en
+        "#,
+    )
+    .bind(id)
+    .fetch_optional(&pool)
+    .await;
+
+    match resultado {
+        Ok(Some(sensor)) => (
+            StatusCode::OK,
+            Json(json!({
+                "mensaje": "Sensor desactivado correctamente",
+                "sensor": sensor
+            })),
+        )
+            .into_response(),
+        Ok(None) => error_http(StatusCode::NOT_FOUND, "Sensor no encontrado"),
+        Err(error) => error_bd(error),
+    }
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\routes\Tipos sensor.rs ==========
+use axum::{
+    extract::{Extension, Path},
+    http::StatusCode,
+    routing::get,
+    Json, Router,
+};
+use sqlx::PgPool;
+use uuid::Uuid;
+
+use crate::errors::db::mapear;
+use crate::models::tipo_sensor::TipoSensor;
+
+type ApiResult<T> = Result<Json<T>, (StatusCode, String)>;
+
+/// CatÃ¡logo de solo lectura (temperatura, humedad, iluminacion, ruido ya vienen en el SQL).
+pub fn router() -> Router {
+    Router::new()
+        .route("/api/tipos-sensor", get(listar))
+        .route("/api/tipos-sensor/{id}", get(obtener))
+}
+
+async fn listar(Extension(pool): Extension<PgPool>) -> ApiResult<Vec<TipoSensor>> {
+    sqlx::query_as::<_, TipoSensor>(
+        "SELECT id, nombre, unidad, descripcion FROM tipos_sensor ORDER BY nombre",
+    )
+    .fetch_all(&pool)
+    .await
+    .map(Json)
+    .map_err(mapear)
+}
+
+async fn obtener(Extension(pool): Extension<PgPool>, Path(id): Path<Uuid>) -> ApiResult<TipoSensor> {
+    let fila = sqlx::query_as::<_, TipoSensor>(
+        "SELECT id, nombre, unidad, descripcion FROM tipos_sensor WHERE id = $1",
+    )
+    .bind(id)
+    .fetch_optional(&pool)
+    .await
+    .map_err(mapear)?;
+
+    match fila {
+        Some(t) => Ok(Json(t)),
+        None => Err((StatusCode::NOT_FOUND, "Tipo de sensor no encontrado".into())),
+    }
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\schemas\alerta.rs ==========
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+// ============================================================
+// ALERTA ALMACENADA EN POSTGRESQL
+// ============================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Alerta {
+    pub id: Uuid,
+    pub medicion_id: Uuid,
+    pub rango_sensor_id: Uuid,
+    pub tipo: String,
+    pub mensaje: Option<String>,
+    pub estado: String,
+    pub valor_minimo_aplicado: f64,
+    pub valor_maximo_aplicado: f64,
+    pub generada_en: DateTime<Utc>,
+    pub resuelta_en: Option<DateTime<Utc>>,
+}
+
+// ============================================================
+// CAMBIO DE ESTADO DE UNA ALERTA
+// ============================================================
+
+#[derive(Debug, Deserialize)]
+pub struct CambioEstadoAlerta {
+    pub estado: String,
+}
+
+// ============================================================
+// ALERTA DETALLADA PARA EL FRONTEND
+// ============================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct AlertaDetalle {
+    pub id: Uuid,
+    pub estado: String,
+    pub tipo: String,
+    pub mensaje: Option<String>,
+    pub generada_en: DateTime<Utc>,
+    pub resuelta_en: Option<DateTime<Utc>>,
+    pub aula_id: Uuid,
+    pub aula_codigo: String,
+    pub dispositivo_id: Uuid,
+    pub sensor_id: Uuid,
+    pub tipo_sensor: String,
+    pub unidad: String,
+    pub valor: f64,
+    pub valor_minimo: f64,
+    pub valor_maximo: f64,
+    pub medido_en: DateTime<Utc>,
+}
+
+// ============================================================
+// RESPUESTA GENERAL DE LA API
+// ============================================================
+
+#[derive(Debug, Serialize)]
+pub struct RespuestaAlerta {
+    pub mensaje: String,
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\schemas\aula.rs ==========
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+#[derive(Debug, Deserialize)]
+pub struct NuevaAula {
+    pub codigo: String,
+    pub nombre: String,
+    pub ubicacion: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ActualizarAula {
+    pub codigo: Option<String>,
+    pub nombre: Option<String>,
+    pub ubicacion: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Aula {
+    pub id: Uuid,
+    pub codigo: String,
+    pub nombre: String,
+    pub ubicacion: Option<String>,
+    pub creado_en: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RespuestaAula {
+    pub mensaje: String,
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\schemas\ingesta.rs ==========
+use serde::Deserialize;
+
+/// JSON que envÃ­a el ESP32 en cada lectura:
+///
+/// ```json
+/// {
+///   "dispositivo_id": "esp32-a101",
+///   "temperatura": 28.6,
+///   "humedad": 64.2,
+///   "iluminacion": 380,
+///   "ruido": 48
+/// }
+/// ```
+///
+/// `dispositivo_id` es el texto guardado en `dispositivos.identificador`
+/// (no el UUID interno). Las cuatro variables son opcionales para que el
+/// ESP32 pueda seguir enviando si un sensor falla; se exige al menos una.
+#[derive(Debug, Deserialize)]
+pub struct NuevaMedicion {
+    pub dispositivo_id: String,
+    pub temperatura: Option<f64>,
+    pub humedad: Option<f64>,
+    pub iluminacion: Option<f64>,
+    pub ruido: Option<f64>,
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\schemas\medicion.rs ==========
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+// ============================================================
+// MEDICION INDIVIDUAL
+// ============================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Medicion {
+    pub id: Uuid,
+    pub sensor_id: Uuid,
+    pub valor: f64,
+    pub medido_en: DateTime<Utc>,
+}
+
+// ============================================================
+// MEDICION CON INFORMACION DEL SENSOR Y AULA
+// ============================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct MedicionDetalle {
+    pub id: Uuid,
+    pub sensor_id: Uuid,
+    pub dispositivo_id: Uuid,
+    pub aula_id: Uuid,
+    pub tipo_sensor: String,
+    pub unidad: String,
+    pub valor: f64,
+    pub medido_en: DateTime<Utc>,
+}
+
+// ============================================================
+// RESPUESTA GENERAL DE LA API
+// ============================================================
+
+#[derive(Debug, Serialize)]
+pub struct MensajeRespuesta {
+    pub mensaje: String,
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\schemas\mod.rs ==========
+//agregamos los modulos de las entidades
+pub mod alerta;
+pub mod aula;
+pub mod ingesta;
+pub mod medicion;
+pub mod sensor;
+
+========== C:\smart-classroom\smart-classroom-backend\src\schemas\sensor.rs ==========
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+// ============================================================
+// DATOS PARA REGISTRAR UN SENSOR
+// ============================================================
+
+#[derive(Debug, Deserialize)]
+pub struct NuevoSensor {
+    pub dispositivo_id: Uuid,
+    pub tipo_sensor_id: Uuid,
+    pub nombre: String,
+    pub pin_gpio: Option<i16>,
+}
+
+// ============================================================
+// DATOS PARA ACTUALIZAR UN SENSOR
+// ============================================================
+
+#[derive(Debug, Deserialize)]
+pub struct ActualizarSensor {
+    pub nombre: Option<String>,
+    pub pin_gpio: Option<i16>,
+    pub estado: Option<String>,
+}
+
+// ============================================================
+// REPRESENTACION DE UN SENSOR
+// ============================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Sensor {
+    pub id: Uuid,
+    pub dispositivo_id: Uuid,
+    pub tipo_sensor_id: Uuid,
+    pub nombre: String,
+    pub pin_gpio: Option<i16>,
+    pub estado: String,
+    pub creado_en: DateTime<Utc>,
+}
+
+// ============================================================
+// RESPUESTA DE LA API
+// ============================================================
+
+#[derive(Debug, Serialize)]
+pub struct RespuestaSensor {
+    pub mensaje: String,
+}
+
+// ============================================================
+// SENSOR CON INFORMACION ADICIONAL
+// ============================================================
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct SensorDetalle {
+    pub id: Uuid,
+    pub dispositivo_id: Uuid,
+    pub aula_id: Uuid,
+    pub tipo_sensor_id: Uuid,
+    pub tipo_nombre: String,
+    pub unidad: String,
+    pub nombre: String,
+    pub pin_gpio: Option<i16>,
+    pub estado: String,
+    pub creado_en: DateTime<Utc>,
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\services\alertas.rs ==========
+//! SMART CLASSROOM â€” Servicio de Alertas
+//!
+//! EvalÃºa las mediciones ambientales utilizando
+//! los rangos configurados para cada aula.
+//!
+//! Compatible con los modelos:
+//! - Medicion
+//! - RangoSensor
+//! - Alerta
+//!
+//! Cada alerta conserva una copia de los lÃ­mites
+//! aplicados en el momento de su generaciÃ³n.
+//!
+//! Este servicio genera alertas en memoria.
+//! Su persistencia en PostgreSQL corresponde
+//! al servicio de ingesta o a la capa de datos.
+
+use crate::models::{Alerta, Medicion, RangoSensor};
+use chrono::Utc;
+use uuid::Uuid;
+
+// ============================================================
+// 1. VALIDACIÃ“N DEL RANGO
+// ============================================================
+
+/// Verifica que el rango estÃ© activo y sea vÃ¡lido.
+fn rango_valido(rango: &RangoSensor) -> bool {
+    rango.activo && rango.limites_validos()
+}
+
+// ============================================================
+// 2. EVALUACIÃ“N GENERAL
+// ============================================================
+
+/// EvalÃºa una mediciÃ³n contra un rango ambiental.
+///
+/// Devuelve:
+/// - Some(Alerta) si estÃ¡ fuera del rango.
+/// - None si estÃ¡ dentro del rango.
+/// - None si el rango estÃ¡ inactivo o es invÃ¡lido.
+///
+/// IMPORTANTE:
+/// El cÃ³digo que llama a esta funciÃ³n debe
+/// verificar previamente que:
+/// 1. El rango corresponde al aula seleccionada.
+/// 2. El tipo de sensor de la mediciÃ³n coincide
+///    con el tipo de sensor del rango.
+pub fn verificar_medicion(
+    medicion: &Medicion,
+    rango: &RangoSensor,
+    nombre_variable: &str,
+    unidad: &str,
+) -> Option<Alerta> {
+    if medicion.id.is_nil()
+        || medicion.sensor_id.is_nil()
+        || !medicion.valor.is_finite()
+        || !rango_valido(rango)
+    {
+        return None;
+    }
+
+    let tipo = rango.evaluar_valor(medicion.valor)?;
+
+    let mensaje = match tipo {
+        "por_debajo" => format!(
+            "La {} ({:.2} {}) estÃ¡ por debajo del mÃ­nimo permitido ({:.2} {})",
+            nombre_variable, medicion.valor, unidad, rango.valor_minimo, unidad
+        ),
+
+        "por_encima" => format!(
+            "La {} ({:.2} {}) estÃ¡ por encima del mÃ¡ximo permitido ({:.2} {})",
+            nombre_variable, medicion.valor, unidad, rango.valor_maximo, unidad
+        ),
+
+        _ => return None,
+    };
+
+    Some(crear_alerta(medicion, rango, tipo, mensaje))
+}
+
+// ============================================================
+// 3. EVALUACIÃ“N POR VARIABLE AMBIENTAL
+// ============================================================
+
+/// Verifica si la temperatura estÃ¡ fuera del rango.
+///
+/// El rango debe corresponder al tipo temperatura.
+pub fn verificar_temperatura(medicion: &Medicion, rango: &RangoSensor) -> Option<Alerta> {
+    verificar_medicion(medicion, rango, "temperatura", "Â°C")
+}
+
+/// Verifica si la humedad estÃ¡ fuera del rango.
+///
+/// El rango debe corresponder al tipo humedad.
+pub fn verificar_humedad(medicion: &Medicion, rango: &RangoSensor) -> Option<Alerta> {
+    verificar_medicion(medicion, rango, "humedad", "%")
+}
+
+/// Verifica si la iluminaciÃ³n estÃ¡ fuera del rango.
+///
+/// El rango debe corresponder al tipo iluminaciÃ³n.
+pub fn verificar_iluminacion(medicion: &Medicion, rango: &RangoSensor) -> Option<Alerta> {
+    verificar_medicion(medicion, rango, "iluminaciÃ³n", "lux")
+}
+
+/// Verifica si el ruido estÃ¡ fuera del rango.
+///
+/// El rango debe corresponder al tipo ruido.
+/// La unidad utilizada debe coincidir con la
+/// calibraciÃ³n del sensor de sonido.
+pub fn verificar_ruido(medicion: &Medicion, rango: &RangoSensor) -> Option<Alerta> {
+    verificar_medicion(medicion, rango, "nivel de ruido", "dB")
+}
+
+// ============================================================
+// 4. GENERACIÃ“N DE ALERTAS
+// ============================================================
+
+/// EvalÃºa un conjunto de mediciones contra sus
+/// respectivos rangos ambientales.
+///
+/// Cada elemento contiene:
+/// - La mediciÃ³n.
+/// - El rango aplicable.
+/// - El nombre de la variable.
+/// - La unidad de medida.
+///
+/// Las asociaciones entre sensores, tipos y aulas
+/// deben validarse antes de llamar a esta funciÃ³n.
+pub fn generar_alertas(datos: &[(&Medicion, &RangoSensor, &str, &str)]) -> Vec<Alerta> {
+    datos
+        .iter()
+        .filter_map(|(medicion, rango, nombre, unidad)| {
+            verificar_medicion(medicion, rango, nombre, unidad)
+        })
+        .collect()
+}
+
+// ============================================================
+// 5. CREACIÃ“N DE ALERTAS
+// ============================================================
+
+/// Construye una alerta compatible con PostgreSQL.
+///
+/// Guarda los lÃ­mites del rango como una copia
+/// histÃ³rica de la configuraciÃ³n aplicada.
+fn crear_alerta(medicion: &Medicion, rango: &RangoSensor, tipo: &str, mensaje: String) -> Alerta {
+    Alerta {
+        id: Uuid::new_v4(),
+
+        medicion_id: medicion.id,
+
+        rango_sensor_id: rango.id,
+
+        tipo: tipo.to_string(),
+
+        mensaje: Some(mensaje),
+
+        estado: "activa".to_string(),
+
+        valor_minimo_aplicado: rango.valor_minimo,
+
+        valor_maximo_aplicado: rango.valor_maximo,
+
+        generada_en: Utc::now(),
+
+        resuelta_en: None,
+    }
+}
+
+// ============================================================
+// 6. PRUEBAS UNITARIAS
+// ============================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn crear_medicion_prueba(valor: f64) -> Medicion {
+        Medicion {
+            id: Uuid::new_v4(),
+            sensor_id: Uuid::new_v4(),
+            valor,
+            medido_en: Utc::now(),
+        }
+    }
+
+    fn crear_rango_prueba(minimo: f64, maximo: f64, activo: bool) -> RangoSensor {
+        RangoSensor {
+            id: Uuid::new_v4(),
+            aula_id: Uuid::new_v4(),
+            tipo_sensor_id: Uuid::new_v4(),
+            valor_minimo: minimo,
+            valor_maximo: maximo,
+            activo,
+            creado_en: Utc::now(),
+        }
+    }
+
+    #[test]
+    fn genera_alerta_por_temperatura_alta() {
+        let medicion = crear_medicion_prueba(35.0);
+        let rango = crear_rango_prueba(20.0, 30.0, true);
+
+        let alerta = verificar_temperatura(&medicion, &rango).expect("Debe generar una alerta");
+
+        assert_eq!(alerta.tipo, "por_encima");
+        assert_eq!(alerta.estado, "activa");
+        assert_eq!(alerta.medicion_id, medicion.id);
+        assert_eq!(alerta.rango_sensor_id, rango.id);
+        assert_eq!(alerta.valor_minimo_aplicado, 20.0);
+        assert_eq!(alerta.valor_maximo_aplicado, 30.0);
+    }
+
+    #[test]
+    fn genera_alerta_por_temperatura_baja() {
+        let medicion = crear_medicion_prueba(15.0);
+        let rango = crear_rango_prueba(20.0, 30.0, true);
+
+        let alerta = verificar_temperatura(&medicion, &rango).expect("Debe generar una alerta");
+
+        assert_eq!(alerta.tipo, "por_debajo");
+    }
+
+    #[test]
+    fn no_genera_alerta_dentro_del_rango() {
+        let medicion = crear_medicion_prueba(25.0);
+        let rango = crear_rango_prueba(20.0, 30.0, true);
+
+        let resultado = verificar_temperatura(&medicion, &rango);
+
+        assert!(resultado.is_none());
+    }
+
+    #[test]
+    fn no_genera_alerta_si_rango_inactivo() {
+        let medicion = crear_medicion_prueba(35.0);
+        let rango = crear_rango_prueba(20.0, 30.0, false);
+
+        let resultado = verificar_temperatura(&medicion, &rango);
+
+        assert!(resultado.is_none());
+    }
+
+    #[test]
+    fn no_genera_alerta_si_rango_invalido() {
+        let medicion = crear_medicion_prueba(35.0);
+        let rango = crear_rango_prueba(30.0, 20.0, true);
+
+        let resultado = verificar_temperatura(&medicion, &rango);
+
+        assert!(resultado.is_none());
+    }
+
+    #[test]
+    fn conserva_limites_historicos() {
+        let medicion = crear_medicion_prueba(35.0);
+        let rango = crear_rango_prueba(20.0, 30.0, true);
+
+        let alerta = verificar_temperatura(&medicion, &rango).expect("Debe generar una alerta");
+
+        assert_eq!(alerta.valor_minimo_aplicado, 20.0);
+
+        assert_eq!(alerta.valor_maximo_aplicado, 30.0);
+    }
+
+    #[test]
+    fn genera_varias_alertas() {
+        let temperatura = crear_medicion_prueba(35.0);
+        let humedad = crear_medicion_prueba(80.0);
+
+        let rango_temperatura = crear_rango_prueba(20.0, 30.0, true);
+
+        let rango_humedad = crear_rango_prueba(40.0, 60.0, true);
+
+        let datos = [
+            (&temperatura, &rango_temperatura, "temperatura", "Â°C"),
+            (&humedad, &rango_humedad, "humedad", "%"),
+        ];
+
+        let alertas = generar_alertas(&datos);
+
+        assert_eq!(alertas.len(), 2);
+    }
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\services\confort.rs ==========
+//! SMART CLASSROOM â€” Servicio de Confort Ambiental
+//!
+//! Calcula los Ã­ndices de confort tÃ©rmico, visual
+//! y acÃºstico utilizando las mediciones ambientales.
+//!
+//! Los Ã­ndices individuales se expresan entre 0 y 1.
+//! El Ã­ndice general se convierte a una escala de
+//! 0 a 100 para almacenarlo en PostgreSQL.
+//!
+//! Las fÃ³rmulas y los lÃ­mites corresponden al
+//! modelo de normalizaciÃ³n propio del proyecto.
+//! No sustituyen una evaluaciÃ³n normativa completa.
+
+use serde::{Deserialize, Serialize};
+
+// ============================================================
+// 1. DATOS AMBIENTALES
+// ============================================================
+
+/// Agrupa las cuatro variables ambientales necesarias
+/// para calcular el confort de un aula.
+///
+/// Esta estructura no representa una tabla de PostgreSQL.
+/// Se utiliza Ãºnicamente para realizar los cÃ¡lculos.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct DatosAmbientales {
+    /// Temperatura ambiental en grados Celsius.
+    pub temperatura: f64,
+
+    /// Humedad relativa en porcentaje.
+    pub humedad: f64,
+
+    /// IluminaciÃ³n ambiental en lux.
+    pub iluminacion: f64,
+
+    /// Nivel de ruido en la unidad utilizada
+    /// por el sistema de mediciÃ³n.
+    pub ruido: f64,
+}
+
+impl DatosAmbientales {
+    /// Valida que las cuatro variables sean finitas.
+    pub fn validar(&self) -> Result<(), String> {
+        if !self.temperatura.is_finite() {
+            return Err("La temperatura debe ser un nÃºmero vÃ¡lido".to_string());
+        }
+
+        if !self.humedad.is_finite() {
+            return Err("La humedad debe ser un nÃºmero vÃ¡lido".to_string());
+        }
+
+        if !(0.0..=100.0).contains(&self.humedad) {
+            return Err("La humedad relativa debe estar entre 0 y 100 %".to_string());
+        }
+
+        if !self.iluminacion.is_finite() || self.iluminacion < 0.0 {
+            return Err("La iluminaciÃ³n debe ser un nÃºmero finito no negativo".to_string());
+        }
+
+        if !self.ruido.is_finite() {
+            return Err("El ruido debe ser un nÃºmero vÃ¡lido".to_string());
+        }
+
+        Ok(())
+    }
+}
+
+// ============================================================
+// 2. ÃNDICE DE CONFORT TÃ‰RMICO
+// ============================================================
+
+/// Calcula el Ã­ndice tÃ©rmico utilizando temperatura
+/// y humedad relativa.
+///
+/// El resultado se encuentra entre 0 y 1.
+pub fn calcular_indice_termico(datos: &DatosAmbientales) -> Result<f64, String> {
+    datos.validar()?;
+
+    let indice_temperatura = calcular_indice_temperatura(datos.temperatura);
+
+    let indice_humedad = calcular_indice_humedad(datos.humedad);
+
+    Ok(indice_temperatura * indice_humedad)
+}
+
+/// Normaliza la temperatura entre 0 y 1.
+///
+/// Referencias del modelo:
+/// - 21 Â°C: lÃ­mite inferior.
+/// - 26 Â°C: punto central.
+/// - 31 Â°C: lÃ­mite superior.
+fn calcular_indice_temperatura(temperatura: f64) -> f64 {
+    let indice: f64 = if temperatura <= 21.0 {
+        0.0
+    } else if temperatura < 26.0 {
+        (temperatura - 21.0) / 5.0
+    } else if temperatura < 31.0 {
+        (31.0 - temperatura) / 5.0
+    } else {
+        0.0
+    };
+
+    indice.clamp(0.0, 1.0)
+}
+
+/// Normaliza la humedad relativa entre 0 y 1.
+///
+/// El intervalo de referencia es 40â€“60 %.
+fn calcular_indice_humedad(humedad: f64) -> f64 {
+    let indice: f64 = if humedad <= 20.0 {
+        0.0
+    } else if humedad < 40.0 {
+        (humedad - 20.0) / 20.0
+    } else if humedad <= 60.0 {
+        1.0
+    } else if humedad < 90.0 {
+        (90.0 - humedad) / 30.0
+    } else {
+        0.0
+    };
+
+    indice.clamp(0.0, 1.0)
+}
+
+// ============================================================
+// 3. ÃNDICE DE CONFORT VISUAL
+// ============================================================
+
+/// Calcula el Ã­ndice visual a partir de la
+/// iluminaciÃ³n ambiental medida en lux.
+///
+/// El intervalo central es de 300 a 500 lux.
+pub fn calcular_indice_visual(datos: &DatosAmbientales) -> Result<f64, String> {
+    datos.validar()?;
+
+    let iluminacion = datos.iluminacion;
+
+    let indice: f64 = if iluminacion <= 0.0 {
+        0.0
+    } else if iluminacion < 300.0 {
+        iluminacion / 300.0
+    } else if iluminacion <= 500.0 {
+        1.0
+    } else if iluminacion < 1000.0 {
+        (1000.0 - iluminacion) / 500.0
+    } else {
+        0.0
+    };
+
+    Ok(indice.clamp(0.0, 1.0))
+}
+
+// ============================================================
+// 4. ÃNDICE DE CONFORT ACÃšSTICO
+// ============================================================
+
+/// Calcula el Ã­ndice acÃºstico a partir del nivel
+/// de ruido ambiental.
+///
+/// La fÃ³rmula conserva los intervalos definidos
+/// originalmente por el proyecto.
+///
+/// Para interpretarlo como nivel sonoro en dBA,
+/// el sistema de adquisiciÃ³n debe proporcionar
+/// mediciones calibradas en esa unidad.
+pub fn calcular_indice_acustico(datos: &DatosAmbientales) -> Result<f64, String> {
+    datos.validar()?;
+
+    let ruido = datos.ruido;
+
+    let indice: f64 = if ruido <= 40.0 {
+        1.0
+    } else if ruido <= 50.0 {
+        1.0 - ((ruido - 40.0) / 100.0)
+    } else if ruido <= 60.0 {
+        0.9 - ((ruido - 50.0) * 0.02)
+    } else if ruido <= 65.0 {
+        0.7 - ((ruido - 60.0) * 0.08)
+    } else if ruido < 70.0 {
+        0.3 - ((ruido - 65.0) * 0.06)
+    } else {
+        0.0
+    };
+
+    Ok(indice.clamp(0.0, 1.0))
+}
+
+// ============================================================
+// 5. ÃNDICE GENERAL DE CONFORT
+// ============================================================
+
+/// Calcula el Ã­ndice general de confort ambiental.
+///
+/// Promedia los Ã­ndices tÃ©rmico, visual y acÃºstico
+/// con la misma ponderaciÃ³n.
+///
+/// Resultado: escala de 0 a 1.
+pub fn calcular_indice_confort(datos: &DatosAmbientales) -> Result<f64, String> {
+    datos.validar()?;
+
+    let indice_termico = calcular_indice_termico(datos)?;
+
+    let indice_visual = calcular_indice_visual(datos)?;
+
+    let indice_acustico = calcular_indice_acustico(datos)?;
+
+    let indice_global: f64 = (indice_termico + indice_visual + indice_acustico) / 3.0;
+
+    Ok(indice_global.clamp(0.0, 1.0))
+}
+
+/// Convierte el Ã­ndice general a una escala
+/// de 0 a 100, compatible con la tabla
+/// `indices_confort` de PostgreSQL.
+pub fn calcular_indice_confort_porcentaje(datos: &DatosAmbientales) -> Result<f64, String> {
+    let indice = calcular_indice_confort(datos)?;
+
+    Ok((indice * 100.0).clamp(0.0, 100.0))
+}
+
+// ============================================================
+// 6. INTERPRETACIÃ“N DEL ÃNDICE
+// ============================================================
+
+/// Devuelve una categorÃ­a interpretativa
+/// del Ã­ndice general expresado entre 0 y 1.
+///
+/// ClasificaciÃ³n propia de SMART CLASSROOM.
+pub fn obtener_estado_confort(indice: f64) -> &'static str {
+    if !indice.is_finite() || !(0.0..=1.0).contains(&indice) {
+        return "Ãndice invÃ¡lido";
+    }
+
+    match indice {
+        valor if valor >= 0.80 => "Muy confortable",
+        valor if valor >= 0.60 => "Confortable",
+        valor if valor >= 0.40 => "Aceptable",
+        valor if valor >= 0.20 => "Poco confortable",
+        _ => "Desfavorable",
+    }
+}
+
+/// Interpreta un Ã­ndice expresado entre 0 y 100.
+pub fn obtener_estado_confort_porcentaje(indice: f64) -> &'static str {
+    if !indice.is_finite() || !(0.0..=100.0).contains(&indice) {
+        return "Ãndice invÃ¡lido";
+    }
+
+    obtener_estado_confort(indice / 100.0)
+}
+
+// ============================================================
+// 7. PRUEBAS UNITARIAS
+// ============================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn datos_referencia() -> DatosAmbientales {
+        DatosAmbientales {
+            temperatura: 26.0,
+            humedad: 50.0,
+            iluminacion: 400.0,
+            ruido: 40.0,
+        }
+    }
+
+    #[test]
+    fn calcula_confort_termico_correctamente() {
+        let datos = datos_referencia();
+
+        assert_eq!(calcular_indice_termico(&datos).unwrap(), 1.0);
+    }
+
+    #[test]
+    fn calcula_confort_visual_correctamente() {
+        let datos = datos_referencia();
+
+        assert_eq!(calcular_indice_visual(&datos).unwrap(), 1.0);
+    }
+
+    #[test]
+    fn calcula_confort_acustico_correctamente() {
+        let datos = datos_referencia();
+
+        assert_eq!(calcular_indice_acustico(&datos).unwrap(), 1.0);
+    }
+
+    #[test]
+    fn calcula_indice_general_correctamente() {
+        let datos = datos_referencia();
+
+        assert_eq!(calcular_indice_confort(&datos).unwrap(), 1.0);
+    }
+
+    #[test]
+    fn convierte_indice_a_porcentaje() {
+        let datos = datos_referencia();
+
+        assert_eq!(calcular_indice_confort_porcentaje(&datos).unwrap(), 100.0);
+    }
+
+    #[test]
+    fn rechaza_humedad_invalida() {
+        let mut datos = datos_referencia();
+        datos.humedad = 120.0;
+
+        assert!(calcular_indice_confort(&datos).is_err());
+    }
+
+    #[test]
+    fn rechaza_valores_no_finitos() {
+        let mut datos = datos_referencia();
+        datos.temperatura = f64::NAN;
+
+        assert!(calcular_indice_confort(&datos).is_err());
+    }
+
+    #[test]
+    fn interpreta_estado_correctamente() {
+        assert_eq!(obtener_estado_confort(0.85), "Muy confortable");
+
+        assert_eq!(obtener_estado_confort_porcentaje(65.0), "Confortable");
+
+        assert_eq!(obtener_estado_confort(f64::NAN), "Ãndice invÃ¡lido");
+    }
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\services\ingesta.rs ==========
+//! SMART CLASSROOM â€” Servicio de Ingesta
+//!
+//! Procesa los datos ambientales enviados por el ESP32.
+//!
+//! Flujo:
+//! 1. Validar el JSON recibido.
+//! 2. Buscar el dispositivo y comprobar que estÃ© activo.
+//! 3. Obtener el aula asignada al dispositivo.
+//! 4. Guardar una mediciÃ³n por cada sensor activo.
+//! 5. Comparar las mediciones con sus rangos.
+//! 6. Registrar las alertas correspondientes.
+//! 7. Calcular y guardar el Ã­ndice de confort.
+//! 8. Actualizar la Ãºltima conexiÃ³n del dispositivo.
+//! 9. Confirmar la transacciÃ³n.
+//!
+//! La selecciÃ³n del aula se administra desde el frontend
+//! mediante la asignaciÃ³n del dispositivo.
+
+use std::collections::BTreeMap;
+
+use chrono::{DateTime, Utc};
+use serde::Serialize;
+use sqlx::PgPool;
+use uuid::Uuid;
+
+use crate::errors::{ApiError, ApiResult};
+use crate::schemas::ingesta::NuevaMedicion;
+use crate::services::confort::{self, DatosAmbientales};
+
+// ============================================================
+// 1. LÃMITES DE VALIDACIÃ“N
+// ============================================================
+
+/// LÃ­mites operativos preliminares de las lecturas.
+///
+/// No representan rangos de confort.
+/// Deben revisarse segÃºn las especificaciones y
+/// la calibraciÃ³n de los sensores utilizados.
+const LIMITES_FISICOS: [(&str, f64, f64); 4] = [
+    ("temperatura", -40.0, 85.0),
+    ("humedad", 0.0, 100.0),
+    ("iluminacion", 0.0, 100_000.0),
+    ("ruido", 0.0, 140.0),
+];
+
+// ============================================================
+// 2. ESTRUCTURAS DE RESPUESTA
+// ============================================================
+
+/// InformaciÃ³n de una variable fuera de rango.
+#[derive(Debug, Clone, Serialize)]
+pub struct AlertaGenerada {
+    pub tipo_sensor: String,
+    pub unidad: String,
+
+    /// "por_debajo" o "por_encima".
+    pub tipo: String,
+
+    pub valor: f64,
+    pub valor_minimo: f64,
+    pub valor_maximo: f64,
+    pub mensaje: String,
+
+    /// Indica si se insertÃ³ una alerta nueva.
+    pub nueva: bool,
+}
+
+/// Resultado del procesamiento de una lectura ESP32.
+#[derive(Debug, Clone, Serialize)]
+pub struct ResultadoIngesta {
+    pub aula_id: Uuid,
+    pub aula_codigo: String,
+    pub dispositivo: String,
+    pub medido_en: DateTime<Utc>,
+    pub valores: BTreeMap<String, f64>,
+    pub omitidas: Vec<String>,
+    pub alertas: Vec<AlertaGenerada>,
+
+    /// Ãndice de confort en escala 0â€“100.
+    pub confort: Option<f64>,
+    pub estado_confort: Option<&'static str>,
+
+    /// NORMAL o ALERTA.
+    pub estado: &'static str,
+}
+
+// ============================================================
+// 3. RECOLECCIÃ“N Y VALIDACIÃ“N
+// ============================================================
+
+/// Valida las variables recibidas en el JSON.
+///
+/// Solo devuelve las variables presentes.
+fn recolectar(datos: &NuevaMedicion) -> ApiResult<Vec<(&'static str, f64)>> {
+    let valores = [
+        datos.temperatura,
+        datos.humedad,
+        datos.iluminacion,
+        datos.ruido,
+    ];
+
+    let mut lecturas = Vec::new();
+
+    for ((nombre, minimo, maximo), valor) in LIMITES_FISICOS.iter().zip(valores) {
+        let Some(valor) = valor else {
+            continue;
+        };
+
+        if !valor.is_finite() {
+            return Err(ApiError::BadRequest(format!(
+                "'{nombre}' debe ser un nÃºmero vÃ¡lido"
+            )));
+        }
+
+        if valor < *minimo || valor > *maximo {
+            return Err(ApiError::BadRequest(format!(
+                "'{nombre}' ({valor}) estÃ¡ fuera de los lÃ­mites \
+                  permitidos [{minimo}, {maximo}]"
+            )));
+        }
+
+        lecturas.push((*nombre, valor));
+    }
+
+    Ok(lecturas)
+}
+
+// ============================================================
+// 4. CÃLCULO DEL CONFORT
+// ============================================================
+
+/// Calcula el Ã­ndice de confort en escala 0â€“100.
+///
+/// Solo devuelve un resultado cuando se han
+/// guardado las cuatro variables ambientales.
+fn calcular_confort(valores: &BTreeMap<String, f64>) -> Option<f64> {
+    let datos = DatosAmbientales {
+        temperatura: *valores.get("temperatura")?,
+        humedad: *valores.get("humedad")?,
+        iluminacion: *valores.get("iluminacion")?,
+        ruido: *valores.get("ruido")?,
+    };
+
+    confort::calcular_indice_confort_porcentaje(&datos)
+        .ok()
+        .map(|indice| (indice * 10.0).round() / 10.0)
+}
+
+// ============================================================
+// 5. PROCESAMIENTO PRINCIPAL
+// ============================================================
+
+/// Procesa una lectura del ESP32.
+///
+/// La operaciÃ³n utiliza una transacciÃ³n para
+/// mantener consistencia entre mediciones,
+/// alertas, confort y Ãºltima conexiÃ³n.
+pub async fn procesar(pool: &PgPool, datos: NuevaMedicion) -> ApiResult<ResultadoIngesta> {
+    // --------------------------------------------------------
+    // 5.1 VALIDAR IDENTIFICADOR Y LECTURAS
+    // --------------------------------------------------------
+
+    let identificador = datos.dispositivo_id.trim().to_string();
+
+    if identificador.is_empty() {
+        return Err(ApiError::BadRequest("dispositivo_id es obligatorio".into()));
+    }
+
+    let lecturas = recolectar(&datos)?;
+
+    if lecturas.is_empty() {
+        return Err(ApiError::BadRequest(
+            "Debe enviar al menos una mediciÃ³n: \
+              temperatura, humedad, iluminacion o ruido"
+                .into(),
+        ));
+    }
+
+    // --------------------------------------------------------
+    // 5.2 INICIAR TRANSACCIÃ“N
+    // --------------------------------------------------------
+
+    let mut tx = pool.begin().await?;
+
+    // --------------------------------------------------------
+    // 5.3 IDENTIFICAR DISPOSITIVO Y AULA
+    // --------------------------------------------------------
+
+    // FOR UPDATE bloquea la fila del dispositivo
+    // mientras se procesa la lectura.
+    //
+    // Esto permite coordinar la ingesta con una
+    // reasignaciÃ³n de aula que tambiÃ©n actualice
+    // la fila de dispositivos.
+    let dispositivo: Option<(Uuid, Uuid, String, String)> = sqlx::query_as(
+        "SELECT d.id, d.aula_id, d.estado, a.codigo
+                FROM dispositivos d
+                JOIN aulas a ON a.id = d.aula_id
+               WHERE d.identificador = $1
+               FOR UPDATE OF d",
+    )
+    .bind(&identificador)
+    .fetch_optional(&mut *tx)
+    .await?;
+
+    let (dispositivo_id, aula_id, estado_dispositivo, aula_codigo) =
+        dispositivo.ok_or_else(|| {
+            ApiError::NotFound(format!("Dispositivo '{identificador}' no registrado"))
+        })?;
+
+    if estado_dispositivo != "activo" {
+        return Err(ApiError::Forbidden(format!(
+            "El dispositivo '{identificador}' estÃ¡ \
+              en estado '{estado_dispositivo}'"
+        )));
+    }
+
+    // --------------------------------------------------------
+    // 5.4 PREPARAR RESULTADOS
+    // --------------------------------------------------------
+
+    let mut valores: BTreeMap<String, f64> = BTreeMap::new();
+
+    let mut omitidas: Vec<String> = Vec::new();
+
+    let mut alertas: Vec<AlertaGenerada> = Vec::new();
+
+    let mut medido_en: Option<DateTime<Utc>> = None;
+
+    // --------------------------------------------------------
+    // 5.5 PROCESAR CADA VARIABLE
+    // --------------------------------------------------------
+
+    for (tipo, valor) in &lecturas {
+        // Buscar el sensor activo correspondiente
+        // al dispositivo y al tipo de variable.
+        let sensor: Option<(Uuid, Uuid, String)> = sqlx::query_as(
+            "SELECT s.id, ts.id, ts.unidad
+                    FROM sensores s
+                    JOIN tipos_sensor ts
+                      ON ts.id = s.tipo_sensor_id
+                   WHERE s.dispositivo_id = $1
+                     AND ts.nombre = $2
+                     AND s.estado = 'activo'",
+        )
+        .bind(dispositivo_id)
+        .bind(*tipo)
+        .fetch_optional(&mut *tx)
+        .await?;
+
+        let Some((sensor_id, tipo_sensor_id, unidad)) = sensor else {
+            tracing::warn!(
+                "Dispositivo '{}' sin sensor activo \
+                  para '{}': lectura omitida",
+                identificador,
+                tipo
+            );
+
+            omitidas.push(tipo.to_string());
+            continue;
+        };
+
+        // ----------------------------------------------------
+        // GUARDAR MEDICIÃ“N
+        // ----------------------------------------------------
+
+        let (medicion_id, fecha_medicion): (Uuid, DateTime<Utc>) = sqlx::query_as(
+            "INSERT INTO mediciones (sensor_id, valor)
+              VALUES ($1, $2)
+              RETURNING id, medido_en",
+        )
+        .bind(sensor_id)
+        .bind(*valor)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        if medido_en.is_none() {
+            medido_en = Some(fecha_medicion);
+        }
+
+        valores.insert(tipo.to_string(), *valor);
+
+        // ----------------------------------------------------
+        // CONSULTAR RANGO CONFIGURADO
+        // ----------------------------------------------------
+
+        let rango: Option<(Uuid, f64, f64)> = sqlx::query_as(
+            "SELECT id, valor_minimo, valor_maximo
+                    FROM rangos_sensor
+                   WHERE aula_id = $1
+                     AND tipo_sensor_id = $2
+                     AND activo = TRUE",
+        )
+        .bind(aula_id)
+        .bind(tipo_sensor_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+
+        let Some((rango_id, minimo, maximo)) = rango else {
+            continue;
+        };
+
+        // ----------------------------------------------------
+        // EVALUAR MEDICIÃ“N
+        // ----------------------------------------------------
+
+        let desviacion = if *valor < minimo {
+            Some(("por_debajo", "por debajo del mÃ­nimo", minimo))
+        } else if *valor > maximo {
+            Some(("por_encima", "por encima del mÃ¡ximo", maximo))
+        } else {
+            None
+        };
+
+        let Some((tipo_alerta, descripcion, limite)) = desviacion else {
+            continue;
+        };
+
+        let mensaje = format!(
+            "{tipo}: {valor:.1} {unidad}, \
+              {descripcion} permitido \
+              ({limite:.1} {unidad})"
+        );
+
+        // ----------------------------------------------------
+        // REGISTRAR ALERTA
+        // ----------------------------------------------------
+
+        // PostgreSQL puede completar los lÃ­mites
+        // histÃ³ricos mediante el trigger definido
+        // en el esquema original.
+        //
+        // Si existe una alerta activa del mismo
+        // rango y tipo, no se duplica.
+        let insertadas = sqlx::query(
+            "INSERT INTO alertas (
+                  medicion_id,
+                  rango_sensor_id,
+                  tipo,
+                  mensaje,
+                  valor_minimo_aplicado,
+                  valor_maximo_aplicado
+              )
+              VALUES ($1, $2, $3, $4, $5, $6)
+              ON CONFLICT DO NOTHING",
+        )
+        .bind(medicion_id)
+        .bind(rango_id)
+        .bind(tipo_alerta)
+        .bind(&mensaje)
+        .bind(minimo)
+        .bind(maximo)
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+
+        let nueva = insertadas > 0;
+
+        alertas.push(AlertaGenerada {
+            tipo_sensor: tipo.to_string(),
+            unidad,
+            tipo: tipo_alerta.to_string(),
+            valor: *valor,
+            valor_minimo: minimo,
+            valor_maximo: maximo,
+            mensaje,
+            nueva,
+        });
+    }
+
+    // --------------------------------------------------------
+    // 5.6 VERIFICAR QUE SE GUARDÃ“ ALGUNA MEDICIÃ“N
+    // --------------------------------------------------------
+
+    let Some(medido_en) = medido_en else {
+        // Sin commit, la transacciÃ³n se revierte.
+        return Err(ApiError::BadRequest(format!(
+            "El dispositivo '{identificador}' \
+              no tiene sensores activos para \
+              las variables enviadas"
+        )));
+    };
+
+    // --------------------------------------------------------
+    // 5.7 ACTUALIZAR ÃšLTIMA CONEXIÃ“N
+    // --------------------------------------------------------
+
+    sqlx::query(
+        "UPDATE dispositivos
+             SET ultima_conexion = NOW()
+           WHERE id = $1",
+    )
+    .bind(dispositivo_id)
+    .execute(&mut *tx)
+    .await?;
+
+    // --------------------------------------------------------
+    // 5.8 CALCULAR Y GUARDAR CONFORT
+    // --------------------------------------------------------
+
+    // Solo se calcula cuando las cuatro variables
+    // se guardaron durante esta misma ingesta.
+    let confort_valor = calcular_confort(&valores);
+
+    if let Some(indice) = confort_valor {
+        sqlx::query(
+            "INSERT INTO indices_confort (aula_id, valor)
+              VALUES ($1, $2)",
+        )
+        .bind(aula_id)
+        .bind(indice)
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    // --------------------------------------------------------
+    // 5.9 CONFIRMAR TRANSACCIÃ“N
+    // --------------------------------------------------------
+
+    tx.commit().await?;
+
+    // --------------------------------------------------------
+    // 5.10 PREPARAR RESPUESTA
+    // --------------------------------------------------------
+
+    let estado = if alertas.is_empty() {
+        "NORMAL"
+    } else {
+        "ALERTA"
+    };
+
+    let estado_confort = confort_valor.map(confort::obtener_estado_confort_porcentaje);
+
+    Ok(ResultadoIngesta {
+        aula_id,
+        aula_codigo,
+        dispositivo: identificador,
+        medido_en,
+        valores,
+        omitidas,
+        alertas,
+        confort: confort_valor,
+        estado_confort,
+        estado,
+    })
+}
+
+// ============================================================
+// 6. PRUEBAS UNITARIAS
+// ============================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn calcula_confort_con_cuatro_variables() {
+        let mut valores = BTreeMap::new();
+
+        valores.insert("temperatura".to_string(), 26.0);
+        valores.insert("humedad".to_string(), 50.0);
+        valores.insert("iluminacion".to_string(), 400.0);
+        valores.insert("ruido".to_string(), 40.0);
+
+        let resultado = calcular_confort(&valores);
+
+        assert_eq!(resultado, Some(100.0));
+    }
+
+    #[test]
+    fn no_calcula_confort_si_falta_una_variable() {
+        let mut valores = BTreeMap::new();
+
+        valores.insert("temperatura".to_string(), 26.0);
+        valores.insert("humedad".to_string(), 50.0);
+        valores.insert("iluminacion".to_string(), 400.0);
+
+        let resultado = calcular_confort(&valores);
+
+        assert_eq!(resultado, None);
+    }
+
+    #[test]
+    fn rechaza_valores_no_finitos_en_confort() {
+        let mut valores = BTreeMap::new();
+
+        valores.insert("temperatura".to_string(), f64::NAN);
+        valores.insert("humedad".to_string(), 50.0);
+        valores.insert("iluminacion".to_string(), 400.0);
+        valores.insert("ruido".to_string(), 40.0);
+
+        assert_eq!(calcular_confort(&valores), None);
+    }
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\services\mediciones.rs ==========
+//! SMART CLASSROOM â€” Servicio de Mediciones
+//!
+//! Funciones para validar, buscar, filtrar y calcular
+//! estadÃ­sticas de mediciones ambientales.
+//!
+//! Compatible con PostgreSQL y el modelo Medicion:
+//! id, sensor_id, valor, medido_en.
+//!
+//! Cada mediciÃ³n pertenece a un sensor especÃ­fico.
+//! El tipo de variable se obtiene mediante la relaciÃ³n
+//! sensores -> tipos_sensor.
+
+use crate::models::Medicion;
+use uuid::Uuid;
+
+// ============================================================
+// 1. VALIDACIÃ“N DE MEDICIONES
+// ============================================================
+
+/// Valida los datos de una mediciÃ³n antes de procesarla.
+///
+/// La existencia del sensor debe verificarse tambiÃ©n
+/// en PostgreSQL mediante su clave forÃ¡nea.
+pub fn validar_medicion(medicion: &Medicion) -> Result<(), String> {
+    if medicion.id.is_nil() {
+        return Err("El identificador de la mediciÃ³n no es vÃ¡lido".to_string());
+    }
+
+    if medicion.sensor_id.is_nil() {
+        return Err("El identificador del sensor no es vÃ¡lido".to_string());
+    }
+
+    if !medicion.valor.is_finite() {
+        return Err("El valor de la mediciÃ³n debe ser un nÃºmero finito".to_string());
+    }
+
+    Ok(())
+}
+
+// ============================================================
+// 2. BÃšSQUEDA DE MEDICIONES
+// ============================================================
+
+/// Busca una mediciÃ³n por su identificador UUID.
+pub fn buscar_por_id(mediciones: &[Medicion], id: Uuid) -> Option<Medicion> {
+    mediciones
+        .iter()
+        .find(|medicion| medicion.id == id)
+        .cloned()
+}
+
+// ============================================================
+// 3. FILTRADO DE MEDICIONES
+// ============================================================
+
+/// Obtiene todas las mediciones pertenecientes a un sensor.
+pub fn filtrar_por_sensor(mediciones: &[Medicion], sensor_id: Uuid) -> Vec<Medicion> {
+    mediciones
+        .iter()
+        .filter(|medicion| medicion.sensor_id == sensor_id)
+        .cloned()
+        .collect()
+}
+
+/// Obtiene las mediciones de varios sensores.
+///
+/// Es Ãºtil para consultar todas las variables
+/// ambientales de un aula.
+///
+/// Los identificadores deben obtenerse previamente
+/// de PostgreSQL verificando quÃ© sensores pertenecen
+/// al aula consultada.
+pub fn filtrar_por_sensores(mediciones: &[Medicion], sensores_ids: &[Uuid]) -> Vec<Medicion> {
+    mediciones
+        .iter()
+        .filter(|medicion| sensores_ids.contains(&medicion.sensor_id))
+        .cloned()
+        .collect()
+}
+
+// ============================================================
+// 4. ESTADÃSTICAS GENERALES
+// ============================================================
+
+/// Calcula el promedio de un conjunto de mediciones.
+///
+/// Devuelve None si no hay valores vÃ¡lidos.
+pub fn calcular_promedio(mediciones: &[Medicion]) -> Option<f64> {
+    let mut suma = 0.0;
+    let mut cantidad = 0usize;
+
+    for medicion in mediciones {
+        if medicion.valor.is_finite() {
+            suma += medicion.valor;
+            cantidad += 1;
+        }
+    }
+
+    if cantidad == 0 {
+        return None;
+    }
+
+    let promedio = suma / cantidad as f64;
+
+    if promedio.is_finite() {
+        Some(promedio)
+    } else {
+        None
+    }
+}
+
+/// Obtiene el valor mÃ¡ximo registrado.
+pub fn calcular_maximo(mediciones: &[Medicion]) -> Option<f64> {
+    mediciones
+        .iter()
+        .map(|medicion| medicion.valor)
+        .filter(|valor| valor.is_finite())
+        .reduce(f64::max)
+}
+
+/// Obtiene el valor mÃ­nimo registrado.
+pub fn calcular_minimo(mediciones: &[Medicion]) -> Option<f64> {
+    mediciones
+        .iter()
+        .map(|medicion| medicion.valor)
+        .filter(|valor| valor.is_finite())
+        .reduce(f64::min)
+}
+
+// ============================================================
+// 5. ESTADÃSTICAS POR SENSOR
+// ============================================================
+
+/// Calcula el promedio de las mediciones de un sensor.
+pub fn calcular_promedio_sensor(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    let filtradas = filtrar_por_sensor(mediciones, sensor_id);
+
+    calcular_promedio(&filtradas)
+}
+
+/// Obtiene el valor mÃ¡ximo registrado por un sensor.
+pub fn calcular_maximo_sensor(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    let filtradas = filtrar_por_sensor(mediciones, sensor_id);
+
+    calcular_maximo(&filtradas)
+}
+
+/// Obtiene el valor mÃ­nimo registrado por un sensor.
+pub fn calcular_minimo_sensor(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    let filtradas = filtrar_por_sensor(mediciones, sensor_id);
+
+    calcular_minimo(&filtradas)
+}
+
+// ============================================================
+// 6. ESTADÃSTICAS POR TIPO DE VARIABLE
+// ============================================================
+
+/// Calcula el promedio de temperatura.
+///
+/// Se debe proporcionar el UUID del sensor
+/// que mide temperatura.
+pub fn calcular_promedio_temperatura(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    calcular_promedio_sensor(mediciones, sensor_id)
+}
+
+/// Calcula el promedio de humedad.
+pub fn calcular_promedio_humedad(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    calcular_promedio_sensor(mediciones, sensor_id)
+}
+
+/// Calcula el promedio de iluminaciÃ³n.
+pub fn calcular_promedio_iluminacion(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    calcular_promedio_sensor(mediciones, sensor_id)
+}
+
+/// Calcula el promedio de ruido.
+pub fn calcular_promedio_ruido(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    calcular_promedio_sensor(mediciones, sensor_id)
+}
+
+/// Obtiene la temperatura mÃ¡xima.
+pub fn calcular_maximo_temperatura(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    calcular_maximo_sensor(mediciones, sensor_id)
+}
+
+/// Obtiene la humedad mÃ¡xima.
+pub fn calcular_maximo_humedad(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    calcular_maximo_sensor(mediciones, sensor_id)
+}
+
+/// Obtiene la iluminaciÃ³n mÃ¡xima.
+pub fn calcular_maximo_iluminacion(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    calcular_maximo_sensor(mediciones, sensor_id)
+}
+
+/// Obtiene el ruido mÃ¡ximo.
+pub fn calcular_maximo_ruido(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    calcular_maximo_sensor(mediciones, sensor_id)
+}
+
+/// Obtiene la temperatura mÃ­nima.
+pub fn calcular_minimo_temperatura(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    calcular_minimo_sensor(mediciones, sensor_id)
+}
+
+/// Obtiene la humedad mÃ­nima.
+pub fn calcular_minimo_humedad(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    calcular_minimo_sensor(mediciones, sensor_id)
+}
+
+/// Obtiene la iluminaciÃ³n mÃ­nima.
+pub fn calcular_minimo_iluminacion(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    calcular_minimo_sensor(mediciones, sensor_id)
+}
+
+/// Obtiene el ruido mÃ­nimo.
+pub fn calcular_minimo_ruido(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    calcular_minimo_sensor(mediciones, sensor_id)
+}
+
+// ============================================================
+// 7. PRUEBAS UNITARIAS
+// ============================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+
+    fn crear_medicion(sensor_id: Uuid, valor: f64) -> Medicion {
+        Medicion {
+            id: Uuid::new_v4(),
+            sensor_id,
+            valor,
+            medido_en: Utc::now(),
+        }
+    }
+
+    #[test]
+    fn valida_medicion_correcta() {
+        let sensor_id = Uuid::new_v4();
+        let medicion = crear_medicion(sensor_id, 25.5);
+
+        assert!(validar_medicion(&medicion).is_ok());
+    }
+
+    #[test]
+    fn rechaza_sensor_invalido() {
+        let medicion = crear_medicion(Uuid::nil(), 25.5);
+
+        assert!(validar_medicion(&medicion).is_err());
+    }
+
+    #[test]
+    fn rechaza_valores_no_finitos() {
+        let sensor_id = Uuid::new_v4();
+
+        let medicion = crear_medicion(sensor_id, f64::NAN);
+
+        assert!(validar_medicion(&medicion).is_err());
+    }
+
+    #[test]
+    fn filtra_mediciones_por_sensor() {
+        let sensor_a = Uuid::new_v4();
+        let sensor_b = Uuid::new_v4();
+
+        let mediciones = vec![
+            crear_medicion(sensor_a, 25.0),
+            crear_medicion(sensor_b, 60.0),
+            crear_medicion(sensor_a, 27.0),
+        ];
+
+        let resultado = filtrar_por_sensor(&mediciones, sensor_a);
+
+        assert_eq!(resultado.len(), 2);
+    }
+
+    #[test]
+    fn calcula_estadisticas_correctamente() {
+        let sensor_id = Uuid::new_v4();
+
+        let mediciones = vec![
+            crear_medicion(sensor_id, 20.0),
+            crear_medicion(sensor_id, 25.0),
+            crear_medicion(sensor_id, 30.0),
+        ];
+
+        assert_eq!(calcular_promedio(&mediciones), Some(25.0));
+
+        assert_eq!(calcular_maximo(&mediciones), Some(30.0));
+
+        assert_eq!(calcular_minimo(&mediciones), Some(20.0));
+    }
+
+    #[test]
+    fn retorna_none_sin_mediciones() {
+        let mediciones: Vec<Medicion> = Vec::new();
+
+        assert_eq!(calcular_promedio(&mediciones), None);
+
+        assert_eq!(calcular_maximo(&mediciones), None);
+
+        assert_eq!(calcular_minimo(&mediciones), None);
+    }
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\services\mod.rs ==========
+pub mod alertas;
+pub mod confort;
+pub mod ingesta;
+pub mod mediciones;
+
+========== C:\smart-classroom\smart-classroom-backend\src\websocket\handler.rs ==========
+use axum::{
+    extract::{
+        ws::{Message, WebSocket, WebSocketUpgrade},
+        Extension,
+    },
+    response::IntoResponse,
+};
+use futures_util::{SinkExt, StreamExt};
+use std::sync::Arc;
+use tokio::sync::broadcast::{self, error::RecvError};
+use tracing::{info, warn};
+
+// Estado compartido de todo el sistema de WebSocket.
+// `broadcast::Sender` permite enviar un mensaje UNA vez y que TODOS los
+// clientes suscritos (todas las conexiones abiertas) lo reciban.
+// Es justo lo que necesitamos para "actualizaciones de mediciones en tiempo real":
+// cuando llega una mediciÃ³n nueva, se difunde a todos los que estÃ¡n viendo el dashboard.
+#[derive(Clone)]
+pub struct WsState {
+    pub tx: broadcast::Sender<String>,
+}
+
+impl WsState {
+    // Crea el estado inicial. `capacity` es cuÃ¡ntos mensajes se guardan en el
+    // buffer interno: si un cliente es muy lento leyendo, despuÃ©s de ese lÃ­mite
+    // empieza a perder mensajes viejos (no se acumulan infinitamente en memoria).
+    pub fn new(capacity: usize) -> Arc<Self> {
+        let (tx, _rx) = broadcast::channel(capacity);
+        // El _rx (receptor inicial) se descarta: cada cliente que se conecte
+        // crearÃ¡ su propio receptor con tx.subscribe() mÃ¡s abajo.
+        Arc::new(Self { tx })
+    }
+
+    // FunciÃ³n pÃºblica que usa el resto del sistema (la ruta POST /api/mediciones)
+    // para publicar una nueva mediciÃ³n a todos los clientes.
+    pub fn broadcast_measurement(&self, payload: String) {
+        // send() devuelve Err solo si NO hay ningÃºn cliente escuchando.
+        // Eso no es un error grave para nosotros, asÃ­ que lo ignoramos con `let _ =`.
+        let _ = self.tx.send(payload);
+    }
+}
+
+// Handler HTTP normal que "upgradea" la conexiÃ³n a WebSocket.
+// Usa `Extension` (igual que el pool y la config) porque el router no usa `with_state`.
+pub async fn ws_handler(
+    ws: WebSocketUpgrade,
+    Extension(state): Extension<Arc<WsState>>,
+) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| handle_socket(socket, state))
+}
+
+// LÃ³gica de UNA conexiÃ³n WebSocket individual (se ejecuta una vez por cada cliente conectado).
+async fn handle_socket(socket: WebSocket, state: Arc<WsState>) {
+    let (mut sender, mut receiver) = socket.split();
+
+    // Cada cliente se suscribe de forma independiente al canal de broadcast.
+    let mut rx = state.tx.subscribe();
+
+    info!("Nuevo cliente WebSocket conectado");
+
+    // TAREA 1: reenvÃ­a cada mediciÃ³n nueva a ESTE cliente.
+    let mut send_task = tokio::spawn(async move {
+        loop {
+            match rx.recv().await {
+                Ok(msg) => {
+                    // Si falla el envÃ­o, el cliente ya se desconectÃ³.
+                    if sender.send(Message::Text(msg)).await.is_err() {
+                        break;
+                    }
+                }
+                // Cliente lento: se perdieron mensajes viejos, pero la conexiÃ³n sigue.
+                Err(RecvError::Lagged(omitidos)) => {
+                    warn!("Cliente WebSocket lento: se omitieron {omitidos} mensajes");
+                }
+                Err(RecvError::Closed) => break,
+            }
+        }
+    });
+
+    // TAREA 2: escucha lo que el cliente envÃ­a (cierre, mensajes de control).
+    let mut recv_task = tokio::spawn(async move {
+        while let Some(Ok(msg)) = receiver.next().await {
+            match msg {
+                Message::Text(text) => {
+                    info!("Mensaje recibido del cliente: {}", text);
+                }
+                Message::Close(_) => {
+                    info!("El cliente cerrÃ³ la conexiÃ³n");
+                    break;
+                }
+                _ => {} // Ignoramos pings/pongs/binarios por ahora
+            }
+        }
+    });
+
+    // Cuando una de las dos tareas termina, se cancela la otra.
+    tokio::select! {
+        _ = (&mut send_task) => recv_task.abort(),
+        _ = (&mut recv_task) => send_task.abort(),
+    }
+
+    warn!("Cliente WebSocket desconectado");
+}
+
+========== C:\smart-classroom\smart-classroom-backend\src\websocket\mod.rs ==========
+// Declara que handler.rs pertenece a este mÃ³dulo...
+pub mod handler;
+
+// ...y reexporta lo que otros mÃ³dulos necesitan usar,
+// para poder escribir `use crate::websocket::{ws_handler, WsState}` directamente.
+pub use handler::{ws_handler, WsState};
+

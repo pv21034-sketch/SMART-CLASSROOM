@@ -1,0 +1,2350 @@
+
+===== Cargo.toml =====
+[package]
+name = "smart_classroom_backend"
+version = "0.1.0"
+edition = "2021"
+ 
+[dependencies]
+axum = { version = "0.7", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "chrono", "migrate", "macros"] }
+chrono = { version = "0.4", features = ["serde"] }
+dotenvy = "0.15"
+futures-util = "0.3"
+anyhow = "1.0.104"
+thiserror = "2.0.21"
+
+
+===== src\main.rs =====
+//! SMART CLASSROOM — Backend
+//!
+//! Servicio HTTP/WebSocket que recibe las mediciones de los dispositivos ESP32,
+//! las valida, las almacena en PostgreSQL y expone la API para el dashboard.
+
+// ============================================================
+// MÓDULOS
+// ============================================================
+
+mod config;
+mod db;
+mod errors;
+mod models;
+mod routes;
+mod schemas;
+mod services;
+
+// ============================================================
+// IMPORTACIONES
+// ============================================================
+
+use anyhow::Context;
+use axum::{http::StatusCode, routing::get, Extension, Json, Router};
+use serde_json::{json, Value};
+use sqlx::PgPool;
+use tokio::{net::TcpListener, signal};
+use tower_http::{
+    cors::{Any, CorsLayer},
+    trace::TraceLayer,
+};
+use tracing_subscriber::EnvFilter;
+
+use crate::config::Config;
+
+// ============================================================
+// CONSTANTES
+// ============================================================
+
+const NOMBRE_SERVICIO: &str = "smart-classroom-backend";
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+// ============================================================
+// FUNCIÓN PRINCIPAL
+// ============================================================
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // Variables de entorno definidas en .env (si el archivo no existe, se ignora).
+    dotenvy::dotenv().ok();
+
+    iniciar_logging();
+
+    let config = Config::desde_entorno()?;
+
+    // Base de datos
+    let pool = db::crear_pool()
+        .await
+        .context("No se pudo establecer la conexión con PostgreSQL")?;
+    tracing::info!("Conexión con PostgreSQL establecida correctamente");
+
+    db::ejecutar_migraciones(&pool)
+        .await
+        .context("No se pudieron aplicar las migraciones de la base de datos")?;
+    tracing::info!("Migraciones aplicadas correctamente");
+
+        // if let (Some(usuario), Some(password)) = (&config.admin_usuario, &config.admin_password) {
+    //     match services::usuarios::crear_admin_inicial(&pool, usuario, password).await {
+    //         Ok(true) => tracing::info!("Administrador inicial '{usuario}' creado"),
+    //         Ok(false) => {}
+    //         Err(e) => tracing::error!("No se pudo crear el administrador inicial: {e}"),
+    //     }
+    // }
+    // Primer administrador (solo si la tabla usuarios está vacía y hay credenciales en .env)
+   // if let (Some(usuario), Some(password)) = (&config.admin_usuario, &config.admin_password) {
+     //  match services::usuarios::crear_admin_inicial(&pool, usuario, password).await {
+     //       Ok(true) => tracing::info!("Administrador inicial '{usuario}' creado"),
+      //      Ok(false) => {}
+       //     Err(e) => tracing::error!("No se pudo crear el administrador inicial: {e}"),
+        //}
+   // }
+    //
+
+    // Aplicación
+    let direccion = config.direccion;
+    let app = construir_app(pool, config);
+
+    let listener = TcpListener::bind(direccion)
+        .await
+        .with_context(|| format!("No se pudo enlazar el servidor a {direccion}"))?;
+
+    tracing::info!("{NOMBRE_SERVICIO} v{VERSION} ejecutándose en http://{direccion}");
+
+    axum::serve(listener, app)
+        .with_graceful_shutdown(senal_de_apagado())
+        .await
+        .context("Error en el servidor")?;
+
+    tracing::info!("Servidor detenido correctamente");
+    Ok(())
+}
+
+// ============================================================
+// CONSTRUCCIÓN DEL ROUTER
+// ============================================================
+
+/// Arma el router completo con rutas base, rutas del sistema y middlewares.
+///
+/// El pool de PostgreSQL y la configuración se comparten con todos los
+/// handlers mediante `Extension<PgPool>` y `Extension<Config>`.
+fn construir_app(pool: PgPool, config: Config) -> Router {
+    // CORS abierto para desarrollo: permite que el dashboard (HTML/JS) consuma la API
+    // desde otro origen. En producción conviene restringir `allow_origin`.
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
+    Router::new()
+        // Rutas base
+        .route("/", get(inicio))
+        .route("/api/salud", get(salud))
+        // Rutas del sistema (mediciones, aulas, sensores, alertas, auth, WebSocket…)
+        .merge(routes::create_router())
+        // Respuesta JSON para rutas inexistentes
+        .fallback(no_encontrado)
+        // Middlewares (el último en agregarse es el primero en ejecutarse)
+        .layer(Extension(pool))
+        .layer(Extension(config))
+        .layer(TraceLayer::new_for_http())
+        .layer(cors)
+}
+
+// ============================================================
+// LOGGING
+// ============================================================
+
+/// Inicializa el sistema de logs. El nivel se controla con `RUST_LOG`
+/// (por ejemplo: `RUST_LOG=debug`). Por defecto: `info`.
+fn iniciar_logging() {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
+        .with_target(false)
+        .init();
+}
+
+// ============================================================
+// APAGADO CONTROLADO
+// ============================================================
+
+/// Espera Ctrl+C (o SIGTERM en Unix) para que el servidor termine
+/// las peticiones en curso antes de cerrarse.
+async fn senal_de_apagado() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("No se pudo instalar el manejador de Ctrl+C");
+    };
+
+    #[cfg(unix)]
+    let terminar = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("No se pudo instalar el manejador de SIGTERM")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminar = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminar => {},
+    }
+
+    tracing::info!("Señal de apagado recibida, cerrando el servidor...");
+}
+
+// ============================================================
+// ENDPOINT: INICIO
+// ============================================================
+
+/// Información básica del servicio.
+///
+/// GET /
+async fn inicio() -> Json<Value> {
+    Json(json!({
+        "servicio": NOMBRE_SERVICIO,
+        "version": VERSION,
+    }))
+}
+
+// ============================================================
+// ENDPOINT: SALUD
+// ============================================================
+
+/// Comprueba que el backend esté activo y que la base de datos responda.
+/// Devuelve 200 si todo está bien y 503 si PostgreSQL no responde.
+///
+/// GET /api/salud
+async fn salud(Extension(pool): Extension<PgPool>) -> (StatusCode, Json<Value>) {
+    match db::verificar_conexion(&pool).await {
+        Ok(()) => (
+            StatusCode::OK,
+            Json(json!({
+                "estado": "ok",
+                "servicio": NOMBRE_SERVICIO,
+                "version": VERSION,
+                "base_de_datos": "conectada",
+            })),
+        ),
+        Err(error) => {
+            tracing::error!("La comprobación de salud falló: {error}");
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({
+                    "estado": "error",
+                    "servicio": NOMBRE_SERVICIO,
+                    "version": VERSION,
+                    "base_de_datos": "sin conexión",
+                })),
+            )
+        }
+    }
+}
+
+// ============================================================
+// FALLBACK: RUTA NO ENCONTRADA
+// ============================================================
+
+/// Respuesta uniforme (JSON) para cualquier ruta que no exista.
+async fn no_encontrado() -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::NOT_FOUND,
+        Json(json!({ "error": "Recurso no encontrado" })),
+    )
+}
+
+===== src\config\mod.rs =====
+//! Configuración del servidor, leída desde variables de entorno (.env).
+//!
+//! - `SERVER_HOST`    (por defecto `0.0.0.0`, necesario para que el ESP32
+//!                     pueda conectarse desde otro dispositivo de la red).
+//! - `SERVER_PORT`    (por defecto `3000`).
+//! - `JWT_SECRET`     (obligatoria: clave para firmar los tokens del login).
+//! - `ADMIN_USUARIO` / `ADMIN_PASSWORD` (opcionales: crean el primer
+//!                     administrador si la tabla `usuarios` está vacía).
+
+use std::{env, net::SocketAddr};
+
+use anyhow::Context;
+
+#[derive(Clone, Debug)]
+pub struct Config {
+    pub direccion: SocketAddr,
+    pub jwt_secret: String,
+    pub admin_usuario: Option<String>,
+    pub admin_password: Option<String>,
+}
+
+impl Config {
+    pub fn desde_entorno() -> anyhow::Result<Self> {
+        let host = env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+        let puerto = env::var("SERVER_PORT").unwrap_or_else(|_| "3000".to_string());
+
+        let direccion: SocketAddr = format!("{host}:{puerto}")
+            .parse()
+            .with_context(|| format!("Dirección de servidor inválida: {host}:{puerto}"))?;
+
+        let jwt_secret = env::var("JWT_SECRET")
+            .context("JWT_SECRET no está definida en el archivo .env")?;
+
+        Ok(Self {
+            direccion,
+            jwt_secret,
+            admin_usuario: env::var("ADMIN_USUARIO").ok().filter(|v| !v.trim().is_empty()),
+            admin_password: env::var("ADMIN_PASSWORD").ok().filter(|v| !v.is_empty()),
+        })
+    }
+}
+
+===== src\db\mod.rs =====
+//! Capa de acceso a datos de SMART CLASSROOM.
+//!
+//! Este módulo centraliza la configuración y las operaciones
+//! relacionadas con la conexión a PostgreSQL.
+
+pub mod postgres;
+
+pub use postgres::{
+    crear_pool,
+    ejecutar_migraciones,
+    verificar_conexion,
+};
+
+===== src\db\postgres.rs =====
+use std::{env, time::Duration};
+
+use sqlx::{postgres::PgPoolOptions, PgPool};
+
+/// Crea y configura el pool de conexiones a PostgreSQL.
+///
+/// Variables de entorno:
+/// - `DATABASE_URL`: URL de conexión a PostgreSQL.
+/// - `DB_MAX_CONNECTIONS`: número máximo de conexiones
+///   simultáneas. Por defecto: 10.
+pub async fn crear_pool() -> Result<PgPool, sqlx::Error> {
+    let database_url = env::var("DATABASE_URL").map_err(|_| {
+        sqlx::Error::Configuration(
+            "La variable de entorno DATABASE_URL no está definida"
+                .to_string()
+                .into(),
+        )
+    })?;
+
+    let max_conexiones = env::var("DB_MAX_CONNECTIONS")
+        .ok()
+        .and_then(|valor| valor.parse::<u32>().ok())
+        .unwrap_or(10);
+
+    PgPoolOptions::new()
+        .max_connections(max_conexiones)
+        .min_connections(1)
+        .acquire_timeout(Duration::from_secs(5))
+        .connect(&database_url)
+        .await
+}
+
+/// Ejecuta las migraciones pendientes de la base de datos.
+///
+/// Las migraciones se obtienen desde la carpeta `migrations/`.
+pub async fn ejecutar_migraciones(
+    pool: &PgPool,
+) -> Result<(), sqlx::migrate::MigrateError> {
+    sqlx::migrate!("./migrations")
+        .run(pool)
+        .await
+}
+
+/// Verifica que PostgreSQL responda correctamente.
+///
+/// Ejecuta una consulta mínima (`SELECT 1`) sin modificar
+/// ningún dato de la base de datos.
+pub async fn verificar_conexion(pool: &PgPool) -> Result<(), sqlx::Error> {
+    sqlx::query("SELECT 1")
+        .execute(pool)
+        .await?;
+
+    Ok(())
+}
+
+===== src\db\smart-classroom-db.sql =====
+-- ============================================================
+-- SMART CLASSROOM — Esquema PostgreSQL
+-- ------------------------------------------------------------
+-- * Llaves primarias UUID y relaciones mediante llaves foraneas.
+-- * Este mismo archivo funciona como migracion de sqlx y como
+--   script independiente (psql -f).
+-- ============================================================
+
+-- gen_random_uuid() es nativa desde PostgreSQL 13; la extension se
+-- conserva por compatibilidad con versiones anteriores.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- ============================================================
+-- USUARIOS
+-- ============================================================
+
+CREATE TABLE usuarios (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nombre_usuario VARCHAR(100) NOT NULL,
+    password_hash  VARCHAR(255) NOT NULL,
+    rol            VARCHAR(30)  NOT NULL
+        CHECK (rol IN ('administrador', 'estudiante', 'observador')),
+    creado_en      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_usuario_nombre_no_vacio CHECK (BTRIM(nombre_usuario) <> '')
+);
+
+-- Unicidad sin distinguir mayusculas: "Admin" y "admin" son el mismo usuario.
+CREATE UNIQUE INDEX uq_usuarios_nombre_usuario ON usuarios (LOWER(nombre_usuario));
+
+-- ============================================================
+-- AULAS
+-- ============================================================
+
+CREATE TABLE aulas (
+    id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    codigo    VARCHAR(30)  NOT NULL UNIQUE,
+    nombre    VARCHAR(100) NOT NULL,
+    ubicacion VARCHAR(150),
+    creado_en TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_aula_codigo_no_vacio CHECK (BTRIM(codigo) <> ''),
+    CONSTRAINT chk_aula_nombre_no_vacio CHECK (BTRIM(nombre) <> '')
+);
+
+-- ============================================================
+-- DISPOSITIVOS (ESP32 instalados en un aula)
+-- ============================================================
+
+CREATE TABLE dispositivos (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    aula_id         UUID         NOT NULL,
+    nombre          VARCHAR(100) NOT NULL,
+    -- Identificador que el ESP32 envía en cada medición (dispositivo_id).
+    identificador   VARCHAR(100) NOT NULL UNIQUE,
+    estado          VARCHAR(20)  NOT NULL DEFAULT 'activo'
+        CHECK (estado IN ('activo', 'inactivo', 'mantenimiento')),
+    -- Último envío recibido; permite detectar dispositivos desconectados.
+    ultima_conexion TIMESTAMPTZ,
+    creado_en       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_dispositivo_aula
+        FOREIGN KEY (aula_id) REFERENCES aulas(id) ON DELETE RESTRICT,
+    CONSTRAINT chk_dispositivo_identificador_no_vacio CHECK (BTRIM(identificador) <> '')
+);
+
+-- ============================================================
+-- TIPOS DE SENSOR
+-- ============================================================
+
+CREATE TABLE tipos_sensor (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nombre      VARCHAR(50) NOT NULL UNIQUE,
+    unidad      VARCHAR(20) NOT NULL,
+    descripcion VARCHAR(255)
+);
+
+-- Catalogo base: los cuatro tipos que envia el ESP32.
+INSERT INTO tipos_sensor (nombre, unidad, descripcion) VALUES
+    ('temperatura', '°C',  'Temperatura ambiente del aula'),
+    ('humedad',     '%',   'Humedad relativa del aire'),
+    ('iluminacion', 'lux', 'Nivel de iluminacion del aula'),
+    ('ruido',       'dB',  'Nivel de ruido ambiental')
+ON CONFLICT (nombre) DO NOTHING;
+
+-- ============================================================
+-- SENSORES
+-- ============================================================
+
+CREATE TABLE sensores (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    dispositivo_id UUID         NOT NULL,
+    tipo_sensor_id UUID         NOT NULL,
+    nombre         VARCHAR(100) NOT NULL,
+    pin_gpio       SMALLINT,
+    estado         VARCHAR(20)  NOT NULL DEFAULT 'activo'
+        CHECK (estado IN ('activo', 'inactivo', 'mantenimiento')),
+    creado_en      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_sensor_dispositivo
+        FOREIGN KEY (dispositivo_id) REFERENCES dispositivos(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_sensor_tipo
+        FOREIGN KEY (tipo_sensor_id) REFERENCES tipos_sensor(id) ON DELETE RESTRICT,
+    -- Los GPIO del ESP32 van de 0 a 39.
+    CONSTRAINT chk_pin_gpio CHECK (pin_gpio IS NULL OR pin_gpio BETWEEN 0 AND 39),
+    CONSTRAINT uq_sensor_nombre_dispositivo UNIQUE (dispositivo_id, nombre),
+    -- Un dispositivo tiene un sensor por tipo: el JSON del ESP32 trae un valor por
+    -- tipo (temperatura, humedad...) y así cada valor corresponde a un solo sensor.
+    CONSTRAINT uq_sensor_tipo_dispositivo UNIQUE (dispositivo_id, tipo_sensor_id)
+);
+
+-- ============================================================
+-- MEDICIONES
+-- ============================================================
+
+CREATE TABLE mediciones (
+    id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sensor_id UUID             NOT NULL,
+    -- DOUBLE PRECISION en lugar de NUMERIC: es el tipo natural de una lectura de
+    -- sensor y se mapea directo a f64 en Rust.
+    valor     DOUBLE PRECISION NOT NULL,
+    medido_en TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_medicion_sensor
+        FOREIGN KEY (sensor_id) REFERENCES sensores(id) ON DELETE RESTRICT,
+    -- Rechaza NaN e infinitos (en PostgreSQL NaN se ordena por encima de Infinity).
+    CONSTRAINT chk_medicion_valor_finito
+        CHECK (valor > '-Infinity'::float8 AND valor < 'Infinity'::float8)
+);
+
+-- ============================================================
+-- RANGOS POR AULA Y TIPO DE SENSOR
+-- ============================================================
+
+CREATE TABLE rangos_sensor (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    aula_id        UUID             NOT NULL,
+    tipo_sensor_id UUID             NOT NULL,
+    valor_minimo   DOUBLE PRECISION NOT NULL,
+    valor_maximo   DOUBLE PRECISION NOT NULL,
+    activo         BOOLEAN          NOT NULL DEFAULT TRUE,
+    creado_en      TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_rango_aula
+        FOREIGN KEY (aula_id) REFERENCES aulas(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_rango_tipo_sensor
+        FOREIGN KEY (tipo_sensor_id) REFERENCES tipos_sensor(id) ON DELETE RESTRICT,
+    CONSTRAINT chk_rango_valido CHECK (valor_minimo < valor_maximo),
+    CONSTRAINT uq_rango_aula_tipo UNIQUE (aula_id, tipo_sensor_id)
+);
+
+-- ============================================================
+-- ALERTAS
+-- ============================================================
+
+CREATE TABLE alertas (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    medicion_id     UUID        NOT NULL,
+    rango_sensor_id UUID        NOT NULL,
+    tipo            VARCHAR(20) NOT NULL
+        CHECK (tipo IN ('por_debajo', 'por_encima')),
+    mensaje         VARCHAR(255),
+    estado          VARCHAR(20) NOT NULL DEFAULT 'activa'
+        CHECK (estado IN ('activa', 'revisada', 'resuelta')),
+    generada_en     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    resuelta_en     TIMESTAMPTZ,
+    CONSTRAINT fk_alerta_medicion
+        FOREIGN KEY (medicion_id) REFERENCES mediciones(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_alerta_rango
+        FOREIGN KEY (rango_sensor_id) REFERENCES rangos_sensor(id) ON DELETE RESTRICT,
+    CONSTRAINT uq_alerta_medicion_rango UNIQUE (medicion_id, rango_sensor_id),
+    -- Coherencia: solo las alertas resueltas tienen fecha de resolución.
+    CONSTRAINT chk_alerta_resolucion CHECK (
+        (estado = 'resuelta' AND resuelta_en IS NOT NULL AND resuelta_en >= generada_en)
+        OR (estado <> 'resuelta' AND resuelta_en IS NULL)
+    )
+);
+
+-- Una sola alerta activa por rango y tipo: mientras la condición persiste no se
+-- genera una alerta nueva con cada medición (el ESP32 envía datos cada pocos segundos).
+CREATE UNIQUE INDEX uq_alerta_activa_rango_tipo
+    ON alertas (rango_sensor_id, tipo)
+    WHERE estado = 'activa';
+
+-- ============================================================
+-- INDICE DE CONFORT (calculado por el backend)
+-- ============================================================
+
+CREATE TABLE indices_confort (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    aula_id      UUID             NOT NULL,
+    valor        DOUBLE PRECISION NOT NULL CHECK (valor >= 0 AND valor <= 100),
+    calculado_en TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_confort_aula
+        FOREIGN KEY (aula_id) REFERENCES aulas(id) ON DELETE RESTRICT
+);
+
+-- ============================================================
+-- INDICES
+-- (Las restricciones UNIQUE ya crean su propio índice, por eso no se repiten.)
+-- ============================================================
+
+CREATE INDEX idx_dispositivos_aula        ON dispositivos(aula_id);
+CREATE INDEX idx_sensores_tipo            ON sensores(tipo_sensor_id);
+CREATE INDEX idx_mediciones_sensor_fecha  ON mediciones(sensor_id, medido_en DESC);
+CREATE INDEX idx_mediciones_fecha         ON mediciones(medido_en DESC);
+CREATE INDEX idx_alertas_estado_fecha     ON alertas(estado, generada_en DESC);
+CREATE INDEX idx_alertas_rango            ON alertas(rango_sensor_id);
+CREATE INDEX idx_confort_aula_fecha       ON indices_confort(aula_id, calculado_en DESC);
+
+-- ============================================================
+-- VISTAS (para el dashboard y el historial)
+-- ============================================================
+
+CREATE VIEW vw_mediciones_detalle AS
+SELECT
+    m.id,
+    m.sensor_id,
+    s.dispositivo_id,
+    d.aula_id,
+    ts.nombre AS tipo_sensor,
+    ts.unidad,
+    m.valor,
+    m.medido_en
+FROM mediciones m
+JOIN sensores     s  ON s.id  = m.sensor_id
+JOIN dispositivos d  ON d.id  = s.dispositivo_id
+JOIN tipos_sensor ts ON ts.id = s.tipo_sensor_id;
+
+CREATE VIEW vw_alertas_detalle AS
+SELECT
+    a.id,
+    a.estado,
+    a.tipo,
+    a.mensaje,
+    a.generada_en,
+    a.resuelta_en,
+    d.aula_id,
+    au.codigo AS aula_codigo,
+    s.dispositivo_id,
+    m.sensor_id,
+    ts.nombre AS tipo_sensor,
+    ts.unidad,
+    m.valor,
+    r.valor_minimo,
+    r.valor_maximo,
+    m.medido_en
+FROM alertas a
+JOIN mediciones    m  ON m.id  = a.medicion_id
+JOIN rangos_sensor r  ON r.id  = a.rango_sensor_id
+JOIN sensores      s  ON s.id  = m.sensor_id
+JOIN dispositivos  d  ON d.id  = s.dispositivo_id
+JOIN aulas         au ON au.id = d.aula_id
+JOIN tipos_sensor  ts ON ts.id = s.tipo_sensor_id;
+
+===== src\errors\api_error.rs =====
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Json,
+};
+use serde::Serialize;
+use thiserror::Error;
+
+// Estructura que se envía al cliente en formato JSON cuando ocurre un error.
+// Así TODOS los errores de la API tienen la misma forma (consistentes).
+#[derive(Serialize)]
+pub struct ErrorResponse {
+    pub status: u16,
+    pub message: String,
+}
+
+// Enum central de errores. Cada variante representa un tipo de error distinto
+// que puede ocurrir en cualquier parte de la aplicación (rutas, servicios, websocket, etc.)
+// #[derive(Error)] (de la crate `thiserror`) genera automáticamente el trait `std::error::Error`
+// y el mensaje de cada variante se define con el atributo #[error("...")]
+#[derive(Debug, Error)]
+pub enum ApiError {
+    #[error("Recurso no encontrado: {0}")]
+    NotFound(String),
+
+    #[error("Solicitud inválida: {0}")]
+    BadRequest(String),
+
+    #[error("Error interno del servidor: {0}")]
+    Internal(String),
+
+    #[error("Error de WebSocket: {0}")]
+    WebSocket(String),
+}
+
+// IntoResponse es el trait de axum que le dice al framework cómo convertir
+// un valor en una respuesta HTTP real. Al implementarlo para ApiError,
+// podemos hacer `return Err(ApiError::NotFound(...))` directamente en un handler
+// y axum lo transforma solo en la respuesta correcta.
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        // Elegimos el código de estado HTTP según el tipo de error.
+        // El `&self` es porque solo estamos "mirando" el valor, no consumiéndolo todavía.
+        let status = match &self {
+            ApiError::NotFound(_) => StatusCode::NOT_FOUND,       // 404
+            ApiError::BadRequest(_) => StatusCode::BAD_REQUEST,   // 400
+            ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR, // 500
+            ApiError::WebSocket(_) => StatusCode::INTERNAL_SERVER_ERROR, // 500
+        };
+
+        // Construimos el cuerpo JSON de la respuesta.
+        // self.to_string() usa el mensaje definido en #[error("...")] de arriba.
+        let body = Json(ErrorResponse {
+            status: status.as_u16(),
+            message: self.to_string(),
+        });
+
+        // (status, body) implementa IntoResponse en axum, así que solo lo convertimos.
+        (status, body).into_response()
+    }
+}
+
+// Result "alias" para no escribir Result<T, ApiError> en cada función.
+// Con esto en el resto del proyecto se puede escribir: fn algo() -> ApiResult<Medicion>
+pub type ApiResult<T> = Result<T, ApiError>;
+
+
+===== src\errors\mod.rs =====
+// Este archivo es la "puerta de entrada" del módulo errors.
+// Declara que api_error.rs es parte de este módulo...
+pub mod api_error;
+
+// ...y reexporta ApiError y ApiResult para que el resto del proyecto
+// pueda escribir `use crate::errors::ApiError` en vez de
+// `use crate::errors::api_error::ApiError` (más corto y limpio).
+pub use api_error::{ApiError, ApiResult};
+
+
+===== src\models\alerta.rs =====
+use serde::{Deserialize, Serialize};
+
+/// Representa una alerta generada por el sistema
+/// SMART CLASSROOM.
+///
+/// Las alertas permiten informar sobre condiciones ambientales
+/// que requieren atención dentro de un aula.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Alerta {
+    /// Identificador único de la alerta.
+    pub id: i32,
+
+    /// Identificador del aula donde se generó la alerta.
+    pub aula_id: i32,
+
+    /// Tipo de condición que originó la alerta.
+    pub tipo: String,
+
+    /// Descripción de la alerta.
+    pub mensaje: String,
+
+    /// Nivel de prioridad de la alerta.
+    ///
+    /// Ejemplos: baja, media, alta o crítica.
+    pub nivel: String,
+
+    /// Indica si la alerta continúa activa.
+    pub activa: bool,
+
+    /// Fecha y hora en que se generó la alerta.
+    pub fecha_hora: String,
+}
+
+===== src\models\aula.rs =====
+use serde::{Deserialize, Serialize};
+
+/// Representa un aula dentro del sistema SMART CLASSROOM.
+///
+/// Contiene la información básica necesaria para identificar,
+/// ubicar y controlar el estado de un aula monitoreada.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Aula {
+    /// Identificador único del aula.
+    pub id: i32,
+
+    /// Nombre o código identificador del aula.
+    pub nombre: String,
+
+    /// Ubicación física del aula.
+    pub ubicacion: Option<String>,
+
+    /// Capacidad máxima de estudiantes.
+    pub capacidad: Option<i32>,
+
+    /// Indica si el aula se encuentra disponible para monitoreo.
+    pub activa: bool,
+}
+
+===== src\models\medicion.rs =====
+use serde::{Deserialize, Serialize};
+
+/// Representa una medición ambiental registrada por el sistema
+/// SMART CLASSROOM.
+///
+/// Agrupa los valores obtenidos de los sensores de un aula
+/// junto con la fecha y hora en que fueron registrados.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Medicion {
+    /// Identificador único de la medición.
+    pub id: i32,
+
+    /// Identificador del aula donde se realizó la medición.
+    pub aula_id: i32,
+
+    /// Identificador del sensor que generó la medición.
+    pub sensor_id: Option<i32>,
+
+    /// Temperatura registrada en grados Celsius.
+    pub temperatura: Option<f64>,
+
+    /// Humedad relativa registrada en porcentaje.
+    pub humedad: Option<f64>,
+
+    /// Nivel de iluminación registrado en lux.
+    pub iluminacion: Option<f64>,
+
+    /// Nivel de ruido registrado en decibelios.
+    pub ruido: Option<f64>,
+
+    /// Índice de confort calculado para el aula.
+    pub confort: Option<f64>,
+
+    /// Fecha y hora en que se registró la medición.
+    pub fecha_hora: String,
+}
+
+===== src\models\mod.rs =====
+pub mod alerta;
+pub mod aula;
+pub mod medicion;
+pub mod sensor;
+
+pub use alerta::Alerta;
+pub use aula::Aula;
+pub use medicion::Medicion;
+pub use sensor::Sensor;
+
+===== src\models\sensor.rs =====
+use serde::{Deserialize, Serialize};
+
+/// Representa un sensor asociado a un aula dentro del sistema
+/// SMART CLASSROOM.
+///
+/// Permite identificar el sensor, conocer qué tipo de variable
+/// mide y determinar si se encuentra activo.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Sensor {
+    /// Identificador único del sensor.
+    pub id: i32,
+
+    /// Identificador del aula al que pertenece el sensor.
+    pub aula_id: i32,
+
+    /// Tipo de sensor utilizado.
+    ///
+    /// Ejemplos: temperatura, humedad, iluminación o ruido.
+    pub tipo: String,
+
+    /// Nombre descriptivo del sensor.
+    pub nombre: String,
+
+    /// Unidad de medida utilizada por el sensor.
+    ///
+    /// Ejemplos: °C, %, lux o dB.
+    pub unidad: String,
+
+    /// Indica si el sensor se encuentra activo.
+    pub activo: bool,
+}
+
+===== src\routes\alertas.rs =====
+use axum::{
+    extract::Path,
+    http::StatusCode,
+    response::IntoResponse,
+    routing::get,
+    Json, Router,
+};
+use chrono::Utc;
+
+use crate::schemas::alerta::{Alerta, NivelAlerta, NuevaAlerta, RespuestaAlerta};
+
+pub fn alertas_routes() -> Router {
+    Router::new()
+        .route("/alertas", get(listar_alertas).post(crear_alerta))
+        .route("/alertas/:id", get(obtener_alerta).delete(eliminar_alerta))
+}
+
+fn mock_alertas() -> Vec<Alerta> {
+    vec![
+        Alerta {
+            id: 1,
+            sensor_id: 1,
+            aula_id: 101,
+            mensaje: "Temperatura por encima del limite".to_string(),
+            nivel: NivelAlerta::Alta,
+            atendida: false,
+            fecha: Utc::now(),
+        },
+        Alerta {
+            id: 2,
+            sensor_id: 3,
+            aula_id: 102,
+            mensaje: "Nivel de CO2 elevado".to_string(),
+            nivel: NivelAlerta::Media,
+            atendida: false,
+            fecha: Utc::now(),
+        },
+        Alerta {
+            id: 3,
+            sensor_id: 2,
+            aula_id: 101,
+            mensaje: "Humedad fuera de rango normal".to_string(),
+            nivel: NivelAlerta::Baja,
+            atendida: true,
+            fecha: Utc::now(),
+        },
+    ]
+}
+
+async fn listar_alertas() -> impl IntoResponse {
+    let alertas = mock_alertas();
+    (StatusCode::OK, Json(alertas))
+}
+
+async fn obtener_alerta(Path(id): Path<u32>) -> impl IntoResponse {
+    let alertas = mock_alertas();
+
+    match alertas.into_iter().find(|a| a.id == id) {
+        Some(alerta) => (StatusCode::OK, Json(alerta)).into_response(),
+        None => {
+            let error = RespuestaAlerta {
+                mensaje: format!("No se encontro una alerta con id {}", id),
+            };
+            (StatusCode::NOT_FOUND, Json(error)).into_response()
+        }
+    }
+}
+
+async fn crear_alerta(Json(payload): Json<NuevaAlerta>) -> impl IntoResponse {
+    if payload.mensaje.trim().is_empty() {
+        let error = RespuestaAlerta {
+            mensaje: "El campo 'mensaje' no puede estar vacio".to_string(),
+        };
+        return (StatusCode::BAD_REQUEST, Json(error)).into_response();
+    }
+
+    let nueva_alerta = Alerta {
+        id: 99,
+        sensor_id: payload.sensor_id,
+        aula_id: payload.aula_id,
+        mensaje: payload.mensaje,
+        nivel: payload.nivel,
+        atendida: false,
+        fecha: Utc::now(),
+    };
+
+    (StatusCode::CREATED, Json(nueva_alerta)).into_response()
+}
+
+async fn eliminar_alerta(Path(id): Path<u32>) -> impl IntoResponse {
+    let alertas = mock_alertas();
+
+    match alertas.into_iter().find(|a| a.id == id) {
+        Some(_) => {
+            let respuesta = RespuestaAlerta {
+                mensaje: format!("Alerta con id {} eliminada correctamente", id),
+            };
+            (StatusCode::OK, Json(respuesta)).into_response()
+        }
+        None => {
+            let error = RespuestaAlerta {
+                mensaje: format!("No se encontro una alerta con id {}", id),
+            };
+            (StatusCode::NOT_FOUND, Json(error)).into_response()
+        }
+    }
+}
+
+===== src\routes\aulas.rs =====
+use axum::{
+    extract::Path,
+    http::StatusCode,
+    response::IntoResponse,
+    routing::get,
+    Json, Router,
+};
+
+use crate::schemas::aula::{Aula, NuevaAula, RespuestaAula};
+
+pub fn aulas_routes() -> Router {
+    Router::new()
+        .route("/aulas", get(listar_aulas).post(crear_aula))
+        .route(
+            "/aulas/:id",
+            get(obtener_aula).put(actualizar_aula).delete(eliminar_aula),
+        )
+}
+
+fn mock_aulas() -> Vec<Aula> {
+    vec![
+        Aula {
+            id: 1,
+            nombre: "Aula 101".to_string(),
+            ubicacion: "Edificio A, Piso 1".to_string(),
+            capacidad: 30,
+        },
+        Aula {
+            id: 2,
+            nombre: "Aula 102".to_string(),
+            ubicacion: "Edificio A, Piso 1".to_string(),
+            capacidad: 25,
+        },
+        Aula {
+            id: 3,
+            nombre: "Laboratorio de Ciencias".to_string(),
+            ubicacion: "Edificio B, Piso 2".to_string(),
+            capacidad: 20,
+        },
+    ]
+}
+
+async fn listar_aulas() -> impl IntoResponse {
+    let aulas = mock_aulas();
+    (StatusCode::OK, Json(aulas))
+}
+
+async fn obtener_aula(Path(id): Path<u32>) -> impl IntoResponse {
+    let aulas = mock_aulas();
+
+    match aulas.into_iter().find(|a| a.id == id) {
+        Some(aula) => (StatusCode::OK, Json(aula)).into_response(),
+        None => {
+            let error = RespuestaAula {
+                mensaje: format!("No se encontro un aula con id {}", id),
+            };
+            (StatusCode::NOT_FOUND, Json(error)).into_response()
+        }
+    }
+}
+
+async fn crear_aula(Json(payload): Json<NuevaAula>) -> impl IntoResponse {
+    if payload.nombre.trim().is_empty() {
+        let error = RespuestaAula {
+            mensaje: "El campo 'nombre' no puede estar vacio".to_string(),
+        };
+        return (StatusCode::BAD_REQUEST, Json(error)).into_response();
+    }
+
+    if payload.capacidad == 0 {
+        let error = RespuestaAula {
+            mensaje: "El campo 'capacidad' debe ser mayor a 0".to_string(),
+        };
+        return (StatusCode::BAD_REQUEST, Json(error)).into_response();
+    }
+
+    let nueva_aula = Aula {
+        id: 99,
+        nombre: payload.nombre,
+        ubicacion: payload.ubicacion,
+        capacidad: payload.capacidad,
+    };
+
+    (StatusCode::CREATED, Json(nueva_aula)).into_response()
+}
+
+async fn actualizar_aula(
+    Path(id): Path<u32>,
+    Json(payload): Json<NuevaAula>,
+) -> impl IntoResponse {
+    let aulas = mock_aulas();
+
+    match aulas.into_iter().find(|a| a.id == id) {
+        Some(_) => {
+            let aula_actualizada = Aula {
+                id,
+                nombre: payload.nombre,
+                ubicacion: payload.ubicacion,
+                capacidad: payload.capacidad,
+            };
+            (StatusCode::OK, Json(aula_actualizada)).into_response()
+        }
+        None => {
+            let error = RespuestaAula {
+                mensaje: format!("No se encontro un aula con id {}", id),
+            };
+            (StatusCode::NOT_FOUND, Json(error)).into_response()
+        }
+    }
+}
+
+async fn eliminar_aula(Path(id): Path<u32>) -> impl IntoResponse {
+    let aulas = mock_aulas();
+
+    match aulas.into_iter().find(|a| a.id == id) {
+        Some(_) => {
+            let respuesta = RespuestaAula {
+                mensaje: format!("Aula con id {} eliminada correctamente", id),
+            };
+            (StatusCode::OK, Json(respuesta)).into_response()
+        }
+        None => {
+            let error = RespuestaAula {
+                mensaje: format!("No se encontro un aula con id {}", id),
+            };
+            (StatusCode::NOT_FOUND, Json(error)).into_response()
+        }
+    }
+}
+
+===== src\routes\Auth.rs =====
+use axum::{http::StatusCode, routing::post, Extension, Json, Router};
+use sqlx::PgPool;
+
+use crate::config::Config;
+use crate::errors::db::mapear;
+use crate::schemas::usuario::{LoginRequest, LoginResponse};
+use crate::services::usuarios as servicio;
+
+/// POST /api/auth/login
+pub fn router() -> Router {
+    Router::new().route("/api/auth/login", post(login))
+}
+
+async fn login(
+    Extension(pool): Extension<PgPool>,
+    Extension(config): Extension<Config>,
+    Json(datos): Json<LoginRequest>,
+) -> Result<Json<LoginResponse>, (StatusCode, String)> {
+    let credenciales_invalidas =
+        || (StatusCode::UNAUTHORIZED, "Usuario o contraseña incorrectos".to_string());
+
+    if datos.identifier.trim().is_empty() || datos.password.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "Completa usuario y contraseña".into()));
+    }
+
+    let usuario = servicio::buscar_por_nombre(&pool, datos.identifier.trim())
+        .await
+        .map_err(mapear)?
+        .ok_or_else(credenciales_invalidas)?;
+
+    if !servicio::verificar(&datos.password, &usuario.password_hash) {
+        return Err(credenciales_invalidas());
+    }
+
+    let token = servicio::generar_token(&usuario, &config.jwt_secret).map_err(|e| {
+        eprintln!("Error generando token: {e}");
+        (StatusCode::INTERNAL_SERVER_ERROR, "No se pudo generar el token".to_string())
+    })?;
+
+    Ok(Json(LoginResponse { token, usuario: usuario.into() }))
+}
+
+===== src\routes\Dispositivos.rs =====
+use axum::{
+    extract::{Extension, Path},
+    http::StatusCode,
+    routing::get,
+    Json, Router,
+};
+use sqlx::PgPool;
+use uuid::Uuid;
+
+use crate::errors::db::mapear;
+use crate::models::dispositivo::Dispositivo;
+use crate::schemas::dispositivo::{ActualizarDispositivo, NuevoDispositivo, ESTADOS_VALIDOS};
+use crate::services::dispositivos as servicio;
+
+type ApiResult<T> = Result<Json<T>, (StatusCode, String)>;
+
+pub fn router() -> Router {
+    Router::new()
+        .route("/api/dispositivos", get(listar).post(crear))
+        .route("/api/dispositivos/{id}", get(obtener).put(actualizar))
+}
+
+fn validar_estado(estado: &Option<String>) -> Result<(), (StatusCode, String)> {
+    if let Some(e) = estado {
+        if !ESTADOS_VALIDOS.contains(&e.as_str()) {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "estado debe ser: activo, inactivo o mantenimiento".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+async fn listar(Extension(pool): Extension<PgPool>) -> ApiResult<Vec<Dispositivo>> {
+    servicio::listar(&pool).await.map(Json).map_err(mapear)
+}
+
+async fn obtener(Extension(pool): Extension<PgPool>, Path(id): Path<Uuid>) -> ApiResult<Dispositivo> {
+    match servicio::obtener(&pool, id).await.map_err(mapear)? {
+        Some(d) => Ok(Json(d)),
+        None => Err((StatusCode::NOT_FOUND, "Dispositivo no encontrado".into())),
+    }
+}
+
+async fn crear(
+    Extension(pool): Extension<PgPool>,
+    Json(nuevo): Json<NuevoDispositivo>,
+) -> Result<(StatusCode, Json<Dispositivo>), (StatusCode, String)> {
+    if nuevo.nombre.trim().is_empty() || nuevo.identificador.trim().is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "nombre e identificador son obligatorios".into()));
+    }
+    validar_estado(&nuevo.estado)?;
+    let creado = servicio::crear(&pool, nuevo).await.map_err(mapear)?;
+    Ok((StatusCode::CREATED, Json(creado)))
+}
+
+async fn actualizar(
+    Extension(pool): Extension<PgPool>,
+    Path(id): Path<Uuid>,
+    Json(datos): Json<ActualizarDispositivo>,
+) -> ApiResult<Dispositivo> {
+    if let Some(n) = &datos.nombre {
+        if n.trim().is_empty() {
+            return Err((StatusCode::BAD_REQUEST, "El nombre no puede estar vacío".into()));
+        }
+    }
+    validar_estado(&datos.estado)?;
+    match servicio::actualizar(&pool, id, datos).await.map_err(mapear)? {
+        Some(d) => Ok(Json(d)),
+        None => Err((StatusCode::NOT_FOUND, "Dispositivo no encontrado".into())),
+    }
+}
+
+===== src\routes\mediciones.rs =====
+//Importaciones necesarias
+use chrono::Utc;
+use axum::{extract::Path, http::StatusCode, response::IntoResponse, routing::get, Json, Router};
+
+// Importaciones lo de que se creo en schemas/medicion.rs
+use crate::schemas::medicion::{Medicion, MensajeRespuesta, NuevaMedicion, TipoMedicion};
+pub fn mediciones_routes() -> Router {
+    Router::new()
+        .route("/mediciones", get(listar_mediciones).post(crear_medicion))
+        .route("/mediciones/:id", get(obtener_medicion))
+}
+
+fn mock_mediciones() -> Vec<Medicion> {
+    vec![
+        Medicion {
+            id: 1,
+            aula_id: 101,
+            sensor_id: 1,
+            tipo: TipoMedicion::Temperatura,
+            valor: 23.5,
+            fecha: Utc::now(),
+        },
+        Medicion {
+            id: 2,
+            aula_id: 101,
+            sensor_id: 2,
+            tipo: TipoMedicion::Humedad,
+            valor: 55.0,
+            fecha: Utc::now(),
+        },
+        Medicion {
+            id: 3,
+            aula_id: 102,
+            sensor_id: 3,
+            tipo: TipoMedicion::Co2,
+            valor: 800.0,
+            fecha: Utc::now(),
+        },
+    ]
+}
+
+async fn listar_mediciones() -> impl IntoResponse {
+    let mediciones = mock_mediciones();
+    (StatusCode::OK, Json(mediciones))
+}
+
+async fn obtener_medicion(Path(id): Path<u32>) -> impl IntoResponse {
+    let mediciones = mock_mediciones();
+
+    match mediciones.into_iter().find(|m| m.id == id) {
+        Some(medicion) => (StatusCode::OK, Json(medicion)).into_response(),
+        None => {
+            let error = MensajeRespuesta {
+                mensaje: format!("No se encontro una medicion con id {}", id),
+            };
+            (StatusCode::NOT_FOUND, Json(error)).into_response()
+        }
+    }
+}
+
+async fn crear_medicion(Json(payload): Json<NuevaMedicion>) -> impl IntoResponse {
+    if !payload.valor.is_finite() {
+        let error = MensajeRespuesta {
+            mensaje: "El campo 'valor' debe ser un numero valido".to_string(),
+        };
+        return (StatusCode::BAD_REQUEST, Json(error)).into_response();
+    }
+
+    let nueva_medicion = Medicion {
+        id: 99,
+        aula_id: payload.aula_id,
+        sensor_id: payload.sensor_id,
+        tipo: payload.tipo,
+        valor: payload.valor,
+        fecha: Utc::now(),
+    };
+
+    (StatusCode::CREATED, Json(nueva_medicion)).into_response()
+}
+
+
+===== src\routes\mod.rs =====
+pub mod mediciones;
+pub mod aulas; 
+//Luego agregare  pub mod sensor; y otras cosas 
+pub mod sensores;
+pub mod alertas;
+
+
+
+use axum::Router; 
+
+pub fn create_router()-> Router{
+    Router::new()
+    //Usamos merge 
+    .merge(mediciones::mediciones_routes())
+    .merge(aulas::aulas_routes()) // actilizamos para crear la ruta de aulas 
+    .merge(sensores::sensores_routes())  
+    .merge(alertas::alertas_routes())
+}
+
+===== src\routes\Rangos.rs =====
+use axum::{
+    extract::{Extension, Path, Query},
+    http::StatusCode,
+    routing::get,
+    Json, Router,
+};
+use sqlx::PgPool;
+use uuid::Uuid;
+
+use crate::errors::db::mapear;
+use crate::models::rango_sensor::RangoSensor;
+use crate::schemas::rango_sensor::{ActualizarRango, FiltroRangos, NuevoRango};
+use crate::services::rangos as servicio;
+
+type ApiResult<T> = Result<Json<T>, (StatusCode, String)>;
+
+pub fn router() -> Router {
+    Router::new()
+        .route("/api/rangos", get(listar).post(crear))
+        .route("/api/rangos/{id}", get(obtener).put(actualizar))
+}
+
+/// GET /rangos            -> todos
+/// GET /rangos?aula_id=.. -> solo los de esa aula
+async fn listar(
+    Extension(pool): Extension<PgPool>,
+    Query(filtro): Query<FiltroRangos>,
+) -> ApiResult<Vec<RangoSensor>> {
+    servicio::listar(&pool, filtro.aula_id)
+        .await
+        .map(Json)
+        .map_err(mapear)
+}
+
+async fn obtener(Extension(pool): Extension<PgPool>, Path(id): Path<Uuid>) -> ApiResult<RangoSensor> {
+    match servicio::obtener(&pool, id).await.map_err(mapear)? {
+        Some(r) => Ok(Json(r)),
+        None => Err((StatusCode::NOT_FOUND, "Rango no encontrado".into())),
+    }
+}
+
+async fn crear(
+    Extension(pool): Extension<PgPool>,
+    Json(nuevo): Json<NuevoRango>,
+) -> Result<(StatusCode, Json<RangoSensor>), (StatusCode, String)> {
+    if !(nuevo.valor_minimo < nuevo.valor_maximo) {
+        return Err((StatusCode::BAD_REQUEST, "valor_minimo debe ser menor que valor_maximo".into()));
+    }
+    let creado = servicio::crear(&pool, nuevo).await.map_err(mapear)?;
+    Ok((StatusCode::CREATED, Json(creado)))
+}
+
+async fn actualizar(
+    Extension(pool): Extension<PgPool>,
+    Path(id): Path<Uuid>,
+    Json(datos): Json<ActualizarRango>,
+) -> ApiResult<RangoSensor> {
+    // Si vienen los dos, se valida aquí; si viene solo uno, lo valida el CHECK de la base (400).
+    if let (Some(min), Some(max)) = (datos.valor_minimo, datos.valor_maximo) {
+        if !(min < max) {
+            return Err((StatusCode::BAD_REQUEST, "valor_minimo debe ser menor que valor_maximo".into()));
+        }
+    }
+    match servicio::actualizar(&pool, id, datos).await.map_err(mapear)? {
+        Some(r) => Ok(Json(r)),
+        None => Err((StatusCode::NOT_FOUND, "Rango no encontrado".into())),
+    }
+}
+
+===== src\routes\sensores.rs =====
+use axum::{
+    extract::Path,
+    http::StatusCode,
+    response::IntoResponse,
+    routing::get,
+    Json, Router,
+};
+
+use crate::schemas::sensor::{NuevoSensor, RespuestaSensor, Sensor, TipoSensor};
+
+pub fn sensores_routes() -> Router {
+    Router::new()
+        .route("/sensores", get(listar_sensores).post(crear_sensor))
+        .route("/sensores/:id", get(obtener_sensor).delete(eliminar_sensor))
+}
+
+fn mock_sensores() -> Vec<Sensor> {
+    vec![
+        Sensor {
+            id: 1,
+            nombre: "Sensor Temperatura Aula 101".to_string(),
+            tipo: TipoSensor::Temperatura,
+            aula_id: 101,
+            activo: true,
+        },
+        Sensor {
+            id: 2,
+            nombre: "Sensor Humedad Aula 101".to_string(),
+            tipo: TipoSensor::Humedad,
+            aula_id: 101,
+            activo: true,
+        },
+        Sensor {
+            id: 3,
+            nombre: "Sensor Co2 Laboratorio".to_string(),
+            tipo: TipoSensor::Co2,
+            aula_id: 102,
+            activo: false,
+        },
+    ]
+}
+
+async fn listar_sensores() -> impl IntoResponse {
+    let sensores = mock_sensores();
+    (StatusCode::OK, Json(sensores))
+}
+
+async fn obtener_sensor(Path(id): Path<u32>) -> impl IntoResponse {
+    let sensores = mock_sensores();
+
+    match sensores.into_iter().find(|s| s.id == id) {
+        Some(sensor) => (StatusCode::OK, Json(sensor)).into_response(),
+        None => {
+            let error = RespuestaSensor {
+                mensaje: format!("No se encontro un sensor con id {}", id),
+            };
+            (StatusCode::NOT_FOUND, Json(error)).into_response()
+        }
+    }
+}
+
+async fn crear_sensor(Json(payload): Json<NuevoSensor>) -> impl IntoResponse {
+    if payload.nombre.trim().is_empty() {
+        let error = RespuestaSensor {
+            mensaje: "El campo 'nombre' no puede estar vacio".to_string(),
+        };
+        return (StatusCode::BAD_REQUEST, Json(error)).into_response();
+    }
+
+    let nuevo_sensor = Sensor {
+        id: 99,
+        nombre: payload.nombre,
+        tipo: payload.tipo,
+        aula_id: payload.aula_id,
+        activo: true,
+    };
+
+    (StatusCode::CREATED, Json(nuevo_sensor)).into_response()
+}
+
+async fn eliminar_sensor(Path(id): Path<u32>) -> impl IntoResponse {
+    let sensores = mock_sensores();
+
+    match sensores.into_iter().find(|s| s.id == id) {
+        Some(_) => {
+            let respuesta = RespuestaSensor {
+                mensaje: format!("Sensor con id {} eliminado correctamente", id),
+            };
+            (StatusCode::OK, Json(respuesta)).into_response()
+        }
+        None => {
+            let error = RespuestaSensor {
+                mensaje: format!("No se encontro un sensor con id {}", id),
+            };
+            (StatusCode::NOT_FOUND, Json(error)).into_response()
+        }
+    }
+}
+
+===== src\routes\Tipos sensor.rs =====
+use axum::{
+    extract::{Extension, Path},
+    http::StatusCode,
+    routing::get,
+    Json, Router,
+};
+use sqlx::PgPool;
+use uuid::Uuid;
+
+use crate::errors::db::mapear;
+use crate::models::tipo_sensor::TipoSensor;
+
+type ApiResult<T> = Result<Json<T>, (StatusCode, String)>;
+
+/// Catálogo de solo lectura (temperatura, humedad, iluminacion, ruido ya vienen en el SQL).
+pub fn router() -> Router {
+    Router::new()
+        .route("/api/tipos-sensor", get(listar))
+        .route("/api/tipos-sensor/{id}", get(obtener))
+}
+
+async fn listar(Extension(pool): Extension<PgPool>) -> ApiResult<Vec<TipoSensor>> {
+    sqlx::query_as::<_, TipoSensor>(
+        "SELECT id, nombre, unidad, descripcion FROM tipos_sensor ORDER BY nombre",
+    )
+    .fetch_all(&pool)
+    .await
+    .map(Json)
+    .map_err(mapear)
+}
+
+async fn obtener(Extension(pool): Extension<PgPool>, Path(id): Path<Uuid>) -> ApiResult<TipoSensor> {
+    let fila = sqlx::query_as::<_, TipoSensor>(
+        "SELECT id, nombre, unidad, descripcion FROM tipos_sensor WHERE id = $1",
+    )
+    .bind(id)
+    .fetch_optional(&pool)
+    .await
+    .map_err(mapear)?;
+
+    match fila {
+        Some(t) => Ok(Json(t)),
+        None => Err((StatusCode::NOT_FOUND, "Tipo de sensor no encontrado".into())),
+    }
+}
+
+===== src\schemas\alerta.rs =====
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum NivelAlerta {
+    Baja,
+    Media,
+    Alta,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NuevaAlerta {
+    pub sensor_id: u32,
+    pub aula_id: u32,
+    pub mensaje: String,
+    pub nivel: NivelAlerta,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Alerta {
+    pub id: u32,
+    pub sensor_id: u32,
+    pub aula_id: u32,
+    pub mensaje: String,
+    pub nivel: NivelAlerta,
+    pub atendida: bool,
+    pub fecha: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RespuestaAlerta {
+    pub mensaje: String,
+}
+
+===== src\schemas\aula.rs =====
+// Importamos la serde para Serializar y Desarializar 
+use serde::{Deserialize, Serialize};
+
+
+// Depurar y poder recibir datos externos 
+#[derive(Debug, Deserialize)]
+pub struct NuevaAula{
+    pub nombre: String,
+    pub ubicacion: String,
+    pub capacidad: u32,
+}
+
+
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Aula{
+    pub id: u32,
+    pub nombre: String,
+    pub ubicacion: String,
+    pub capacidad: u32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RespuestaAula{
+    //mensaje que se enviara como respuesta
+    pub mensaje: String,
+}
+
+===== src\schemas\medicion.rs =====
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TipoMedicion{
+    Temperatura,
+    Humedad,
+    Co2,
+    Ruido,
+    Luminosidad, 
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NuevaMedicion{
+    // definimos nuestra estructura con los siguientes parametros 
+    pub aula_id: u32,
+    pub sensor_id: u32,
+    pub tipo: TipoMedicion,
+    pub valor: f32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Medicion{
+    pub id: u32,
+    pub aula_id: u32,
+    pub sensor_id: u32,
+    pub tipo: TipoMedicion,
+    pub valor: f32,
+    pub fecha: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MensajeRespuesta{
+    pub mensaje: String, 
+}
+
+===== src\schemas\mod.rs =====
+//agregamos los modulos de las entidades
+pub mod medicion;
+pub mod aula; 
+pub mod sensor;
+pub mod alerta;
+
+===== src\schemas\sensor.rs =====
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TipoSensor {
+    Temperatura,
+    Humedad,
+    Co2,
+    Ruido,
+    Luminosidad,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NuevoSensor {
+    pub nombre: String,
+    pub tipo: TipoSensor,
+    pub aula_id: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Sensor {
+    pub id: u32,
+    pub nombre: String,
+    pub tipo: TipoSensor,
+    pub aula_id: u32,
+    pub activo: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RespuestaSensor {
+    pub mensaje: String,
+}
+
+===== src\services\alertas.rs =====
+use crate::models::{Alerta, Medicion};
+
+/// Verifica si una temperatura se encuentra fuera del rango permitido.
+/// Si está fuera del rango, genera una alerta.
+pub fn verificar_temperatura(
+    medicion: &Medicion,
+    minimo: f64,
+    maximo: f64,
+) -> Option<Alerta> {
+    let temperatura = medicion.temperatura?;
+
+    if minimo > maximo {
+        return None;
+    }
+
+    if temperatura < minimo {
+        Some(crear_alerta(
+            medicion,
+            "temperatura",
+            format!(
+                "La temperatura ({:.2} °C) está por debajo del mínimo permitido ({:.2} °C)",
+                temperatura, minimo
+            ),
+            "media",
+        ))
+    } else if temperatura > maximo {
+        Some(crear_alerta(
+            medicion,
+            "temperatura",
+            format!(
+                "La temperatura ({:.2} °C) está por encima del máximo permitido ({:.2} °C)",
+                temperatura, maximo
+            ),
+            "media",
+        ))
+    } else {
+        None
+    }
+}
+
+/// Verifica si la humedad se encuentra fuera del rango permitido.
+/// Si está fuera del rango, genera una alerta.
+pub fn verificar_humedad(
+    medicion: &Medicion,
+    minimo: f64,
+    maximo: f64,
+) -> Option<Alerta> {
+    let humedad = medicion.humedad?;
+
+    if minimo > maximo {
+        return None;
+    }
+
+    if humedad < minimo {
+        Some(crear_alerta(
+            medicion,
+            "humedad",
+            format!(
+                "La humedad ({:.2} %) está por debajo del mínimo permitido ({:.2} %)",
+                humedad, minimo
+            ),
+            "media",
+        ))
+    } else if humedad > maximo {
+        Some(crear_alerta(
+            medicion,
+            "humedad",
+            format!(
+                "La humedad ({:.2} %) está por encima del máximo permitido ({:.2} %)",
+                humedad, maximo
+            ),
+            "media",
+        ))
+    } else {
+        None
+    }
+}
+
+/// Verifica si la iluminación se encuentra fuera del rango permitido.
+/// Si está fuera del rango, genera una alerta.
+pub fn verificar_iluminacion(
+    medicion: &Medicion,
+    minimo: f64,
+    maximo: f64,
+) -> Option<Alerta> {
+    let iluminacion = medicion.iluminacion?;
+
+    if minimo > maximo {
+        return None;
+    }
+
+    if iluminacion < minimo {
+        Some(crear_alerta(
+            medicion,
+            "iluminacion",
+            format!(
+                "La iluminación ({:.2} lux) está por debajo del mínimo permitido ({:.2} lux)",
+                iluminacion, minimo
+            ),
+            "media",
+        ))
+    } else if iluminacion > maximo {
+        Some(crear_alerta(
+            medicion,
+            "iluminacion",
+            format!(
+                "La iluminación ({:.2} lux) está por encima del máximo permitido ({:.2} lux)",
+                iluminacion, maximo
+            ),
+            "media",
+        ))
+    } else {
+        None
+    }
+}
+
+/// Verifica si el nivel de ruido se encuentra fuera del rango permitido.
+/// Si está fuera del rango, genera una alerta.
+pub fn verificar_ruido(
+    medicion: &Medicion,
+    minimo: f64,
+    maximo: f64,
+) -> Option<Alerta> {
+    let ruido = medicion.ruido?;
+
+    if minimo > maximo {
+        return None;
+    }
+
+    if ruido < minimo {
+        Some(crear_alerta(
+            medicion,
+            "ruido",
+            format!(
+                "El ruido ({:.2} dB) está por debajo del mínimo permitido ({:.2} dB)",
+                ruido, minimo
+            ),
+            "media",
+        ))
+    } else if ruido > maximo {
+        Some(crear_alerta(
+            medicion,
+            "ruido",
+            format!(
+                "El ruido ({:.2} dB) está por encima del máximo permitido ({:.2} dB)",
+                ruido, maximo
+            ),
+            "media",
+        ))
+    } else {
+        None
+    }
+}
+
+/// Genera todas las alertas correspondientes a una medición
+/// utilizando los rangos proporcionados para cada variable.
+///
+/// Los rangos se reciben como parámetros porque todavía deben
+/// ser definidos por las reglas de negocio del proyecto.
+pub fn generar_alertas(
+    medicion: &Medicion,
+    rango_temperatura: (f64, f64),
+    rango_humedad: (f64, f64),
+    rango_iluminacion: (f64, f64),
+    rango_ruido: (f64, f64),
+) -> Vec<Alerta> {
+    let mut alertas = Vec::new();
+
+    if let Some(alerta) = verificar_temperatura(
+        medicion,
+        rango_temperatura.0,
+        rango_temperatura.1,
+    ) {
+        alertas.push(alerta);
+    }
+
+    if let Some(alerta) =
+        verificar_humedad(medicion, rango_humedad.0, rango_humedad.1)
+    {
+        alertas.push(alerta);
+    }
+
+    if let Some(alerta) = verificar_iluminacion(
+        medicion,
+        rango_iluminacion.0,
+        rango_iluminacion.1,
+    ) {
+        alertas.push(alerta);
+    }
+
+    if let Some(alerta) =
+        verificar_ruido(medicion, rango_ruido.0, rango_ruido.1)
+    {
+        alertas.push(alerta);
+    }
+
+    alertas
+}
+
+/// Crea una alerta utilizando los datos de la medición.
+fn crear_alerta(
+    medicion: &Medicion,
+    tipo: &str,
+    mensaje: String,
+    nivel: &str,
+) -> Alerta {
+    Alerta {
+        id: 0,
+        aula_id: medicion.aula_id,
+        tipo: tipo.to_string(),
+        mensaje,
+        nivel: nivel.to_string(),
+        activa: true,
+        fecha_hora: medicion.fecha_hora.clone(),
+    }
+}
+
+===== src\services\confort.rs =====
+use crate::models::Medicion;
+
+/// Calcula el índice de confort térmico a partir de la temperatura
+/// y la humedad relativa de una medición.
+///
+/// El resultado se expresa en una escala de 0 a 1, donde 1 representa
+/// las condiciones de referencia definidas para el modelo del proyecto.
+/// Este cálculo constituye una normalización simplificada y no sustituye
+/// una evaluación normativa completa del confort térmico.
+pub fn calcular_indice_termico(medicion: &Medicion) -> Result<f64, String> {
+    let temperatura = medicion.temperatura.ok_or_else(|| {
+        "La temperatura es necesaria para calcular el confort térmico".to_string()
+    })?;
+
+    let humedad = medicion
+        .humedad
+        .ok_or_else(|| "La humedad es necesaria para calcular el confort térmico".to_string())?;
+
+    if !temperatura.is_finite() {
+        return Err("La temperatura debe ser un número válido".to_string());
+    }
+
+    if !humedad.is_finite() {
+        return Err("La humedad debe ser un número válido".to_string());
+    }
+
+    let indice_temperatura = calcular_indice_temperatura(temperatura);
+    let indice_humedad = calcular_indice_humedad(humedad);
+
+    Ok(indice_temperatura * indice_humedad)
+}
+
+/// Normaliza la temperatura en una escala de 0 a 1.
+///
+/// Se utiliza 26 °C como punto central de referencia para la
+/// normalización propuesta por el proyecto, considerando el contexto
+/// climático cálido en el que se desarrollará el sistema.
+///
+/// Los valores de 21 °C y 31 °C delimitan el intervalo utilizado
+/// por el modelo. Estos límites son parámetros de normalización del
+/// proyecto y no representan por sí mismos límites normativos.
+fn calcular_indice_temperatura(temperatura: f64) -> f64 {
+    let indice = if temperatura <= 21.0 {
+        0.0
+    } else if temperatura < 26.0 {
+        (temperatura - 21.0) / 5.0
+    } else if temperatura < 31.0 {
+        (31.0 - temperatura) / 5.0
+    } else {
+        0.0
+    };
+
+    indice.clamp(0.0, 1.0)
+}
+
+/// Normaliza la humedad relativa en una escala de 0 a 1.
+///
+/// El modelo utiliza 40 % a 60 % de humedad relativa como intervalo
+/// central de referencia. Los valores comprendidos entre 20 % y 40 %
+/// y entre 60 % y 90 % reciben una penalización progresiva.
+///
+/// Los límites utilizados son parámetros de normalización definidos
+/// para el modelo del proyecto y no constituyen una clasificación
+/// normativa independiente.
+fn calcular_indice_humedad(humedad: f64) -> f64 {
+    let indice = if humedad <= 20.0 {
+        0.0
+    } else if humedad < 40.0 {
+        (humedad - 20.0) / 20.0
+    } else if humedad <= 60.0 {
+        1.0
+    } else if humedad < 90.0 {
+        (90.0 - humedad) / 30.0
+    } else {
+        0.0
+    };
+
+    indice.clamp(0.0, 1.0)
+}
+
+/// Calcula el índice de confort visual utilizando la iluminación
+/// medida en lux.
+///
+/// El modelo utiliza 300 a 500 lux como intervalo central de referencia
+/// para las condiciones de iluminación del aula. Fuera de este intervalo
+/// se aplica una penalización progresiva hasta alcanzar un índice de 0.
+///
+/// La función representa una normalización simplificada de la iluminación
+/// y no evalúa otros factores como uniformidad, deslumbramiento o
+/// distribución espacial de la luz.
+pub fn calcular_indice_visual(medicion: &Medicion) -> Result<f64, String> {
+    let iluminacion = medicion
+        .iluminacion
+        .ok_or_else(|| "La iluminación es necesaria para calcular el confort visual".to_string())?;
+
+    if !iluminacion.is_finite() {
+        return Err("La iluminación debe ser un número válido".to_string());
+    }
+
+    let indice = if iluminacion <= 0.0 {
+        0.0
+    } else if iluminacion < 300.0 {
+        iluminacion / 300.0
+    } else if iluminacion <= 500.0 {
+        1.0
+    } else if iluminacion < 1000.0 {
+        (1000.0 - iluminacion) / 500.0
+    } else {
+        0.0
+    };
+
+    Ok(indice.clamp(0.0, 1.0))
+}
+
+/// Calcula el índice de confort acústico utilizando el nivel
+/// sonoro equivalente ponderado A (dBA).
+///
+/// El índice disminuye conforme aumenta el nivel sonoro. Los valores
+/// utilizados representan parámetros de normalización del proyecto
+/// para el funcionamiento habitual del aula y no corresponden a un
+/// único límite normativo de ruido para todas las situaciones.
+pub fn calcular_indice_acustico(medicion: &Medicion) -> Result<f64, String> {
+    let ruido = medicion
+        .ruido
+        .ok_or_else(|| "El ruido es necesario para calcular el confort acústico".to_string())?;
+
+    if !ruido.is_finite() {
+        return Err("El ruido debe ser un número válido".to_string());
+    }
+
+    let indice = if ruido <= 40.0 {
+        1.0
+    } else if ruido <= 50.0 {
+        1.0 - ((ruido - 40.0) / 100.0)
+    } else if ruido <= 60.0 {
+        0.9 - ((ruido - 50.0) * 0.02)
+    } else if ruido <= 65.0 {
+        0.7 - ((ruido - 60.0) * 0.08)
+    } else if ruido < 70.0 {
+        0.3 - ((ruido - 65.0) * 0.06)
+    } else {
+        0.0
+    };
+
+    Ok(indice.clamp(0.0, 1.0))
+}
+
+/// Calcula el índice general de confort del aula.
+///
+/// El índice general se obtiene mediante el promedio aritmético de los
+/// índices térmico, visual y acústico. Se utilizan pesos iguales debido
+/// a que el proyecto no dispone de datos de percepción de los usuarios
+/// que permitan justificar una ponderación diferente.
+///
+/// El resultado se encuentra en una escala de 0 a 1.
+pub fn calcular_indice_confort(medicion: &Medicion) -> Result<f64, String> {
+    let indice_termico = calcular_indice_termico(medicion)?;
+    let indice_visual = calcular_indice_visual(medicion)?;
+    let indice_acustico = calcular_indice_acustico(medicion)?;
+
+    let indice_global = (indice_termico + indice_visual + indice_acustico) / 3.0;
+
+    Ok(indice_global.clamp(0.0, 1.0))
+}
+
+/// Obtiene el estado interpretativo correspondiente al índice general
+/// de confort.
+///
+/// Las categorías son una clasificación propia del proyecto utilizada
+/// para facilitar la interpretación del valor numérico en la aplicación.
+pub fn obtener_estado_confort(indice: f64) -> &'static str {
+    match indice {
+        indice if indice >= 0.80 => "Muy confortable",
+        indice if indice >= 0.60 => "Confortable",
+        indice if indice >= 0.40 => "Aceptable",
+        indice if indice >= 0.20 => "Poco confortable",
+        _ => "Desfavorable",
+    }
+}
+
+===== src\services\mediciones.rs =====
+use crate::models::Medicion;
+
+/// Valida los datos de una medición antes de procesarlos.
+pub fn validar_medicion(medicion: &Medicion) -> Result<(), String> {
+    if medicion.aula_id <= 0 {
+        return Err("El ID del aula debe ser válido".to_string());
+    }
+
+    if let Some(sensor_id) = medicion.sensor_id {
+        if sensor_id <= 0 {
+            return Err("El ID del sensor debe ser válido".to_string());
+        }
+    }
+
+    if let Some(temperatura) = medicion.temperatura {
+        if !temperatura.is_finite() {
+            return Err("La temperatura debe ser un número válido".to_string());
+        }
+    }
+
+    if let Some(humedad) = medicion.humedad {
+        if !humedad.is_finite() {
+            return Err("La humedad debe ser un número válido".to_string());
+        }
+    }
+
+    if let Some(iluminacion) = medicion.iluminacion {
+        if !iluminacion.is_finite() {
+            return Err("La iluminación debe ser un número válido".to_string());
+        }
+    }
+
+    if let Some(ruido) = medicion.ruido {
+        if !ruido.is_finite() {
+            return Err("El ruido debe ser un número válido".to_string());
+        }
+    }
+
+    if let Some(confort) = medicion.confort {
+        if !confort.is_finite() {
+            return Err("El índice de confort debe ser un número válido".to_string());
+        }
+    }
+
+    Ok(())
+}
+
+/// Busca una medición utilizando su identificador.
+pub fn buscar_por_id(mediciones: &[Medicion], id: i32) -> Option<Medicion> {
+    mediciones
+        .iter()
+        .find(|medicion| medicion.id == id)
+        .cloned()
+}
+
+/// Obtiene todas las mediciones pertenecientes a un aula.
+pub fn filtrar_por_aula(mediciones: &[Medicion], aula_id: i32) -> Vec<Medicion> {
+    mediciones
+        .iter()
+        .filter(|medicion| medicion.aula_id == aula_id)
+        .cloned()
+        .collect()
+}
+
+/// Obtiene todas las mediciones pertenecientes a un sensor.
+pub fn filtrar_por_sensor(mediciones: &[Medicion], sensor_id: i32) -> Vec<Medicion> {
+    mediciones
+        .iter()
+        .filter(|medicion| medicion.sensor_id == Some(sensor_id))
+        .cloned()
+        .collect()
+}
+
+/// Calcula el promedio de temperatura de un conjunto de mediciones.
+pub fn calcular_promedio_temperatura(mediciones: &[Medicion]) -> Option<f64> {
+    calcular_promedio(mediciones.iter().filter_map(|medicion| medicion.temperatura))
+}
+
+/// Calcula el promedio de humedad de un conjunto de mediciones.
+pub fn calcular_promedio_humedad(mediciones: &[Medicion]) -> Option<f64> {
+    calcular_promedio(mediciones.iter().filter_map(|medicion| medicion.humedad))
+}
+
+/// Calcula el promedio de iluminación de un conjunto de mediciones.
+pub fn calcular_promedio_iluminacion(mediciones: &[Medicion]) -> Option<f64> {
+    calcular_promedio(mediciones.iter().filter_map(|medicion| medicion.iluminacion))
+}
+
+/// Calcula el promedio de ruido de un conjunto de mediciones.
+pub fn calcular_promedio_ruido(mediciones: &[Medicion]) -> Option<f64> {
+    calcular_promedio(mediciones.iter().filter_map(|medicion| medicion.ruido))
+}
+
+/// Calcula el promedio de un conjunto de valores.
+fn calcular_promedio<I>(valores: I) -> Option<f64>
+where
+    I: Iterator<Item = f64>,
+{
+    let valores: Vec<f64> = valores.collect();
+
+    if valores.is_empty() {
+        return None;
+    }
+
+    let suma: f64 = valores.iter().sum();
+
+    Some(suma / valores.len() as f64)
+}
+
+/// Obtiene la temperatura máxima registrada.
+pub fn calcular_maximo_temperatura(mediciones: &[Medicion]) -> Option<f64> {
+    calcular_maximo(mediciones.iter().filter_map(|medicion| medicion.temperatura))
+}
+
+/// Obtiene la humedad máxima registrada.
+pub fn calcular_maximo_humedad(mediciones: &[Medicion]) -> Option<f64> {
+    calcular_maximo(mediciones.iter().filter_map(|medicion| medicion.humedad))
+}
+
+/// Obtiene la iluminación máxima registrada.
+pub fn calcular_maximo_iluminacion(mediciones: &[Medicion]) -> Option<f64> {
+    calcular_maximo(mediciones.iter().filter_map(|medicion| medicion.iluminacion))
+}
+
+/// Obtiene el nivel de ruido máximo registrado.
+pub fn calcular_maximo_ruido(mediciones: &[Medicion]) -> Option<f64> {
+    calcular_maximo(mediciones.iter().filter_map(|medicion| medicion.ruido))
+}
+
+/// Obtiene el valor máximo de un conjunto de valores.
+fn calcular_maximo<I>(valores: I) -> Option<f64>
+where
+    I: Iterator<Item = f64>,
+{
+    valores.reduce(f64::max)
+}
+
+/// Obtiene la temperatura mínima registrada.
+pub fn calcular_minimo_temperatura(mediciones: &[Medicion]) -> Option<f64> {
+    calcular_minimo(mediciones.iter().filter_map(|medicion| medicion.temperatura))
+}
+
+/// Obtiene la humedad mínima registrada.
+pub fn calcular_minimo_humedad(mediciones: &[Medicion]) -> Option<f64> {
+    calcular_minimo(mediciones.iter().filter_map(|medicion| medicion.humedad))
+}
+
+/// Obtiene la iluminación mínima registrada.
+pub fn calcular_minimo_iluminacion(mediciones: &[Medicion]) -> Option<f64> {
+    calcular_minimo(mediciones.iter().filter_map(|medicion| medicion.iluminacion))
+}
+
+/// Obtiene el nivel de ruido mínimo registrado.
+pub fn calcular_minimo_ruido(mediciones: &[Medicion]) -> Option<f64> {
+    calcular_minimo(mediciones.iter().filter_map(|medicion| medicion.ruido))
+}
+
+/// Obtiene el valor mínimo de un conjunto de valores.
+fn calcular_minimo<I>(valores: I) -> Option<f64>
+where
+    I: Iterator<Item = f64>,
+{
+    valores.reduce(f64::min)
+}
+
+===== src\services\mod.rs =====
+pub mod mediciones;
+pub mod alertas;
+pub mod confort;
+
+===== src\websocket\handler.rs =====
+use axum::{
+    extract::{
+        ws::{Message, WebSocket, WebSocketUpgrade},
+        State,
+    },
+    response::IntoResponse,
+};
+use futures::{SinkExt, StreamExt};
+use std::sync::Arc;
+use tokio::sync::broadcast;
+use tracing::{info, warn};
+
+// Estado compartido de todo el sistema de WebSocket.
+// `broadcast::Sender` permite enviar un mensaje UNA vez y que TODOS los
+// clientes suscritos (todas las conexiones abiertas) lo reciban.
+// Es justo lo que necesitamos para "actualizaciones de mediciones en tiempo real":
+// cuando llega una medición nueva, se difunde a todos los que están viendo el dashboard.
+#[derive(Clone)]
+pub struct WsState {
+    pub tx: broadcast::Sender<String>,
+}
+
+impl WsState {
+    // Crea el estado inicial. `capacity` es cuántos mensajes se guardan en el
+    // buffer interno: si un cliente es muy lento leyendo, después de ese límite
+    // empieza a perder mensajes viejos (no se acumulan infinitamente en memoria).
+    pub fn new(capacity: usize) -> Arc<Self> {
+        let (tx, _rx) = broadcast::channel(capacity);
+        // El _rx (receptor inicial) se descarta: cada cliente que se conecte
+        // creará su propio receptor con tx.subscribe() más abajo.
+        Arc::new(Self { tx })
+    }
+
+    // Función pública que usará el resto del sistema (por ejemplo, el servicio
+    // que lee sensores) para publicar una nueva medición a todos los clientes.
+    pub fn broadcast_measurement(&self, payload: String) {
+        // send() devuelve Err solo si NO hay ningún cliente escuchando.
+        // Eso no es un error grave para nosotros, así que lo ignoramos con `let _ =`.
+        let _ = self.tx.send(payload);
+    }
+}
+
+// Este es el handler HTTP normal (una ruta más de axum). Su trabajo es
+// "upgradear" (elevar) la conexión HTTP inicial a una conexión WebSocket real.
+pub async fn ws_handler(
+    ws: WebSocketUpgrade,
+    State(state): State<Arc<WsState>>,
+) -> impl IntoResponse {
+    // on_upgrade recibe una función que se ejecutará cuando el navegador/cliente
+    // termine el "handshake" de WebSocket y la conexión ya esté lista para usarse.
+    ws.on_upgrade(move |socket| handle_socket(socket, state))
+}
+
+// Lógica de UNA conexión WebSocket individual (se ejecuta una vez por cada cliente conectado).
+async fn handle_socket(socket: WebSocket, state: Arc<WsState>) {
+    // Dividimos el socket en dos mitades independientes:
+    // `sender` para escribir hacia el cliente, `receiver` para leer lo que él envía.
+    let (mut sender, mut receiver) = socket.split();
+
+    // Cada cliente se suscribe de forma independiente al canal de broadcast.
+    let mut rx = state.tx.subscribe();
+
+    info!("Nuevo cliente WebSocket conectado");
+
+    // TAREA 1: escucha el canal broadcast y reenvía cada medición nueva a ESTE cliente.
+    let mut send_task = tokio::spawn(async move {
+        while let Ok(msg) = rx.recv().await {
+            // Si sender.send() falla, significa que el cliente ya se desconectó.
+            if sender.send(Message::Text(msg)).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    // TAREA 2: escucha lo que el cliente envía (mensajes de control, cierre, etc.)
+    let mut recv_task = tokio::spawn(async move {
+        while let Some(Ok(msg)) = receiver.next().await {
+            match msg {
+                Message::Text(text) => {
+                    // Aquí se podrían interpretar comandos del cliente,
+                    // por ejemplo: {"accion": "suscribirse", "sensor_id": 3}
+                    info!("Mensaje recibido del cliente: {}", text);
+                }
+                Message::Close(_) => {
+                    info!("El cliente cerró la conexión");
+                    break;
+                }
+                _ => {} // Ignoramos pings/pongs/binarios por ahora
+            }
+        }
+    });
+
+    // Esperamos a que UNA de las dos tareas termine (por desconexión o error)
+    // y cancelamos la otra, para no dejar tareas "huérfanas" corriendo en segundo plano.
+    tokio::select! {
+        _ = (&mut send_task) => recv_task.abort(),
+        _ = (&mut recv_task) => send_task.abort(),
+    }
+
+    warn!("Cliente WebSocket desconectado");
+}
+
+
+===== src\websocket\mod.rs =====
+// Declara que handler.rs pertenece a este módulo...
+pub mod handler;
+
+// ...y reexporta lo que otros módulos necesitan usar,
+// para poder escribir `use crate::websocket::{ws_handler, WsState}` directamente.
+pub use handler::{ws_handler, WsState};
+

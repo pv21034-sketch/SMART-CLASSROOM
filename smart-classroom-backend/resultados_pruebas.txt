@@ -1,0 +1,848 @@
+Diff in \\?\C:\smart-classroom\smart-classroom-backend\src\schemas\alerta.rs:1:
+[31m-
+[0m use chrono::{DateTime, Utc};
+ use serde::{Deserialize, Serialize};
+ use uuid::Uuid;
+Diff in \\?\C:\smart-classroom\smart-classroom-backend\src\schemas\aula.rs:1:
+[31m-
+[0m use chrono::{DateTime, Utc};
+ use serde::{Deserialize, Serialize};
+ use uuid::Uuid;
+Diff in \\?\C:\smart-classroom\smart-classroom-backend\src\schemas\medicion.rs:1:
+[31m-
+[0m use chrono::{DateTime, Utc};
+ use serde::{Deserialize, Serialize};
+ use uuid::Uuid;
+Diff in \\?\C:\smart-classroom\smart-classroom-backend\src\schemas\sensor.rs:1:
+[31m-
+[0m use chrono::{DateTime, Utc};
+ use serde::{Deserialize, Serialize};
+ use uuid::Uuid;
+    Checking smart_classroom_backend v0.1.0 (C:\smart-classroom\smart-classroom-backend)
+warning: unused import: `aula::Aula`
+  --> src\models\mod.rs:25:9
+   |
+25 | pub use aula::Aula;
+   |         ^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `dispositivo::Dispositivo`
+  --> src\models\mod.rs:26:9
+   |
+26 | pub use dispositivo::Dispositivo;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `indice_confort::IndiceConfort`
+  --> src\models\mod.rs:27:9
+   |
+27 | pub use indice_confort::IndiceConfort;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `sensor::Sensor`
+  --> src\models\mod.rs:30:9
+   |
+30 | pub use sensor::Sensor;
+   |         ^^^^^^^^^^^^^^
+
+warning: unused import: `tipo_sensor::TipoSensor`
+  --> src\models\mod.rs:31:9
+   |
+31 | pub use tipo_sensor::TipoSensor;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `UsuarioPublico` and `Usuario`
+  --> src\models\mod.rs:32:19
+   |
+32 | pub use usuario::{Usuario, UsuarioPublico};
+   |                   ^^^^^^^  ^^^^^^^^^^^^^^
+
+warning: field `jwt_secret` is never read
+  --> src\config\mod.rs:28:9
+   |
+26 | pub struct Config {
+   |            ------ field in this struct
+27 |     pub direccion: SocketAddr,
+28 |     pub jwt_secret: String,
+   |         ^^^^^^^^^^
+   |
+   = note: `Config` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: variant `WebSocket` is never constructed
+  --> src\errors\api_error.rs:36:5
+   |
+22 | pub enum ApiError {
+   |          -------- variant in this enum
+...
+36 |     WebSocket(String),
+   |     ^^^^^^^^^
+   |
+   = note: `ApiError` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: struct `Alerta` is never constructed
+  --> src\models\alerta.rs:24:12
+   |
+24 | pub struct Alerta {
+   |            ^^^^^^
+
+warning: struct `Aula` is never constructed
+  --> src\models\aula.rs:12:12
+   |
+12 | pub struct Aula {
+   |            ^^^^
+
+warning: struct `Dispositivo` is never constructed
+  --> src\models\dispositivo.rs:17:12
+   |
+17 | pub struct Dispositivo {
+   |            ^^^^^^^^^^^
+
+warning: struct `IndiceConfort` is never constructed
+  --> src\models\indice_confort.rs:22:12
+   |
+22 | pub struct IndiceConfort {
+   |            ^^^^^^^^^^^^^
+
+warning: associated items `valor_valido` and `es_valido` are never used
+  --> src\models\indice_confort.rs:45:12
+   |
+42 | impl IndiceConfort {
+   | ------------------ associated items in this implementation
+...
+45 |     pub fn valor_valido(valor: f64) -> bool {
+   |            ^^^^^^^^^^^^
+...
+50 |     pub fn es_valido(&self) -> bool {
+   |            ^^^^^^^^^
+
+warning: struct `Medicion` is never constructed
+  --> src\models\medicion.rs:23:12
+   |
+23 | pub struct Medicion {
+   |            ^^^^^^^^
+
+warning: struct `RangoSensor` is never constructed
+  --> src\models\rango_sensor.rs:18:12
+   |
+18 | pub struct RangoSensor {
+   |            ^^^^^^^^^^^
+
+warning: methods `limites_validos` and `evaluar_valor` are never used
+  --> src\models\rango_sensor.rs:47:12
+   |
+45 | impl RangoSensor {
+   | ---------------- methods in this implementation
+46 |     /// Comprueba si los límites son válidos.
+47 |     pub fn limites_validos(&self) -> bool {
+   |            ^^^^^^^^^^^^^^^
+...
+60 |     pub fn evaluar_valor(&self, valor: f64) -> Option<&'static str> {
+   |            ^^^^^^^^^^^^^
+
+warning: struct `Sensor` is never constructed
+  --> src\models\sensor.rs:19:12
+   |
+19 | pub struct Sensor {
+   |            ^^^^^^
+
+warning: struct `TipoSensor` is never constructed
+  --> src\models\tipo_sensor.rs:21:12
+   |
+21 | pub struct TipoSensor {
+   |            ^^^^^^^^^^
+
+warning: struct `Usuario` is never constructed
+  --> src\models\usuario.rs:21:12
+   |
+21 | pub struct Usuario {
+   |            ^^^^^^^
+
+warning: struct `UsuarioPublico` is never constructed
+  --> src\models\usuario.rs:57:12
+   |
+57 | pub struct UsuarioPublico {
+   |            ^^^^^^^^^^^^^^
+
+warning: struct `Alerta` is never constructed
+  --> src\schemas\alerta.rs:11:12
+   |
+11 | pub struct Alerta {
+   |            ^^^^^^
+
+warning: struct `CambioEstadoAlerta` is never constructed
+  --> src\schemas\alerta.rs:29:12
+   |
+29 | pub struct CambioEstadoAlerta {
+   |            ^^^^^^^^^^^^^^^^^^
+
+warning: struct `AlertaDetalle` is never constructed
+  --> src\schemas\alerta.rs:38:12
+   |
+38 | pub struct AlertaDetalle {
+   |            ^^^^^^^^^^^^^
+
+warning: struct `RespuestaAlerta` is never constructed
+  --> src\schemas\alerta.rs:62:12
+   |
+62 | pub struct RespuestaAlerta {
+   |            ^^^^^^^^^^^^^^^
+
+warning: struct `NuevaAula` is never constructed
+ --> src\schemas\aula.rs:7:12
+  |
+7 | pub struct NuevaAula {
+  |            ^^^^^^^^^
+
+warning: struct `ActualizarAula` is never constructed
+  --> src\schemas\aula.rs:14:12
+   |
+14 | pub struct ActualizarAula {
+   |            ^^^^^^^^^^^^^^
+
+warning: struct `Aula` is never constructed
+  --> src\schemas\aula.rs:21:12
+   |
+21 | pub struct Aula {
+   |            ^^^^
+
+warning: struct `RespuestaAula` is never constructed
+  --> src\schemas\aula.rs:30:12
+   |
+30 | pub struct RespuestaAula {
+   |            ^^^^^^^^^^^^^
+
+warning: struct `Medicion` is never constructed
+  --> src\schemas\medicion.rs:11:12
+   |
+11 | pub struct Medicion {
+   |            ^^^^^^^^
+
+warning: struct `MedicionDetalle` is never constructed
+  --> src\schemas\medicion.rs:23:12
+   |
+23 | pub struct MedicionDetalle {
+   |            ^^^^^^^^^^^^^^^
+
+warning: struct `MensajeRespuesta` is never constructed
+  --> src\schemas\medicion.rs:39:12
+   |
+39 | pub struct MensajeRespuesta {
+   |            ^^^^^^^^^^^^^^^^
+
+warning: struct `NuevoSensor` is never constructed
+  --> src\schemas\sensor.rs:11:12
+   |
+11 | pub struct NuevoSensor {
+   |            ^^^^^^^^^^^
+
+warning: struct `ActualizarSensor` is never constructed
+  --> src\schemas\sensor.rs:23:12
+   |
+23 | pub struct ActualizarSensor {
+   |            ^^^^^^^^^^^^^^^^
+
+warning: struct `Sensor` is never constructed
+  --> src\schemas\sensor.rs:34:12
+   |
+34 | pub struct Sensor {
+   |            ^^^^^^
+
+warning: struct `RespuestaSensor` is never constructed
+  --> src\schemas\sensor.rs:49:12
+   |
+49 | pub struct RespuestaSensor {
+   |            ^^^^^^^^^^^^^^^
+
+warning: struct `SensorDetalle` is never constructed
+  --> src\schemas\sensor.rs:58:12
+   |
+58 | pub struct SensorDetalle {
+   |            ^^^^^^^^^^^^^
+
+warning: function `rango_valido` is never used
+  --> src\services\alertas.rs:27:4
+   |
+27 | fn rango_valido(rango: &RangoSensor) -> bool {
+   |    ^^^^^^^^^^^^
+
+warning: function `verificar_medicion` is never used
+  --> src\services\alertas.rs:48:8
+   |
+48 | pub fn verificar_medicion(
+   |        ^^^^^^^^^^^^^^^^^^
+
+warning: function `verificar_temperatura` is never used
+  --> src\services\alertas.rs:88:8
+   |
+88 | pub fn verificar_temperatura(medicion: &Medicion, rango: &RangoSensor) -> Option<Alerta> {
+   |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `verificar_humedad` is never used
+  --> src\services\alertas.rs:95:8
+   |
+95 | pub fn verificar_humedad(medicion: &Medicion, rango: &RangoSensor) -> Option<Alerta> {
+   |        ^^^^^^^^^^^^^^^^^
+
+warning: function `verificar_iluminacion` is never used
+   --> src\services\alertas.rs:102:8
+    |
+102 | pub fn verificar_iluminacion(medicion: &Medicion, rango: &RangoSensor) -> Option<Alerta> {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `verificar_ruido` is never used
+   --> src\services\alertas.rs:111:8
+    |
+111 | pub fn verificar_ruido(medicion: &Medicion, rango: &RangoSensor) -> Option<Alerta> {
+    |        ^^^^^^^^^^^^^^^
+
+warning: function `generar_alertas` is never used
+   --> src\services\alertas.rs:130:8
+    |
+130 | pub fn generar_alertas(datos: &[(&Medicion, &RangoSensor, &str, &str)]) -> Vec<Alerta> {
+    |        ^^^^^^^^^^^^^^^
+
+warning: function `crear_alerta` is never used
+   --> src\services\alertas.rs:147:4
+    |
+147 | fn crear_alerta(medicion: &Medicion, rango: &RangoSensor, tipo: &str, mensaje: String) -> Alerta {
+    |    ^^^^^^^^^^^^
+
+warning: function `validar_medicion` is never used
+  --> src\services\mediciones.rs:24:8
+   |
+24 | pub fn validar_medicion(medicion: &Medicion) -> Result<(), String> {
+   |        ^^^^^^^^^^^^^^^^
+
+warning: function `buscar_por_id` is never used
+  --> src\services\mediciones.rs:45:8
+   |
+45 | pub fn buscar_por_id(mediciones: &[Medicion], id: Uuid) -> Option<Medicion> {
+   |        ^^^^^^^^^^^^^
+
+warning: function `filtrar_por_sensor` is never used
+  --> src\services\mediciones.rs:57:8
+   |
+57 | pub fn filtrar_por_sensor(mediciones: &[Medicion], sensor_id: Uuid) -> Vec<Medicion> {
+   |        ^^^^^^^^^^^^^^^^^^
+
+warning: function `filtrar_por_sensores` is never used
+  --> src\services\mediciones.rs:73:8
+   |
+73 | pub fn filtrar_por_sensores(mediciones: &[Medicion], sensores_ids: &[Uuid]) -> Vec<Medicion> {
+   |        ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_promedio` is never used
+  --> src\services\mediciones.rs:88:8
+   |
+88 | pub fn calcular_promedio(mediciones: &[Medicion]) -> Option<f64> {
+   |        ^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_maximo` is never used
+   --> src\services\mediciones.rs:113:8
+    |
+113 | pub fn calcular_maximo(mediciones: &[Medicion]) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^
+
+warning: function `calcular_minimo` is never used
+   --> src\services\mediciones.rs:122:8
+    |
+122 | pub fn calcular_minimo(mediciones: &[Medicion]) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^
+
+warning: function `calcular_promedio_sensor` is never used
+   --> src\services\mediciones.rs:135:8
+    |
+135 | pub fn calcular_promedio_sensor(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_maximo_sensor` is never used
+   --> src\services\mediciones.rs:142:8
+    |
+142 | pub fn calcular_maximo_sensor(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_minimo_sensor` is never used
+   --> src\services\mediciones.rs:149:8
+    |
+149 | pub fn calcular_minimo_sensor(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_promedio_temperatura` is never used
+   --> src\services\mediciones.rs:163:8
+    |
+163 | pub fn calcular_promedio_temperatura(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_promedio_humedad` is never used
+   --> src\services\mediciones.rs:168:8
+    |
+168 | pub fn calcular_promedio_humedad(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_promedio_iluminacion` is never used
+   --> src\services\mediciones.rs:173:8
+    |
+173 | pub fn calcular_promedio_iluminacion(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_promedio_ruido` is never used
+   --> src\services\mediciones.rs:178:8
+    |
+178 | pub fn calcular_promedio_ruido(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_maximo_temperatura` is never used
+   --> src\services\mediciones.rs:183:8
+    |
+183 | pub fn calcular_maximo_temperatura(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_maximo_humedad` is never used
+   --> src\services\mediciones.rs:188:8
+    |
+188 | pub fn calcular_maximo_humedad(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_maximo_iluminacion` is never used
+   --> src\services\mediciones.rs:193:8
+    |
+193 | pub fn calcular_maximo_iluminacion(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_maximo_ruido` is never used
+   --> src\services\mediciones.rs:198:8
+    |
+198 | pub fn calcular_maximo_ruido(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_minimo_temperatura` is never used
+   --> src\services\mediciones.rs:203:8
+    |
+203 | pub fn calcular_minimo_temperatura(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_minimo_humedad` is never used
+   --> src\services\mediciones.rs:208:8
+    |
+208 | pub fn calcular_minimo_humedad(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_minimo_iluminacion` is never used
+   --> src\services\mediciones.rs:213:8
+    |
+213 | pub fn calcular_minimo_iluminacion(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_minimo_ruido` is never used
+   --> src\services\mediciones.rs:218:8
+    |
+218 | pub fn calcular_minimo_ruido(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: `smart_classroom_backend` (bin "smart_classroom_backend") generated 66 warnings (run `cargo fix --bin "smart_classroom_backend" -p smart_classroom_backend` to apply 6 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.41s
+warning: the following packages contain code that will be rejected by a future version of Rust: sqlx-postgres v0.7.4
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 2`
+   Compiling smart_classroom_backend v0.1.0 (C:\smart-classroom\smart-classroom-backend)
+warning: unused import: `aula::Aula`
+  --> src\models\mod.rs:25:9
+   |
+25 | pub use aula::Aula;
+   |         ^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `dispositivo::Dispositivo`
+  --> src\models\mod.rs:26:9
+   |
+26 | pub use dispositivo::Dispositivo;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `indice_confort::IndiceConfort`
+  --> src\models\mod.rs:27:9
+   |
+27 | pub use indice_confort::IndiceConfort;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `sensor::Sensor`
+  --> src\models\mod.rs:30:9
+   |
+30 | pub use sensor::Sensor;
+   |         ^^^^^^^^^^^^^^
+
+warning: unused import: `tipo_sensor::TipoSensor`
+  --> src\models\mod.rs:31:9
+   |
+31 | pub use tipo_sensor::TipoSensor;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `UsuarioPublico` and `Usuario`
+  --> src\models\mod.rs:32:19
+   |
+32 | pub use usuario::{Usuario, UsuarioPublico};
+   |                   ^^^^^^^  ^^^^^^^^^^^^^^
+
+warning: field `jwt_secret` is never read
+  --> src\config\mod.rs:28:9
+   |
+26 | pub struct Config {
+   |            ------ field in this struct
+27 |     pub direccion: SocketAddr,
+28 |     pub jwt_secret: String,
+   |         ^^^^^^^^^^
+   |
+   = note: `Config` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: variant `WebSocket` is never constructed
+  --> src\errors\api_error.rs:36:5
+   |
+22 | pub enum ApiError {
+   |          -------- variant in this enum
+...
+36 |     WebSocket(String),
+   |     ^^^^^^^^^
+   |
+   = note: `ApiError` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: struct `Aula` is never constructed
+  --> src\models\aula.rs:12:12
+   |
+12 | pub struct Aula {
+   |            ^^^^
+
+warning: struct `Dispositivo` is never constructed
+  --> src\models\dispositivo.rs:17:12
+   |
+17 | pub struct Dispositivo {
+   |            ^^^^^^^^^^^
+
+warning: method `es_valido` is never used
+  --> src\models\indice_confort.rs:50:12
+   |
+42 | impl IndiceConfort {
+   | ------------------ method in this implementation
+...
+50 |     pub fn es_valido(&self) -> bool {
+   |            ^^^^^^^^^
+
+warning: struct `Sensor` is never constructed
+  --> src\models\sensor.rs:19:12
+   |
+19 | pub struct Sensor {
+   |            ^^^^^^
+
+warning: struct `TipoSensor` is never constructed
+  --> src\models\tipo_sensor.rs:21:12
+   |
+21 | pub struct TipoSensor {
+   |            ^^^^^^^^^^
+
+warning: struct `Usuario` is never constructed
+  --> src\models\usuario.rs:21:12
+   |
+21 | pub struct Usuario {
+   |            ^^^^^^^
+
+warning: struct `UsuarioPublico` is never constructed
+  --> src\models\usuario.rs:57:12
+   |
+57 | pub struct UsuarioPublico {
+   |            ^^^^^^^^^^^^^^
+
+warning: struct `Alerta` is never constructed
+  --> src\schemas\alerta.rs:11:12
+   |
+11 | pub struct Alerta {
+   |            ^^^^^^
+
+warning: struct `CambioEstadoAlerta` is never constructed
+  --> src\schemas\alerta.rs:29:12
+   |
+29 | pub struct CambioEstadoAlerta {
+   |            ^^^^^^^^^^^^^^^^^^
+
+warning: struct `AlertaDetalle` is never constructed
+  --> src\schemas\alerta.rs:38:12
+   |
+38 | pub struct AlertaDetalle {
+   |            ^^^^^^^^^^^^^
+
+warning: struct `RespuestaAlerta` is never constructed
+  --> src\schemas\alerta.rs:62:12
+   |
+62 | pub struct RespuestaAlerta {
+   |            ^^^^^^^^^^^^^^^
+
+warning: struct `NuevaAula` is never constructed
+ --> src\schemas\aula.rs:7:12
+  |
+7 | pub struct NuevaAula {
+  |            ^^^^^^^^^
+
+warning: struct `ActualizarAula` is never constructed
+  --> src\schemas\aula.rs:14:12
+   |
+14 | pub struct ActualizarAula {
+   |            ^^^^^^^^^^^^^^
+
+warning: struct `Aula` is never constructed
+  --> src\schemas\aula.rs:21:12
+   |
+21 | pub struct Aula {
+   |            ^^^^
+
+warning: struct `RespuestaAula` is never constructed
+  --> src\schemas\aula.rs:30:12
+   |
+30 | pub struct RespuestaAula {
+   |            ^^^^^^^^^^^^^
+
+warning: struct `Medicion` is never constructed
+  --> src\schemas\medicion.rs:11:12
+   |
+11 | pub struct Medicion {
+   |            ^^^^^^^^
+
+warning: struct `MedicionDetalle` is never constructed
+  --> src\schemas\medicion.rs:23:12
+   |
+23 | pub struct MedicionDetalle {
+   |            ^^^^^^^^^^^^^^^
+
+warning: struct `MensajeRespuesta` is never constructed
+  --> src\schemas\medicion.rs:39:12
+   |
+39 | pub struct MensajeRespuesta {
+   |            ^^^^^^^^^^^^^^^^
+
+warning: struct `NuevoSensor` is never constructed
+  --> src\schemas\sensor.rs:11:12
+   |
+11 | pub struct NuevoSensor {
+   |            ^^^^^^^^^^^
+
+warning: struct `ActualizarSensor` is never constructed
+  --> src\schemas\sensor.rs:23:12
+   |
+23 | pub struct ActualizarSensor {
+   |            ^^^^^^^^^^^^^^^^
+
+warning: struct `Sensor` is never constructed
+  --> src\schemas\sensor.rs:34:12
+   |
+34 | pub struct Sensor {
+   |            ^^^^^^
+
+warning: struct `RespuestaSensor` is never constructed
+  --> src\schemas\sensor.rs:49:12
+   |
+49 | pub struct RespuestaSensor {
+   |            ^^^^^^^^^^^^^^^
+
+warning: struct `SensorDetalle` is never constructed
+  --> src\schemas\sensor.rs:58:12
+   |
+58 | pub struct SensorDetalle {
+   |            ^^^^^^^^^^^^^
+
+warning: function `verificar_humedad` is never used
+  --> src\services\alertas.rs:95:8
+   |
+95 | pub fn verificar_humedad(medicion: &Medicion, rango: &RangoSensor) -> Option<Alerta> {
+   |        ^^^^^^^^^^^^^^^^^
+
+warning: function `verificar_iluminacion` is never used
+   --> src\services\alertas.rs:102:8
+    |
+102 | pub fn verificar_iluminacion(medicion: &Medicion, rango: &RangoSensor) -> Option<Alerta> {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `verificar_ruido` is never used
+   --> src\services\alertas.rs:111:8
+    |
+111 | pub fn verificar_ruido(medicion: &Medicion, rango: &RangoSensor) -> Option<Alerta> {
+    |        ^^^^^^^^^^^^^^^
+
+warning: function `buscar_por_id` is never used
+  --> src\services\mediciones.rs:45:8
+   |
+45 | pub fn buscar_por_id(mediciones: &[Medicion], id: Uuid) -> Option<Medicion> {
+   |        ^^^^^^^^^^^^^
+
+warning: function `filtrar_por_sensores` is never used
+  --> src\services\mediciones.rs:73:8
+   |
+73 | pub fn filtrar_por_sensores(mediciones: &[Medicion], sensores_ids: &[Uuid]) -> Vec<Medicion> {
+   |        ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_promedio_sensor` is never used
+   --> src\services\mediciones.rs:135:8
+    |
+135 | pub fn calcular_promedio_sensor(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_maximo_sensor` is never used
+   --> src\services\mediciones.rs:142:8
+    |
+142 | pub fn calcular_maximo_sensor(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_minimo_sensor` is never used
+   --> src\services\mediciones.rs:149:8
+    |
+149 | pub fn calcular_minimo_sensor(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_promedio_temperatura` is never used
+   --> src\services\mediciones.rs:163:8
+    |
+163 | pub fn calcular_promedio_temperatura(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_promedio_humedad` is never used
+   --> src\services\mediciones.rs:168:8
+    |
+168 | pub fn calcular_promedio_humedad(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_promedio_iluminacion` is never used
+   --> src\services\mediciones.rs:173:8
+    |
+173 | pub fn calcular_promedio_iluminacion(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_promedio_ruido` is never used
+   --> src\services\mediciones.rs:178:8
+    |
+178 | pub fn calcular_promedio_ruido(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_maximo_temperatura` is never used
+   --> src\services\mediciones.rs:183:8
+    |
+183 | pub fn calcular_maximo_temperatura(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_maximo_humedad` is never used
+   --> src\services\mediciones.rs:188:8
+    |
+188 | pub fn calcular_maximo_humedad(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_maximo_iluminacion` is never used
+   --> src\services\mediciones.rs:193:8
+    |
+193 | pub fn calcular_maximo_iluminacion(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_maximo_ruido` is never used
+   --> src\services\mediciones.rs:198:8
+    |
+198 | pub fn calcular_maximo_ruido(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_minimo_temperatura` is never used
+   --> src\services\mediciones.rs:203:8
+    |
+203 | pub fn calcular_minimo_temperatura(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_minimo_humedad` is never used
+   --> src\services\mediciones.rs:208:8
+    |
+208 | pub fn calcular_minimo_humedad(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_minimo_iluminacion` is never used
+   --> src\services\mediciones.rs:213:8
+    |
+213 | pub fn calcular_minimo_iluminacion(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calcular_minimo_ruido` is never used
+   --> src\services\mediciones.rs:218:8
+    |
+218 | pub fn calcular_minimo_ruido(mediciones: &[Medicion], sensor_id: Uuid) -> Option<f64> {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: `smart_classroom_backend` (bin "smart_classroom_backend" test) generated 51 warnings (run `cargo fix --bin "smart_classroom_backend" -p smart_classroom_backend --tests` to apply 6 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.55s
+warning: the following packages contain code that will be rejected by a future version of Rust: sqlx-postgres v0.7.4
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 2`
+     Running unittests src\main.rs (target\debug\deps\smart_classroom_backend-e86900565bedf349.exe)
+
+running 30 tests
+test config::tests::direccion_ipv4_valida ... ok
+test config::tests::debug_no_revela_secretos ... ok
+test config::tests::direccion_ipv6_valida ... ok
+test models::indice_confort::tests::acepta_valores_dentro_del_rango ... ok
+test models::indice_confort::tests::rechaza_valores_fuera_del_rango ... ok
+test models::indice_confort::tests::rechaza_valores_no_finitos ... ok
+test services::alertas::tests::conserva_limites_historicos ... ok
+test services::alertas::tests::genera_alerta_por_temperatura_alta ... ok
+test services::alertas::tests::genera_alerta_por_temperatura_baja ... ok
+test services::alertas::tests::genera_varias_alertas ... ok
+test services::alertas::tests::no_genera_alerta_dentro_del_rango ... ok
+test services::alertas::tests::no_genera_alerta_si_rango_inactivo ... ok
+test services::alertas::tests::no_genera_alerta_si_rango_invalido ... ok
+test services::confort::tests::calcula_confort_acustico_correctamente ... ok
+test services::confort::tests::calcula_confort_termico_correctamente ... ok
+test services::confort::tests::calcula_confort_visual_correctamente ... ok
+test services::confort::tests::calcula_indice_general_correctamente ... ok
+test services::confort::tests::convierte_indice_a_porcentaje ... ok
+test services::confort::tests::interpreta_estado_correctamente ... ok
+test services::confort::tests::rechaza_humedad_invalida ... ok
+test services::confort::tests::rechaza_valores_no_finitos ... ok
+test services::ingesta::tests::calcula_confort_con_cuatro_variables ... ok
+test services::ingesta::tests::no_calcula_confort_si_falta_una_variable ... ok
+test services::ingesta::tests::rechaza_valores_no_finitos_en_confort ... ok
+test services::mediciones::tests::calcula_estadisticas_correctamente ... ok
+test services::mediciones::tests::filtra_mediciones_por_sensor ... ok
+test services::mediciones::tests::rechaza_sensor_invalido ... ok
+test services::mediciones::tests::rechaza_valores_no_finitos ... ok
+test services::mediciones::tests::retorna_none_sin_mediciones ... ok
+test services::mediciones::tests::valida_medicion_correcta ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+ 
+========== ESTADO FINAL GIT ========== 
+ M Cargo.lock
+ M Cargo.toml
+ M src/config/mod.rs
+ M src/db/mod.rs
+ M src/db/postgres.rs
+ M src/db/smart-classroom-db.sql
+ M src/errors/api_error.rs
+ M src/main.rs
+ M src/models/alerta.rs
+ M src/models/aula.rs
+ M src/models/medicion.rs
+ M src/models/mod.rs
+ M src/models/sensor.rs
+ M src/routes/alertas.rs
+ M src/routes/aulas.rs
+ M src/routes/mediciones.rs
+ M src/routes/mod.rs
+ M src/routes/sensores.rs
+ M src/schemas/alerta.rs
+ M src/schemas/aula.rs
+ M src/schemas/medicion.rs
+ M src/schemas/mod.rs
+ M src/schemas/sensor.rs
+ M src/services/alertas.rs
+ M src/services/confort.rs
+ M src/services/mediciones.rs
+ M src/services/mod.rs
+ M src/websocket/handler.rs
+?? proyecto.txt
+?? resultados_pruebas.txt
+?? src/models/dispositivo.rs
+?? src/models/indice_confort.rs
+?? src/models/rango_sensor.rs
+?? src/models/tipo_sensor.rs
+?? src/models/usuario.rs
+?? src/schemas/ingesta.rs
+?? src/services/ingesta.rs

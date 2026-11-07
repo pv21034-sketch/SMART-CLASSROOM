@@ -1,23 +1,27 @@
+//! SMART CLASSROOM — Modelo Aula
+//!
+//! Representa una fila de la tabla `aulas`
+//! definida en PostgreSQL.
+
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use uuid::Uuid;
 
-/// Representa un aula dentro del sistema SMART CLASSROOM.
-///
-/// Contiene la información básica necesaria para identificar,
-/// ubicar y controlar el estado de un aula monitoreada.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Aula {
-    /// Identificador único del aula.
-    pub id: i32,
+    /// Llave primaria UUID.
+    pub id: Uuid,
 
-    /// Nombre o código identificador del aula.
+    /// Código único del aula.
+    pub codigo: String,
+
+    /// Nombre del aula.
     pub nombre: String,
 
-    /// Ubicación física del aula.
+    /// Ubicación física, si está registrada.
     pub ubicacion: Option<String>,
 
-    /// Capacidad máxima de estudiantes.
-    pub capacidad: Option<i32>,
-
-    /// Indica si el aula se encuentra disponible para monitoreo.
-    pub activa: bool,
+    /// Fecha de creación del registro.
+    pub creado_en: DateTime<Utc>,
 }

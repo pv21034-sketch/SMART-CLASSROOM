@@ -1,36 +1,46 @@
-use serde::{Deserialize, Serialize};
+//! SMART CLASSROOM — Modelo Medición
+//!
+//! Representa una medición ambiental individual
+//! registrada por un sensor del sistema.
+//!
+//! Corresponde a la tabla `mediciones` de PostgreSQL.
+//!
+//! Cada registro almacena el valor de un único sensor.
+//! El tipo de variable se determina mediante la relación:
+//!
+//! mediciones -> sensores -> tipos_sensor
 
-/// Representa una medición ambiental registrada por el sistema
-/// SMART CLASSROOM.
-///
-/// Agrupa los valores obtenidos de los sensores de un aula
-/// junto con la fecha y hora en que fueron registrados.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+use uuid::Uuid;
+
+// ============================================================
+// MODELO DE MEDICIÓN
+// ============================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Medicion {
     /// Identificador único de la medición.
-    pub id: i32,
+    /// PostgreSQL: UUID PRIMARY KEY.
+    pub id: Uuid,
 
-    /// Identificador del aula donde se realizó la medición.
-    pub aula_id: i32,
+    /// Identificador del sensor que generó la lectura.
+    /// PostgreSQL: sensores(id).
+    pub sensor_id: Uuid,
 
-    /// Identificador del sensor que generó la medición.
-    pub sensor_id: Option<i32>,
-
-    /// Temperatura registrada en grados Celsius.
-    pub temperatura: Option<f64>,
-
-    /// Humedad relativa registrada en porcentaje.
-    pub humedad: Option<f64>,
-
-    /// Nivel de iluminación registrado en lux.
-    pub iluminacion: Option<f64>,
-
-    /// Nivel de ruido registrado en decibelios.
-    pub ruido: Option<f64>,
-
-    /// Índice de confort calculado para el aula.
-    pub confort: Option<f64>,
+    /// Valor ambiental registrado.
+    ///
+    /// Su unidad depende del tipo de sensor:
+    /// - Temperatura: °C
+    /// - Humedad: %
+    /// - Iluminación: lux
+    /// - Ruido: dB
+    ///
+    /// PostgreSQL exige un valor finito.
+    pub valor: f64,
 
     /// Fecha y hora en que se registró la medición.
-    pub fecha_hora: String,
+    /// PostgreSQL: TIMESTAMPTZ.
+    pub medido_en: DateTime<Utc>,
 }
