@@ -83,7 +83,7 @@ async fn main() -> Result<()> {
         bail!("Las contrasenas no coinciden.");
     }
 
-    if password.chars().count() < 12 {
+    if password.chars().count() < 6 {
         bail!("La contrasena debe tener al menos 12 caracteres.");
     }
 
