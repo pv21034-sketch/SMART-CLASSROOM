@@ -1,0 +1,581 @@
+
+/* =====================================================
+   SMART CLASSROOM
+   ANÁLISIS TERMODINÁMICO
+   Universidad de El Salvador
+
+   Compatible con:
+   - Tema oscuro
+   - Tema claro
+   - Diseño responsive
+   - Chart.js
+   ===================================================== */
+
+/* =================================
+   1. VARIABLES - TEMA OSCURO
+================================= */
+
+.thermodynamics-page {
+    --thermo-gold: #f4b942;
+    --thermo-blue: #75bfe5;
+    --thermo-green: #83cda4;
+    --thermo-purple: #c5a3f2;
+
+    --thermo-border: rgba(255, 255, 255, 0.09);
+    --thermo-surface: #191c22;
+    --thermo-surface-highlight: rgba(255,255,255,0.035);
+
+    --thermo-text: #f5f3ef;
+    --thermo-label: #c7c9d0;
+    --thermo-muted: #aeb4bf;
+    --thermo-secondary: #9da3ae;
+    --thermo-footer: #9299a5;
+
+    --thermo-divider: rgba(255,255,255,0.07);
+
+    --thermo-tag-bg: rgba(255,255,255,0.035);
+    --thermo-tag-border: rgba(255,255,255,0.1);
+    --thermo-tag-text: #d2d5dc;
+
+    --thermo-shadow: rgba(0,0,0,0.25);
+}
+
+/* =================================
+   2. VARIABLES - TEMA CLARO
+================================= */
+
+html[data-theme="light"] .thermodynamics-page,
+body.thermodynamics-page[data-theme="light"] {
+
+    --thermo-gold: #bc7800;
+    --thermo-blue: #087ba8;
+    --thermo-green: #168258;
+    --thermo-purple: #8051bd;
+
+    --thermo-border: rgba(75,65,45,0.13);
+
+    --thermo-surface: #ffffff;
+
+    --thermo-surface-highlight: rgba(255,255,255,0.75);
+
+    --thermo-text: #242321;
+    --thermo-label: #44413c;
+    --thermo-muted: #68645e;
+    --thermo-secondary: #77736d;
+    --thermo-footer: #77736d;
+
+    --thermo-divider: rgba(75,65,45,0.12);
+
+    --thermo-tag-bg: rgba(188,120,0,0.06);
+    --thermo-tag-border: rgba(188,120,0,0.16);
+    --thermo-tag-text: #625d55;
+
+    --thermo-shadow: rgba(65,50,20,0.09);
+}
+
+/* =================================
+   3. CONTENIDO
+================================= */
+
+.thermo-content {
+    position: relative;
+    z-index: 1;
+}
+
+.thermo-welcome {
+    margin-bottom: 28px;
+}
+
+.thermo-welcome .welcome-text {
+    max-width: 650px;
+}
+
+.thermo-welcome h1 {
+    font-size: clamp(30px, 3vw, 42px);
+    letter-spacing: -0.04em;
+}
+
+.thermo-welcome p {
+    max-width: 590px;
+    line-height: 1.7;
+}
+
+/* =================================
+   4. SECCIÓN DE INDICADORES
+================================= */
+
+.thermo-section {
+    margin-bottom: 38px;
+}
+
+.thermo-grid {
+    display: grid;
+
+    grid-template-columns: repeat(
+        4,
+        minmax(0, 1fr)
+    );
+
+    gap: 18px;
+    align-items: stretch;
+}
+
+/* =================================
+   5. TARJETAS TERMODINÁMICAS
+================================= */
+
+.thermo-card {
+    position: relative;
+
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+    min-height: 240px;
+
+    padding: 24px;
+
+    border: 1px solid var(--thermo-border);
+    border-radius: 20px;
+
+    background:
+        linear-gradient(
+            145deg,
+            var(--thermo-surface-highlight),
+            transparent 70%
+        ),
+        var(--thermo-surface);
+
+    overflow: hidden;
+
+    transition:
+        transform 0.3s ease,
+        border-color 0.3s ease,
+        box-shadow 0.3s ease,
+        background-color 0.3s ease;
+}
+
+.thermo-card:hover {
+    transform: translateY(-5px);
+
+    border-color: rgba(244,185,66,0.35);
+
+    box-shadow:
+        0 18px 45px var(--thermo-shadow);
+}
+
+/* Iluminación decorativa */
+
+.thermo-card::before {
+    content: "";
+
+    position: absolute;
+
+    top: -70px;
+    right: -70px;
+
+    width: 180px;
+    height: 180px;
+
+    border-radius: 50%;
+
+    background: currentColor;
+
+    opacity: 0.035;
+
+    pointer-events: none;
+}
+
+/* =================================
+   6. COLORES INDIVIDUALES
+================================= */
+
+.dew-card {
+    color: var(--thermo-blue);
+}
+
+.absolute-card {
+    color: var(--thermo-green);
+}
+
+.vapor-card {
+    color: var(--thermo-gold);
+}
+
+.variation-card {
+    color: var(--thermo-purple);
+}
+
+/* =================================
+   7. ICONOS
+================================= */
+
+.thermo-card .metric-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.thermo-card .metric-icon {
+    width: 44px;
+    height: 44px;
+
+    display: grid;
+    place-items: center;
+
+    flex-shrink: 0;
+
+    border-radius: 13px;
+
+    background: color-mix(
+        in srgb,
+        currentColor 15%,
+        transparent
+    );
+}
+
+.thermo-card .metric-icon svg {
+    width: 22px;
+    height: 22px;
+
+    color: currentColor;
+    stroke: currentColor;
+
+    stroke-width: 2;
+}
+
+.thermo-card .metric-label {
+    color: var(--thermo-label);
+
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* =================================
+   8. VALORES
+================================= */
+
+.thermo-card .metric-value {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+
+    gap: 7px;
+
+    margin-top: 29px;
+
+    color: var(--thermo-text);
+
+    font-size: clamp(29px, 2.5vw, 40px);
+    font-weight: 700;
+
+    font-variant-numeric: tabular-nums;
+}
+
+.thermo-card .metric-unit {
+    color: var(--thermo-secondary);
+
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.thermo-card .metric-description {
+    margin: 13px 0 18px;
+
+    color: var(--thermo-muted);
+
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+/* =================================
+   9. PIE DE CADA TARJETA
+================================= */
+
+.thermo-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 10px;
+
+    margin-top: auto;
+    padding-top: 16px;
+
+    border-top: 1px solid var(--thermo-divider);
+
+    color: var(--thermo-footer);
+
+    font-size: 11px;
+}
+
+.thermo-card-footer svg {
+    width: 15px;
+    height: 15px;
+
+    color: currentColor;
+}
+
+/* =================================
+   10. GRÁFICAS
+================================= */
+
+.thermo-charts {
+    margin-bottom: 38px;
+}
+
+.thermo-charts .charts-grid {
+    display: grid;
+
+    grid-template-columns: repeat(
+        2,
+        minmax(0, 1fr)
+    );
+
+    gap: 20px;
+}
+
+.thermo-charts .chart-card {
+    min-width: 0;
+
+    padding: 25px;
+
+    border: 1px solid var(--thermo-border);
+    border-radius: 20px;
+
+    background: var(--thermo-surface);
+
+    color: var(--thermo-text);
+
+    transition:
+        border-color 0.25s ease,
+        transform 0.25s ease,
+        background-color 0.3s ease;
+}
+
+.thermo-charts .chart-card:hover {
+    border-color: rgba(244,185,66,0.25);
+}
+
+/* Corregir títulos invisibles */
+
+.thermo-charts .chart-header h3 {
+    color: var(--thermo-text);
+}
+
+.thermo-charts .chart-header p {
+    color: var(--thermo-muted);
+}
+
+.thermo-charts .chart-header > svg {
+    color: var(--thermo-gold);
+}
+
+.thermo-charts .chart-container {
+    position: relative;
+
+    width: 100%;
+    height: 280px;
+}
+
+/* =================================
+   11. EXPLICACIONES FÍSICAS
+================================= */
+
+.thermo-explanation {
+    margin-bottom: 35px;
+}
+
+.thermo-explanation-grid {
+    display: grid;
+
+    grid-template-columns: repeat(
+        2,
+        minmax(0, 1fr)
+    );
+
+    gap: 18px;
+}
+
+.thermo-explanation .detail-card {
+    min-width: 0;
+
+    padding: 25px;
+
+    border: 1px solid var(--thermo-border);
+    border-radius: 18px;
+
+    background: var(--thermo-surface);
+}
+
+.thermo-explanation .detail-header h2,
+.thermo-model-card .detail-header h2 {
+    color: var(--thermo-text);
+}
+
+.thermo-explanation .detail-card p {
+    color: var(--thermo-muted);
+
+    font-size: 13px;
+    line-height: 1.8;
+}
+
+.physics-tag {
+    display: inline-flex;
+    align-items: center;
+
+    margin-top: 16px;
+    padding: 7px 12px;
+
+    border: 1px solid rgba(244,185,66,0.2);
+    border-radius: 30px;
+
+    background: rgba(244,185,66,0.07);
+
+    color: var(--thermo-gold);
+
+    font-size: 11px;
+}
+
+/* =================================
+   12. MODELO DE CÁLCULO
+================================= */
+
+.thermo-model-section {
+    margin-bottom: 35px;
+}
+
+.thermo-model-card {
+    padding: 28px;
+
+    border: 1px solid var(--thermo-border);
+    border-radius: 20px;
+
+    background:
+        linear-gradient(
+            120deg,
+            rgba(244,185,66,0.055),
+            transparent 65%
+        ),
+        var(--thermo-surface);
+}
+
+.thermo-model-card p {
+    max-width: 850px;
+
+    color: var(--thermo-muted);
+
+    font-size: 13px;
+    line-height: 1.8;
+}
+
+.model-tags {
+    display: flex;
+    flex-wrap: wrap;
+
+    gap: 10px;
+
+    margin-top: 20px;
+}
+
+.model-tags span {
+    padding: 8px 13px;
+
+    border: 1px solid var(--thermo-tag-border);
+    border-radius: 8px;
+
+    background: var(--thermo-tag-bg);
+
+    color: var(--thermo-tag-text);
+
+    font-size: 11px;
+}
+
+/* =================================
+   13. ANIMACIONES
+================================= */
+
+.thermo-card {
+    animation: thermo-appear 0.65s ease both;
+}
+
+.thermo-card:nth-child(2) {
+    animation-delay: 0.08s;
+}
+
+.thermo-card:nth-child(3) {
+    animation-delay: 0.16s;
+}
+
+.thermo-card:nth-child(4) {
+    animation-delay: 0.24s;
+}
+
+@keyframes thermo-appear {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* =================================
+   14. RESPONSIVE
+================================= */
+
+@media (max-width: 1300px) {
+
+    .thermo-grid {
+        grid-template-columns: repeat(
+            2,
+            minmax(0, 1fr)
+        );
+    }
+}
+
+@media (max-width: 900px) {
+
+    .thermo-explanation-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+
+    .thermo-grid,
+    .thermo-charts .charts-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .thermo-card {
+        min-height: 205px;
+    }
+
+    .thermo-welcome h1 {
+        font-size: 30px;
+    }
+
+    .thermo-charts .chart-container {
+        height: 235px;
+    }
+
+    .thermo-model-card {
+        padding: 20px;
+    }
+}
+
+/* =================================
+   15. ACCESIBILIDAD
+================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+    .thermo-card {
+        animation: none;
+        transition: none;
+    }
+}

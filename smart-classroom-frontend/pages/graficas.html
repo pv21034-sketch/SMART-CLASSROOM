@@ -1,0 +1,887 @@
+
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <meta name="description"
+          content="SMART CLASSROOM - Gráficas ambientales y termodinámicas con mediciones reales.">
+
+    <title>Gráficas | SMART CLASSROOM</title>
+
+    <!-- ==========================================
+         TIPOGRAFÍA
+    ========================================== -->
+
+    <link rel="preconnect"
+          href="https://fonts.googleapis.com">
+
+    <link rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossorigin>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- ==========================================
+         ESTILOS
+    ========================================== -->
+
+    <link rel="stylesheet"
+          href="../css/style.css">
+
+    <link rel="stylesheet"
+          href="../css/dashboard.css">
+
+    <link rel="stylesheet"
+          href="../css/graficas.css">
+
+    <!-- ==========================================
+         LIBRERÍAS
+    ========================================== -->
+
+    <script
+        src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"
+        defer>
+    </script>
+
+    <script
+        src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"
+        defer>
+    </script>
+
+    <!-- ==========================================
+         JAVASCRIPT
+         IMPORTANTE: API ANTES DE CHARTS
+    ========================================== -->
+
+    <script src="../js/ui-enhance.js" defer></script>
+
+    <script src="../js/api.js" defer></script>
+
+    <script src="../js/layout.js" defer></script>
+
+    <script src="../js/charts.js" defer></script>
+
+</head>
+
+<body class="dashboard-page graphs-page">
+
+    <!-- ==========================================
+         FONDO AMBIENTAL
+    ========================================== -->
+
+    <div class="ambient" aria-hidden="true"></div>
+
+    <div class="app-shell">
+
+        <!-- ==========================================
+             MENÚ LATERAL
+        ========================================== -->
+
+        <aside class="sidebar" id="sidebar">
+
+            <div class="sidebar-header">
+
+                <div class="brand-icon">
+                    <i data-lucide="graduation-cap"></i>
+                </div>
+
+                <div class="brand-text">
+                    <strong>SMART CLASSROOM</strong>
+                    <span>Environmental Intelligence</span>
+                </div>
+
+            </div>
+
+            <nav class="sidebar-nav"
+                 aria-label="Navegación principal">
+
+                <a href="dashboard.html"
+                   class="nav-link">
+
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard</span>
+
+                </a>
+
+                <a href="termodinamica.html"
+                   class="nav-link">
+
+                    <i data-lucide="flask-conical"></i>
+                    <span>Termodinámica</span>
+
+                </a>
+
+                <a href="graficas.html"
+                   class="nav-link active"
+                   aria-current="page">
+
+                    <i data-lucide="chart-no-axes-combined"></i>
+                    <span>Gráficas</span>
+
+                </a>
+
+                <a href="historial.html"
+                   class="nav-link">
+
+                    <i data-lucide="history"></i>
+                    <span>Historial</span>
+
+                </a>
+
+                <a href="alertas.html"
+                   class="nav-link">
+
+                    <i data-lucide="bell-ring"></i>
+                    <span>Alertas</span>
+
+                </a>
+
+                <a href="configuracion.html"
+                   class="nav-link">
+
+                    <i data-lucide="settings-2"></i>
+                    <span>Configuración</span>
+
+                </a>
+
+            </nav>
+
+            <div class="sidebar-footer">
+
+                <div class="system-status">
+
+                    <span class="status-dot"
+                          id="sidebar-status-dot"></span>
+
+                    <span id="sidebar-status-text">
+                        Verificando conexión...
+                    </span>
+
+                </div>
+
+                <p>Universidad de El Salvador</p>
+
+                <small>SMART CLASSROOM © 2026</small>
+
+            </div>
+
+        </aside>
+
+        <!-- ==========================================
+             CONTENIDO PRINCIPAL
+        ========================================== -->
+
+        <div class="main-wrapper">
+
+            <!-- ======================================
+                 BARRA SUPERIOR
+            ====================================== -->
+
+            <header class="topbar">
+
+                <div class="topbar-left">
+
+                    <button
+                        class="icon-button menu-toggle"
+                        id="menu-toggle"
+                        type="button"
+                        aria-label="Abrir o cerrar menú"
+                        aria-controls="sidebar"
+                        aria-expanded="false">
+
+                        <i data-lucide="menu"></i>
+
+                    </button>
+
+                    <div class="breadcrumb">
+
+                        <span>SMART CLASSROOM</span>
+
+                        <i data-lucide="chevron-right"></i>
+
+                        <strong>Gráficas</strong>
+
+                    </div>
+
+                </div>
+
+                <div class="topbar-right">
+
+                    <span
+                        class="connection-indicator"
+                        id="connection-status"
+                        role="status"
+                        aria-live="polite">
+
+                        Verificando conexión...
+
+                    </span>
+
+                    <button
+                        class="icon-button"
+                        id="theme-toggle"
+                        type="button"
+                        aria-label="Cambiar tema">
+
+                        <i data-lucide="moon"></i>
+
+                    </button>
+
+                    <a href="alertas.html"
+                       class="icon-button notification-button"
+                       aria-label="Ver alertas">
+
+                        <i data-lucide="bell"></i>
+
+                        <span
+                            class="notification-count"
+                            id="notification-count">0</span>
+
+                    </a>
+
+                    <div class="user-avatar"
+                         aria-label="Usuario del sistema">
+
+                        <i data-lucide="user-round"></i>
+
+                    </div>
+
+                </div>
+
+            </header>
+
+            <!-- ======================================
+                 GRÁFICAS
+            ====================================== -->
+
+            <main
+                class="dashboard-content graphs-content"
+                id="main-content">
+
+                <!-- ==================================
+                     ENCABEZADO
+                ================================== -->
+
+                <section class="welcome-section graphs-welcome">
+
+                    <div class="welcome-text">
+
+                        <span class="eyebrow">
+                            MONITOREO Y ANÁLISIS AMBIENTAL
+                        </span>
+
+                        <h1>Gráficas ambientales</h1>
+
+                        <p>
+                            Visualiza la evolución de temperatura,
+                            humedad relativa y cuatro propiedades
+                            termodinámicas calculadas a partir
+                            de las mediciones registradas
+                            por SMART CLASSROOM.
+                        </p>
+
+                    </div>
+
+                </section>
+
+                <!-- ==================================
+                     FILTROS DE VISUALIZACIÓN
+                ================================== -->
+
+                <section
+                    class="graphs-panel"
+                    aria-labelledby="filters-title">
+
+                    <div class="graphs-panel-title">
+
+                        <h2 id="filters-title">
+                            Filtros de visualización
+                        </h2>
+
+                        <span class="graphs-demo-tag">
+
+                            <i data-lucide="database"></i>
+
+                            DATOS REALES
+
+                        </span>
+
+                    </div>
+
+                    <div class="graphs-filters">
+
+                        <!-- SELECTOR DE AULAS -->
+
+                        <label class="graphs-field">
+
+                            Aula
+
+                            <select id="graph-aula">
+
+                                <option
+                                    value="c38f5f0d-b44c-449d-a428-fd7369f7209d">
+
+                                    AULA-PRUEBAS
+
+                                </option>
+
+                                <option
+                                    value="c337d423-65ff-4867-bbac-6819ff0b016e">
+
+                                    AULA-2B
+
+                                </option>
+
+                                <option
+                                    value="704f12e8-1dd7-4130-bfed-4e4b6019d719">
+
+                                    AULA-A6
+
+                                </option>
+
+                            </select>
+
+                        </label>
+
+                        <!-- SELECTOR DE PERÍODOS -->
+
+                        <label class="graphs-field">
+
+                            Período
+
+                            <select id="graph-period">
+
+                                <option value="hoy">
+                                    Hoy
+                                </option>
+
+                                <option value="7d">
+                                    7 días
+                                </option>
+
+                                <option value="30d">
+                                    30 días
+                                </option>
+
+                                <option value="todo" selected>
+                                    Todo el historial
+                                </option>
+
+                            </select>
+
+                        </label>
+
+                        <!-- ACTUALIZAR -->
+
+                        <button
+                            id="graph-refresh"
+                            class="graphs-refresh"
+                            type="button">
+
+                            <i data-lucide="refresh-cw"></i>
+
+                            Actualizar datos
+
+                        </button>
+
+                    </div>
+
+                </section>
+
+                <!-- ==================================
+                     AVISO DE ESTADO
+                ================================== -->
+
+                <div
+                    class="graphs-notice"
+                    id="graphs-notice"
+                    role="status"
+                    aria-live="polite">
+
+                    Consultando mediciones reales
+                    del backend SMART CLASSROOM...
+
+                </div>
+
+                <!-- ==================================
+                     ESTADÍSTICAS AMBIENTALES
+                ================================== -->
+
+                <section
+                    class="graphs-summary"
+                    aria-label="Estadísticas ambientales">
+
+                    <!-- TEMPERATURA PROMEDIO -->
+
+                    <article class="graphs-stat">
+
+                        <div class="graphs-stat-head">
+
+                            <span>Temperatura promedio</span>
+
+                            <i data-lucide="thermometer"></i>
+
+                        </div>
+
+                        <strong id="temp-avg">—</strong>
+
+                        <small>
+                            °C · Período seleccionado
+                        </small>
+
+                    </article>
+
+                    <!-- TEMPERATURA MÍNIMA / MÁXIMA -->
+
+                    <article class="graphs-stat">
+
+                        <div class="graphs-stat-head">
+
+                            <span>
+                                Temperatura mínima / máxima
+                            </span>
+
+                            <i data-lucide="arrow-up-down"></i>
+
+                        </div>
+
+                        <strong id="temp-range">—</strong>
+
+                        <small>
+                            °C · Período seleccionado
+                        </small>
+
+                    </article>
+
+                    <!-- HUMEDAD PROMEDIO -->
+
+                    <article class="graphs-stat">
+
+                        <div class="graphs-stat-head">
+
+                            <span>Humedad promedio</span>
+
+                            <i data-lucide="droplets"></i>
+
+                        </div>
+
+                        <strong id="humidity-avg">—</strong>
+
+                        <small>
+                            % HR · Período seleccionado
+                        </small>
+
+                    </article>
+
+                    <!-- HUMEDAD MÍNIMA / MÁXIMA -->
+
+                    <article class="graphs-stat">
+
+                        <div class="graphs-stat-head">
+
+                            <span>
+                                Humedad mínima / máxima
+                            </span>
+
+                            <i data-lucide="waves"></i>
+
+                        </div>
+
+                        <strong id="humidity-range">—</strong>
+
+                        <small>
+                            % HR · Período seleccionado
+                        </small>
+
+                    </article>
+
+                </section>
+
+                <!-- ==================================
+                     GRÁFICAS AMBIENTALES
+                ================================== -->
+
+                <section
+                    class="graphs-category"
+                    aria-labelledby="ambiental-title">
+
+                    <div class="graphs-section-heading">
+
+                        <span class="eyebrow">
+                            VARIABLES MEDIDAS
+                        </span>
+
+                        <h2 id="ambiental-title">
+                            Comportamiento ambiental
+                        </h2>
+
+                        <p>
+                            Temperatura y humedad relativa
+                            registradas por el sensor DHT22
+                            y almacenadas en PostgreSQL.
+                        </p>
+
+                    </div>
+
+                    <div class="graphs-charts">
+
+                        <!-- TEMPERATURA -->
+
+                        <article class="graphs-chart-card">
+
+                            <div class="graphs-chart-heading">
+
+                                <div>
+
+                                    <span class="eyebrow">
+                                        TEMPERATURA
+                                    </span>
+
+                                    <h2>
+                                        Comportamiento térmico
+                                    </h2>
+
+                                    <p>
+                                        Temperatura del aire · °C
+                                    </p>
+
+                                </div>
+
+                                <i data-lucide="thermometer-sun"></i>
+
+                            </div>
+
+                            <div class="graphs-canvas-wrap">
+
+                                <canvas
+                                    id="temperature-chart"
+                                    role="img"
+                                    aria-label="Gráfica de temperatura">
+                                </canvas>
+
+                            </div>
+
+                        </article>
+
+                        <!-- HUMEDAD RELATIVA -->
+
+                        <article class="graphs-chart-card">
+
+                            <div class="graphs-chart-heading">
+
+                                <div>
+
+                                    <span class="eyebrow">
+                                        HUMEDAD RELATIVA
+                                    </span>
+
+                                    <h2>
+                                        Comportamiento de humedad
+                                    </h2>
+
+                                    <p>
+                                        Humedad relativa del aire · %
+                                    </p>
+
+                                </div>
+
+                                <i data-lucide="droplets"></i>
+
+                            </div>
+
+                            <div class="graphs-canvas-wrap">
+
+                                <canvas
+                                    id="humidity-chart"
+                                    role="img"
+                                    aria-label="Gráfica de humedad relativa">
+                                </canvas>
+
+                            </div>
+
+                        </article>
+
+                    </div>
+
+                </section>
+
+                <!-- ==================================
+                     GRÁFICAS TERMODINÁMICAS
+                ================================== -->
+
+                <section
+                    class="graphs-category graphs-thermo-section"
+                    aria-labelledby="thermo-graphs-title">
+
+                    <div class="graphs-section-heading">
+
+                        <span class="eyebrow">
+                            PROPIEDADES CALCULADAS
+                        </span>
+
+                        <h2 id="thermo-graphs-title">
+                            Análisis termodinámico
+                        </h2>
+
+                        <p>
+                            Propiedades estimadas a partir
+                            de temperatura y humedad relativa,
+                            mediante la aproximación de Magnus
+                            y la ecuación del gas ideal.
+                        </p>
+
+                    </div>
+
+                    <div class="graphs-charts">
+
+                        <!-- ==================================
+                             PUNTO DE ROCÍO
+                        ================================== -->
+
+                        <article
+                            class="graphs-chart-card thermo-graph-card">
+
+                            <div class="graphs-chart-heading">
+
+                                <div>
+
+                                    <span class="eyebrow">
+                                        PUNTO DE ROCÍO
+                                    </span>
+
+                                    <h2>
+                                        Evolución del punto de rocío
+                                    </h2>
+
+                                    <p>
+                                        Temperatura de condensación · °C
+                                    </p>
+
+                                </div>
+
+                                <i data-lucide="cloud-fog"></i>
+
+                            </div>
+
+                            <div class="graphs-canvas-wrap">
+
+                                <canvas
+                                    id="dew-point-chart"
+                                    role="img"
+                                    aria-label="Gráfica del punto de rocío">
+                                </canvas>
+
+                            </div>
+
+                        </article>
+
+                        <!-- ==================================
+                             HUMEDAD ABSOLUTA
+                        ================================== -->
+
+                        <article
+                            class="graphs-chart-card thermo-graph-card">
+
+                            <div class="graphs-chart-heading">
+
+                                <div>
+
+                                    <span class="eyebrow">
+                                        HUMEDAD ABSOLUTA
+                                    </span>
+
+                                    <h2>
+                                        Evolución de humedad absoluta
+                                    </h2>
+
+                                    <p>
+                                        Concentración de vapor · g/m³
+                                    </p>
+
+                                </div>
+
+                                <i data-lucide="waves"></i>
+
+                            </div>
+
+                            <div class="graphs-canvas-wrap">
+
+                                <canvas
+                                    id="absolute-humidity-chart"
+                                    role="img"
+                                    aria-label="Gráfica de humedad absoluta">
+                                </canvas>
+
+                            </div>
+
+                        </article>
+
+                        <!-- ==================================
+                             PRESIÓN DE VAPOR
+                        ================================== -->
+
+                        <article
+                            class="graphs-chart-card thermo-graph-card">
+
+                            <div class="graphs-chart-heading">
+
+                                <div>
+
+                                    <span class="eyebrow">
+                                        PRESIÓN DE VAPOR
+                                    </span>
+
+                                    <h2>
+                                        Evolución de presión de vapor
+                                    </h2>
+
+                                    <p>
+                                        Presión parcial del vapor · kPa
+                                    </p>
+
+                                </div>
+
+                                <i data-lucide="gauge"></i>
+
+                            </div>
+
+                            <div class="graphs-canvas-wrap">
+
+                                <canvas
+                                    id="vapor-pressure-chart"
+                                    role="img"
+                                    aria-label="Gráfica de presión de vapor">
+                                </canvas>
+
+                            </div>
+
+                        </article>
+
+                        <!-- ==================================
+                             VARIACIÓN TÉRMICA
+                        ================================== -->
+
+                        <article
+                            class="graphs-chart-card thermo-graph-card">
+
+                            <div class="graphs-chart-heading">
+
+                                <div>
+
+                                    <span class="eyebrow">
+                                        VARIACIÓN TÉRMICA
+                                    </span>
+
+                                    <h2>
+                                        Velocidad de cambio térmico
+                                    </h2>
+
+                                    <p>
+                                        Cambio de temperatura · °C/min
+                                    </p>
+
+                                </div>
+
+                                <i data-lucide="trending-up"></i>
+
+                            </div>
+
+                            <div class="graphs-canvas-wrap">
+
+                                <canvas
+                                    id="thermal-variation-chart"
+                                    role="img"
+                                    aria-label="Gráfica de variación térmica">
+                                </canvas>
+
+                            </div>
+
+                        </article>
+
+                    </div>
+
+                </section>
+
+                <!-- ==================================
+                     INFORMACIÓN DEL SISTEMA
+                ================================== -->
+
+                <section class="graphs-panel graphs-info">
+
+                    <div>
+
+                        <h2>
+                            Acerca de estas gráficas
+                        </h2>
+
+                        <p>
+                            Las gráficas presentan mediciones
+                            ambientales registradas en
+                            SMART CLASSROOM y consultadas
+                            mediante el backend Rust,
+                            desarrollado con Axum y SQLx.
+                        </p>
+
+                        <p>
+                            La temperatura y la humedad relativa
+                            son las variables medidas por el DHT22.
+                            El punto de rocío, la humedad absoluta
+                            y la presión parcial del vapor de agua
+                            se estiman matemáticamente utilizando
+                            las mismas ecuaciones del modelo
+                            termodinámico implementado en Rust.
+                        </p>
+
+                        <p>
+                            La variación térmica se calcula
+                            utilizando la diferencia de temperatura
+                            y el tiempo transcurrido entre
+                            mediciones consecutivas de una
+                            misma jornada.
+                        </p>
+
+                        <p>
+                            Los datos históricos se consultan
+                            desde PostgreSQL mediante Supabase.
+                            Las consultas no modifican ni eliminan
+                            los registros almacenados.
+                        </p>
+
+                    </div>
+
+                    <i data-lucide="info"></i>
+
+                </section>
+
+            </main>
+
+            <!-- ======================================
+                 PIE DE PÁGINA
+            ====================================== -->
+
+            <footer class="dashboard-footer">
+
+                <span>
+                    SMART CLASSROOM © 2026
+                </span>
+
+                <span>
+                    Universidad de El Salvador
+                </span>
+
+            </footer>
+
+        </div>
+
+    </div>
+
+</body>
+
+</html>

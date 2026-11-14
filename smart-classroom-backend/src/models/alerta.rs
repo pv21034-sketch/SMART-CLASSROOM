@@ -1,15 +1,16 @@
-//! SMART CLASSROOM — Modelo Alerta
-//!
-//! Representa una alerta ambiental generada
-//! cuando una medición supera los límites
-//! configurados para un sensor.
-//!
-//! Corresponde a la tabla `alertas` de PostgreSQL.
-//!
-//! Los valores mínimo y máximo aplicados se
-//! conservan como referencia histórica, incluso
-//! si posteriormente cambia la configuración
-//! del rango del sensor.
+
+ //! SMART CLASSROOM — Modelo Alerta
+ //!
+ //! Representa una alerta ambiental generada
+ //! cuando una medición supera los límites
+ //! configurados para un sensor.
+ //!
+ //! Corresponde a la tabla `alertas` de PostgreSQL.
+ //!
+ //! Los valores mínimo y máximo aplicados se
+ //! conservan como referencia histórica, incluso
+ //! si posteriormente cambia la configuración
+ //! del rango del sensor.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -54,12 +55,16 @@ pub struct Alerta {
     pub estado: String,
 
     /// Valor mínimo vigente cuando se generó la alerta.
-    /// Se conserva como dato histórico.
-    pub valor_minimo_aplicado: f64,
+    ///
+    /// None para alertas antiguas sin límite histórico.
+    /// Some(valor) para alertas con límite registrado.
+    pub valor_minimo_aplicado: Option<f64>,
 
     /// Valor máximo vigente cuando se generó la alerta.
-    /// Se conserva como dato histórico.
-    pub valor_maximo_aplicado: f64,
+    ///
+    /// None para alertas antiguas sin límite histórico.
+    /// Some(valor) para alertas con límite registrado.
+    pub valor_maximo_aplicado: Option<f64>,
 
     /// Fecha y hora de generación de la alerta.
     pub generada_en: DateTime<Utc>,

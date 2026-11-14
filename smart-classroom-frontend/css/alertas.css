@@ -1,0 +1,769 @@
+
+/* ============================================
+   SMART CLASSROOM — ALERTAS
+   Universidad de El Salvador
+   Compatible con tema claro y oscuro
+   ============================================ */
+
+/* ============================================
+   1. VARIABLES — TEMA OSCURO
+   ============================================ */
+
+.alerts-page {
+    --alerts-gold: #f4b942;
+    --alerts-red: #f28b82;
+    --alerts-blue: #75bfe5;
+    --alerts-green: #83cda4;
+
+    --alerts-border: rgba(255, 255, 255, 0.09);
+    --alerts-surface: #191c22;
+
+    --alerts-text: #f6f4f0;
+    --alerts-heading: #f4f3f0;
+    --alerts-label: #b8bec8;
+    --alerts-muted: #aeb4bf;
+    --alerts-subtle: #9299a5;
+    --alerts-body: #d6d9e0;
+
+    --alerts-control-bg: #22262e;
+    --alerts-control-text: #f2f1ee;
+    --alerts-control-border: rgba(255, 255, 255, 0.13);
+
+    --alerts-secondary-bg: #252932;
+    --alerts-secondary-hover: #303540;
+    --alerts-secondary-text: #d5d8df;
+
+    --alerts-row-hover: rgba(255, 255, 255, 0.035);
+    --alerts-row-border: rgba(255, 255, 255, 0.055);
+
+    --alerts-notice-text: #e5c68e;
+    --alerts-success-text: #bce8c9;
+    --alerts-error-text: #f2b5ae;
+
+    --alerts-active-text: #f2b5ae;
+    --alerts-attended-text: #83cda4;
+
+    --alerts-input-scheme: dark;
+}
+
+/* ============================================
+   2. VARIABLES — TEMA CLARO
+   ============================================ */
+
+html[data-theme="light"] .alerts-page,
+body.alerts-page[data-theme="light"] {
+    --alerts-gold: #a86c08;
+    --alerts-red: #b83f37;
+    --alerts-blue: #087ba8;
+    --alerts-green: #168258;
+
+    --alerts-border: rgba(75, 65, 45, 0.13);
+    --alerts-surface: #ffffff;
+
+    --alerts-text: #242321;
+    --alerts-heading: #242321;
+    --alerts-label: #55514a;
+    --alerts-muted: #68645e;
+    --alerts-subtle: #77736d;
+    --alerts-body: #3f3b35;
+
+    --alerts-control-bg: #f8f6f2;
+    --alerts-control-text: #242321;
+    --alerts-control-border: rgba(75, 65, 45, 0.17);
+
+    --alerts-secondary-bg: #f0ece5;
+    --alerts-secondary-hover: #e7e0d5;
+    --alerts-secondary-text: #4a4338;
+
+    --alerts-row-hover: rgba(75, 65, 45, 0.045);
+    --alerts-row-border: rgba(75, 65, 45, 0.10);
+
+    --alerts-notice-text: #80520b;
+    --alerts-success-text: #167447;
+    --alerts-error-text: #b53d35;
+
+    --alerts-active-text: #b53d35;
+    --alerts-attended-text: #167447;
+
+    --alerts-input-scheme: light;
+}
+
+/* ============================================
+   3. CONTENIDO
+   ============================================ */
+
+.alerts-content {
+    position: relative;
+    z-index: 1;
+}
+
+.alerts-welcome {
+    margin-bottom: 26px;
+}
+
+.alerts-welcome h1 {
+    font-size: clamp(30px, 3vw, 42px);
+    letter-spacing: -0.04em;
+}
+
+.alerts-welcome p {
+    max-width: 740px;
+    line-height: 1.7;
+}
+
+/* ============================================
+   4. INDICADORES
+   ============================================ */
+
+.alerts-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.alerts-stat {
+    min-width: 0;
+    padding: 21px;
+    background: var(--alerts-surface);
+    border: 1px solid var(--alerts-border);
+    border-radius: 20px;
+}
+
+.alerts-stat-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--alerts-label);
+    font-size: 12px;
+}
+
+.alerts-stat-top svg {
+    width: 19px;
+    height: 19px;
+    flex-shrink: 0;
+    color: var(--alerts-gold);
+}
+
+.alerts-stat:nth-child(2) .alerts-stat-top svg {
+    color: var(--alerts-red);
+}
+
+.alerts-stat:nth-child(3) .alerts-stat-top svg {
+    color: var(--alerts-green);
+}
+
+.alerts-stat strong {
+    display: block;
+    margin: 20px 0 9px;
+    color: var(--alerts-text);
+    font-size: clamp(22px, 2.3vw, 32px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+}
+
+.alerts-stat small {
+    color: var(--alerts-subtle);
+    font-size: 11px;
+}
+
+/* ============================================
+   5. AVISO DE DEMOSTRACIÓN
+   ============================================ */
+
+.alerts-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding: 14px 16px;
+    color: var(--alerts-notice-text);
+    background: rgba(244, 185, 66, 0.06);
+    border: 1px solid rgba(244, 185, 66, 0.17);
+    border-radius: 12px;
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+.alerts-notice svg {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+/* ============================================
+   6. PANELES
+   ============================================ */
+
+.alerts-panel {
+    margin-bottom: 22px;
+    padding: 24px;
+    background: var(--alerts-surface);
+    border: 1px solid var(--alerts-border);
+    border-radius: 20px;
+}
+
+.alerts-panel-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+.alerts-panel-heading h2 {
+    margin: 0;
+    color: var(--alerts-heading);
+    font-size: 17px;
+}
+
+.alerts-demo-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 11px;
+    color: var(--alerts-gold);
+    background: rgba(244, 185, 66, 0.09);
+    border: 1px solid rgba(244, 185, 66, 0.2);
+    border-radius: 30px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.alerts-demo-tag svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* ============================================
+   7. FILTROS
+   ============================================ */
+
+.alerts-filters {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    margin-top: 22px;
+    align-items: end;
+}
+
+.alerts-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    color: var(--alerts-label);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.alerts-field select,
+.alerts-field input {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 13px;
+    color: var(--alerts-control-text);
+    background: var(--alerts-control-bg);
+    border: 1px solid var(--alerts-control-border);
+    border-radius: 11px;
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+    color-scheme: var(--alerts-input-scheme);
+}
+
+.alerts-field select option {
+    color: var(--alerts-control-text);
+    background: var(--alerts-control-bg);
+}
+
+.alerts-field select:focus-visible,
+.alerts-field input:focus-visible,
+.alerts-button:focus-visible,
+.alerts-search-input input:focus-visible {
+    outline: 2px solid var(--alerts-gold);
+    outline-offset: 2px;
+}
+
+.alerts-filter-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* ============================================
+   8. BOTONES
+   ============================================ */
+
+.alerts-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 11px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease,
+        opacity 0.2s ease;
+}
+
+.alerts-button svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.alerts-button-primary {
+    color: #1a1710;
+    background: var(--alerts-gold);
+    border: 1px solid var(--alerts-gold);
+}
+
+.alerts-button-primary:hover {
+    background: #ffd077;
+}
+
+.alerts-button-secondary,
+.alerts-page-button {
+    color: var(--alerts-secondary-text);
+    background: var(--alerts-secondary-bg);
+    border: 1px solid var(--alerts-control-border);
+}
+
+.alerts-button-secondary:hover,
+.alerts-page-button:hover:not(:disabled) {
+    background: var(--alerts-secondary-hover);
+}
+
+.alerts-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.alerts-attend-button {
+    min-height: 35px;
+    padding: 0 11px;
+    color: var(--alerts-gold);
+    background: rgba(244, 185, 66, 0.1);
+    border: 1px solid rgba(244, 185, 66, 0.28);
+    border-radius: 9px;
+    font-size: 11px;
+}
+
+.alerts-attend-button:hover:not(:disabled) {
+    background: rgba(244, 185, 66, 0.2);
+}
+
+/* ============================================
+   9. MENSAJES
+   ============================================ */
+
+.alerts-message {
+    margin: 0 0 20px;
+    padding: 13px 16px;
+    color: var(--alerts-success-text);
+    background: rgba(131, 205, 164, 0.09);
+    border: 1px solid rgba(131, 205, 164, 0.2);
+    border-radius: 12px;
+    font-size: 13px;
+}
+
+.alerts-message.error {
+    color: var(--alerts-error-text);
+    background: rgba(242, 139, 130, 0.09);
+    border-color: rgba(242, 139, 130, 0.22);
+}
+
+.alerts-message[hidden],
+.alerts-empty[hidden],
+.alerts-table[hidden],
+.alerts-pagination[hidden] {
+    display: none !important;
+}
+
+/* ============================================
+   10. TABLA
+   ============================================ */
+
+.alerts-table-panel {
+    padding: 0;
+    overflow: hidden;
+}
+
+.alerts-table-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    padding: 24px 24px 18px;
+}
+
+.alerts-table-heading h2 {
+    margin: 8px 0;
+    color: var(--alerts-text);
+    font-size: 19px;
+}
+
+.alerts-table-heading p {
+    margin: 0;
+    color: var(--alerts-muted);
+    font-size: 12px;
+}
+
+.alerts-table-counter {
+    padding: 8px 12px;
+    color: var(--alerts-gold);
+    background: rgba(244, 185, 66, 0.09);
+    border: 1px solid rgba(244, 185, 66, 0.2);
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* ============================================
+   11. BÚSQUEDA
+   ============================================ */
+
+.alerts-search-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 0 24px 22px;
+}
+
+.alerts-search-row label {
+    color: var(--alerts-label);
+    font-size: 12px;
+}
+
+.alerts-search-input {
+    position: relative;
+    width: min(100%, 360px);
+}
+
+.alerts-search-input svg {
+    position: absolute;
+    top: 50%;
+    left: 13px;
+    width: 17px;
+    height: 17px;
+    color: var(--alerts-subtle);
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.alerts-search-input input {
+    width: 100%;
+    min-height: 43px;
+    padding: 0 13px 0 40px;
+    color: var(--alerts-control-text);
+    background: var(--alerts-control-bg);
+    border: 1px solid var(--alerts-control-border);
+    border-radius: 11px;
+    font: inherit;
+    font-size: 12px;
+    outline: none;
+}
+
+.alerts-search-input input::placeholder {
+    color: var(--alerts-subtle);
+}
+
+/* ============================================
+   12. TABLA DE DATOS
+   ============================================ */
+
+.alerts-table-scroll {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.alerts-table {
+    width: 100%;
+    min-width: 1080px;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.alerts-table thead {
+    background: var(--alerts-control-bg);
+}
+
+.alerts-table th {
+    padding: 16px 15px;
+    color: var(--alerts-muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.alerts-table td {
+    padding: 17px 15px;
+    color: var(--alerts-body);
+    font-size: 12px;
+    line-height: 1.5;
+    border-top: 1px solid var(--alerts-row-border);
+    vertical-align: middle;
+}
+
+.alerts-table tbody tr {
+    transition: background 0.2s ease;
+}
+
+.alerts-table tbody tr:hover {
+    background: var(--alerts-row-hover);
+}
+
+.alerts-variable {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.alerts-variable-dot {
+    width: 8px;
+    height: 8px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--alerts-gold);
+}
+
+.alerts-variable-dot.humidity {
+    background: var(--alerts-blue);
+}
+
+.alerts-value {
+    color: var(--alerts-heading);
+    font-weight: 700;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.alerts-date {
+    color: var(--alerts-muted);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.alerts-description {
+    min-width: 220px;
+    max-width: 330px;
+    color: var(--alerts-label);
+}
+
+/* ============================================
+   13. ESTADOS DE ALERTAS
+   ============================================ */
+
+.alerts-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.alerts-status.active {
+    color: var(--alerts-active-text);
+    background: rgba(242, 139, 130, 0.1);
+}
+
+.alerts-status.attended {
+    color: var(--alerts-attended-text);
+    background: rgba(131, 205, 164, 0.1);
+}
+
+.alerts-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.alerts-action-done {
+    color: var(--alerts-subtle);
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+/* ============================================
+   14. SIN RESULTADOS
+   ============================================ */
+
+.alerts-empty {
+    padding: 48px 20px;
+    text-align: center;
+}
+
+.alerts-empty svg {
+    width: 38px;
+    height: 38px;
+    color: var(--alerts-subtle);
+}
+
+.alerts-empty strong {
+    display: block;
+    margin-top: 12px;
+    color: var(--alerts-text);
+    font-size: 17px;
+}
+
+.alerts-empty p {
+    color: var(--alerts-muted);
+    font-size: 13px;
+}
+
+/* ============================================
+   15. PAGINACIÓN
+   ============================================ */
+
+.alerts-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    padding: 18px 24px;
+    border-top: 1px solid var(--alerts-border);
+}
+
+#alerts-page-summary {
+    color: var(--alerts-muted);
+    font-size: 12px;
+}
+
+.alerts-pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.alerts-page-number {
+    color: var(--alerts-body);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+/* ============================================
+   16. RESPONSIVE
+   ============================================ */
+
+@media (max-width: 1300px) {
+    .alerts-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 1050px) {
+    .alerts-filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 700px) {
+    .alerts-summary,
+    .alerts-filters {
+        grid-template-columns: 1fr;
+    }
+
+    .alerts-panel {
+        padding: 19px;
+    }
+
+    .alerts-table-panel {
+        padding: 0;
+    }
+
+    .alerts-table-heading,
+    .alerts-search-row,
+    .alerts-pagination {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .alerts-table-heading {
+        padding: 19px;
+    }
+
+    .alerts-search-row {
+        padding: 0 19px 19px;
+    }
+
+    .alerts-search-input {
+        width: 100%;
+    }
+
+    .alerts-pagination {
+        padding: 18px 19px;
+    }
+
+    .alerts-pagination-controls {
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 480px) {
+    .alerts-panel-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .alerts-filter-actions {
+        width: 100%;
+    }
+
+    .alerts-filter-actions .alerts-button {
+        flex: 1;
+    }
+}
+
+/* ============================================
+   17. ACCESIBILIDAD
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    .alerts-button,
+    .alerts-table tbody tr {
+        transition: none;
+    }
+}
+
+/* ============================================
+   18. AJUSTES ADICIONALES PARA TEMA CLARO
+   ============================================ */
+
+html[data-theme="light"] .alerts-button-primary,
+body.alerts-page[data-theme="light"] .alerts-button-primary {
+    color: #ffffff;
+}
+
+html[data-theme="light"] .alerts-button-primary:hover,
+body.alerts-page[data-theme="light"] .alerts-button-primary:hover {
+    background: #925d06;
+}
+
+html[data-theme="light"] .alerts-field input,
+html[data-theme="light"] .alerts-field select,
+body.alerts-page[data-theme="light"] .alerts-field input,
+body.alerts-page[data-theme="light"] .alerts-field select {
+    color-scheme: light;
+}

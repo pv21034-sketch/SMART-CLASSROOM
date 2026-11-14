@@ -1,0 +1,933 @@
+
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <meta name="description"
+          content="SMART CLASSROOM - Sistema inteligente de monitoreo ambiental de aulas.">
+
+    <title>Dashboard | SMART CLASSROOM</title>
+
+    <!-- =====================================================
+         TIPOGRAFÍA
+    ====================================================== -->
+
+    <link rel="preconnect"
+          href="https://fonts.googleapis.com">
+
+    <link rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossorigin>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- =====================================================
+         ESTILOS ORIGINALES
+    ====================================================== -->
+
+    <link rel="stylesheet"
+          href="../css/style.css">
+
+    <link rel="stylesheet"
+          href="../css/dashboard.css">
+
+    <!-- =====================================================
+         AUTENTICACIÓN
+    ====================================================== -->
+
+    <script src="../js/auth-guard.js"></script>
+
+    <!-- =====================================================
+         LUCIDE - ICONOS
+    ====================================================== -->
+
+    <script
+        src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"
+        defer>
+    </script>
+
+    <!-- =====================================================
+         CHART.JS - GRÁFICAS
+    ====================================================== -->
+
+    <script
+        src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"
+        defer>
+    </script>
+
+    <!-- =====================================================
+         SCRIPTS DEL FRONTEND
+    ====================================================== -->
+
+    <!-- Farol animado y controles visuales -->
+    <script src="../js/ui-enhance.js" defer></script>
+
+    <!-- Comunicación con Rust -->
+    <script src="../js/api.js" defer></script>
+
+    <!-- Funciones generales -->
+    <script src="../js/layout.js" defer></script>
+
+    <!-- Mediciones y gráficas -->
+    <script src="../js/dashboard.js" defer></script>
+
+    <!-- =====================================================
+         INICIALIZACIÓN DE ICONOS Y VERIFICACIÓN
+    ====================================================== -->
+
+    <script>
+        "use strict";
+
+        document.addEventListener("DOMContentLoaded", () => {
+
+            // Inicializar los iconos declarados en el HTML.
+            function inicializarIconos() {
+
+                if (
+                    window.lucide &&
+                    typeof window.lucide.createIcons === "function"
+                ) {
+
+                    window.lucide.createIcons({
+                        attrs: {
+                            "stroke-width": 2,
+                            "aria-hidden": "true"
+                        }
+                    });
+
+                    console.info(
+                        "SMART CLASSROOM: iconos Lucide cargados."
+                    );
+
+                } else {
+
+                    console.error(
+                        "SMART CLASSROOM: error al cargar Lucide."
+                    );
+
+                }
+            }
+
+            inicializarIconos();
+
+            // Verificar Chart.js.
+            if (typeof window.Chart === "function") {
+
+                console.info(
+                    "SMART CLASSROOM: Chart.js disponible."
+                );
+
+            } else {
+
+                console.error(
+                    "SMART CLASSROOM: Chart.js no está disponible."
+                );
+
+            }
+
+            // Verificar el módulo de comunicación.
+            if (window.SmartClassroomAPI) {
+
+                console.info(
+                    "SMART CLASSROOM: módulo API disponible."
+                );
+
+            } else {
+
+                console.error(
+                    "SMART CLASSROOM: no se encontró SmartClassroomAPI."
+                );
+
+            }
+
+            // Verificar que existen los dos canvas.
+            const canvasTemperatura =
+                document.getElementById("temperatura-chart");
+
+            const canvasHumedad =
+                document.getElementById("humedad-chart");
+
+            if (!canvasTemperatura || !canvasHumedad) {
+
+                console.error(
+                    "SMART CLASSROOM: faltan los canvas de las gráficas."
+                );
+
+            }
+
+        });
+    </script>
+
+</head>
+
+<body class="dashboard-page">
+
+    <!-- =====================================================
+         FONDO AMBIENTAL
+    ====================================================== -->
+
+    <div class="ambient" aria-hidden="true"></div>
+
+    <div class="app-shell">
+
+        <!-- =================================================
+             MENÚ LATERAL
+        ================================================== -->
+
+        <aside class="sidebar" id="sidebar">
+
+            <div class="sidebar-header">
+
+                <div class="brand-icon">
+
+                    <i data-lucide="graduation-cap"></i>
+
+                </div>
+
+                <div class="brand-text">
+
+                    <strong>SMART CLASSROOM</strong>
+
+                    <span>Environmental Intelligence</span>
+
+                </div>
+
+            </div>
+
+            <!-- El farol lo inserta ui-enhance.js -->
+
+            <nav class="sidebar-nav"
+                 aria-label="Navegación principal">
+
+                <!-- DASHBOARD -->
+
+                <a href="dashboard.html"
+                   class="nav-link active"
+                   aria-current="page">
+
+                    <i data-lucide="layout-dashboard"></i>
+
+                    <span>Dashboard</span>
+
+                </a>
+
+                <!-- TERMODINÁMICA -->
+
+                <a href="termodinamica.html"
+                   class="nav-link">
+
+                    <i data-lucide="flask-conical"></i>
+
+                    <span>Termodinámica</span>
+
+                </a>
+
+                <!-- GRÁFICAS -->
+
+                <a href="graficas.html"
+                   class="nav-link">
+
+                    <i data-lucide="chart-no-axes-combined"></i>
+
+                    <span>Gráficas</span>
+
+                </a>
+
+                <!-- HISTORIAL -->
+
+                <a href="historial.html"
+                   class="nav-link">
+
+                    <i data-lucide="history"></i>
+
+                    <span>Historial</span>
+
+                </a>
+
+                <!-- ALERTAS -->
+
+                <a href="alertas.html"
+                   class="nav-link">
+
+                    <i data-lucide="bell-ring"></i>
+
+                    <span>Alertas</span>
+
+                </a>
+
+                <!-- CONFIGURACIÓN -->
+
+                <a href="configuracion.html"
+                   class="nav-link">
+
+                    <i data-lucide="settings-2"></i>
+
+                    <span>Configuración</span>
+
+                </a>
+
+            </nav>
+
+            <!-- ESTADO DEL SISTEMA -->
+
+            <div class="sidebar-footer">
+
+                <div class="system-status">
+
+                    <span
+                        class="status-dot"
+                        id="sidebar-status-dot">
+                    </span>
+
+                    <span id="sidebar-status-text">
+                        Verificando conexión...
+                    </span>
+
+                </div>
+
+                <p>Universidad de El Salvador</p>
+
+                <small>SMART CLASSROOM © 2026</small>
+
+            </div>
+
+        </aside>
+
+        <!-- =================================================
+             CONTENIDO PRINCIPAL
+        ================================================== -->
+
+        <div class="main-wrapper">
+
+            <!-- =============================================
+                 BARRA SUPERIOR
+            ============================================== -->
+
+            <header class="topbar">
+
+                <div class="topbar-left">
+
+                    <!-- BOTÓN MENÚ -->
+
+                    <button
+                        class="icon-button menu-toggle"
+                        id="menu-toggle"
+                        type="button"
+                        aria-label="Abrir o cerrar menú"
+                        aria-controls="sidebar"
+                        aria-expanded="false">
+
+                        <i data-lucide="menu"></i>
+
+                    </button>
+
+                    <!-- NAVEGACIÓN -->
+
+                    <div class="breadcrumb">
+
+                        <span>SMART CLASSROOM</span>
+
+                        <i data-lucide="chevron-right"></i>
+
+                        <strong>Dashboard</strong>
+
+                    </div>
+
+                </div>
+
+                <div class="topbar-right">
+
+                    <!-- CONEXIÓN -->
+
+                    <span
+                        class="connection-indicator"
+                        id="connection-status"
+                        role="status"
+                        aria-live="polite">
+
+                        Sin verificar
+
+                    </span>
+
+                    <!-- CAMBIAR TEMA -->
+
+                    <button
+                        class="icon-button"
+                        id="theme-toggle"
+                        type="button"
+                        aria-label="Cambiar tema">
+
+                        <i data-lucide="moon"></i>
+
+                    </button>
+
+                    <!-- NOTIFICACIONES -->
+
+                    <a href="alertas.html"
+                       class="icon-button notification-button"
+                       aria-label="Ver alertas">
+
+                        <i data-lucide="bell"></i>
+
+                        <span
+                            class="notification-count"
+                            id="notification-count">
+
+                            0
+
+                        </span>
+
+                    </a>
+
+                    <!-- USUARIO -->
+
+                    <div
+                        class="user-avatar"
+                        aria-label="Usuario del sistema">
+
+                        <i data-lucide="user-round"></i>
+
+                    </div>
+
+                    <!-- El botón de cerrar sesión lo agrega
+                         auth-guard.js -->
+
+                </div>
+
+            </header>
+
+            <!-- =============================================
+                 DASHBOARD
+            ============================================== -->
+
+            <main class="dashboard-content"
+                  id="main-content">
+
+                <!-- =========================================
+                     ENCABEZADO
+                ========================================== -->
+
+                <section class="welcome-section">
+
+                    <div class="welcome-text">
+
+                        <h1>Panel de control</h1>
+
+                        <p>
+                            Supervisa las condiciones ambientales
+                            de tus aulas desde un solo lugar.
+                        </p>
+
+                    </div>
+
+                    <!-- ACCIONES -->
+
+                    <div class="dashboard-actions">
+
+                        <label for="aula-select">
+                            Aula seleccionada
+                        </label>
+
+                        <select
+                            id="aula-select"
+                            class="aula-select">
+
+                            <option value="">
+                                Cargando aulas...
+                            </option>
+
+                        </select>
+
+                        <button
+                            class="refresh-button"
+                            id="refresh-button"
+                            type="button">
+
+                            <i data-lucide="refresh-cw"></i>
+
+                            <span>Actualizar</span>
+
+                        </button>
+
+                    </div>
+
+                </section>
+
+                <!-- =========================================
+                     ESTADO DE LOS DATOS
+                ========================================== -->
+
+                <div
+                    class="data-notice"
+                    id="data-notice"
+                    role="status"
+                    aria-live="polite">
+
+                    Esperando datos del sistema...
+
+                </div>
+
+                <!-- =========================================
+                     INDICADORES PRINCIPALES
+                ========================================== -->
+
+                <section
+                    class="metrics-section"
+                    aria-labelledby="metrics-title">
+
+                    <div class="section-heading">
+
+                        <h2 id="metrics-title">
+                            Indicadores principales
+                        </h2>
+
+                        <span
+                            class="last-update"
+                            id="last-update">
+
+                            Última actualización: —
+
+                        </span>
+
+                    </div>
+
+                    <div class="metrics-grid">
+
+                        <!-- ===============================
+                             TEMPERATURA
+                        ================================ -->
+
+                        <article
+                            class="metric-card temperature-card">
+
+                            <div class="metric-header">
+
+                                <div class="metric-icon">
+
+                                    <i data-lucide="thermometer"></i>
+
+                                </div>
+
+                                <span class="metric-label">
+                                    Temperatura
+                                </span>
+
+                            </div>
+
+                            <div class="metric-value">
+
+                                <span id="temperatura-valor">
+                                    —
+                                </span>
+
+                                <span class="metric-unit">
+                                    °C
+                                </span>
+
+                            </div>
+
+                            <p
+                                class="metric-description"
+                                id="temperatura-estado">
+
+                                Sin mediciones
+
+                            </p>
+
+                            <div class="metric-progress">
+
+                                <div
+                                    class="progress-fill"
+                                    id="temperatura-progress"
+                                    style="width: 0%">
+                                </div>
+
+                            </div>
+
+                        </article>
+
+                        <!-- ===============================
+                             HUMEDAD RELATIVA
+                        ================================ -->
+
+                        <article
+                            class="metric-card humidity-card">
+
+                            <div class="metric-header">
+
+                                <div class="metric-icon">
+
+                                    <i data-lucide="droplets"></i>
+
+                                </div>
+
+                                <span class="metric-label">
+                                    Humedad relativa
+                                </span>
+
+                            </div>
+
+                            <div class="metric-value">
+
+                                <span id="humedad-valor">
+                                    —
+                                </span>
+
+                                <span class="metric-unit">
+                                    %
+                                </span>
+
+                            </div>
+
+                            <p
+                                class="metric-description"
+                                id="humedad-estado">
+
+                                Sin mediciones
+
+                            </p>
+
+                            <div class="metric-progress">
+
+                                <div
+                                    class="progress-fill"
+                                    id="humedad-progress"
+                                    style="width: 0%">
+                                </div>
+
+                            </div>
+
+                        </article>
+
+                        <!-- ===============================
+                             ÍNDICE DE CONFORT
+                        ================================ -->
+
+                        <article
+                            class="metric-card comfort-card">
+
+                            <div class="metric-header">
+
+                                <div class="metric-icon">
+
+                                    <i data-lucide="activity"></i>
+
+                                </div>
+
+                                <span class="metric-label">
+                                    Índice de confort
+                                </span>
+
+                            </div>
+
+                            <div class="metric-value">
+
+                                <span id="confort-valor">
+                                    —
+                                </span>
+
+                                <span class="metric-unit">
+                                    /100
+                                </span>
+
+                            </div>
+
+                            <p
+                                class="metric-description"
+                                id="confort-estado">
+
+                                Pendiente de cálculo
+
+                            </p>
+
+                            <div class="metric-progress">
+
+                                <div
+                                    class="progress-fill"
+                                    id="confort-progress"
+                                    style="width: 0%">
+                                </div>
+
+                            </div>
+
+                        </article>
+
+                        <!-- ===============================
+                             ALERTAS ACTIVAS
+                        ================================ -->
+
+                        <article
+                            class="metric-card alerts-card">
+
+                            <div class="metric-header">
+
+                                <div class="metric-icon">
+
+                                    <i data-lucide="bell-ring"></i>
+
+                                </div>
+
+                                <span class="metric-label">
+                                    Alertas activas
+                                </span>
+
+                            </div>
+
+                            <div class="metric-value">
+
+                                <span id="alertas-valor">
+                                    —
+                                </span>
+
+                            </div>
+
+                            <p
+                                class="metric-description"
+                                id="alertas-estado">
+
+                                Sin información disponible
+
+                            </p>
+
+                            <a
+                                href="alertas.html"
+                                class="metric-link">
+
+                                Ver alertas
+
+                                <i data-lucide="arrow-up-right"></i>
+
+                            </a>
+
+                        </article>
+
+                    </div>
+
+                </section>
+
+                <!-- =========================================
+                     GRÁFICAS REALES
+                ========================================== -->
+
+                <section
+                    class="charts-section"
+                    aria-labelledby="charts-title">
+
+                    <div class="section-heading">
+
+                        <h2 id="charts-title">
+                            Tendencias de medición
+                        </h2>
+
+                        <!--
+                            ui-enhance.js transforma este
+                            select en botones visuales.
+
+                            Por defecto: últimos 7 días.
+                        -->
+
+                        <select
+                            id="periodo-select"
+                            class="period-select"
+                            aria-label="Seleccionar período">
+
+                            <option value="hoy">
+                                Hoy
+                            </option>
+
+                            <option value="7d" selected>
+                                7 días
+                            </option>
+
+                            <option value="30d">
+                                30 días
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                    <div class="charts-grid">
+
+                        <!-- ===============================
+                             GRÁFICA TEMPERATURA
+                        ================================ -->
+
+                        <article class="chart-card">
+
+                            <div class="chart-header">
+
+                                <div>
+
+                                    <h3>Temperatura</h3>
+
+                                    <p>Evolución en °C</p>
+
+                                </div>
+
+                                <i data-lucide="thermometer"></i>
+
+                            </div>
+
+                            <div class="chart-container">
+
+                                <canvas
+                                    id="temperatura-chart"
+                                    role="img"
+                                    aria-label="Gráfica histórica de temperatura">
+                                </canvas>
+
+                            </div>
+
+                        </article>
+
+                        <!-- ===============================
+                             GRÁFICA HUMEDAD
+                        ================================ -->
+
+                        <article class="chart-card">
+
+                            <div class="chart-header">
+
+                                <div>
+
+                                    <h3>Humedad relativa</h3>
+
+                                    <p>Evolución en porcentaje</p>
+
+                                </div>
+
+                                <i data-lucide="droplets"></i>
+
+                            </div>
+
+                            <div class="chart-container">
+
+                                <canvas
+                                    id="humedad-chart"
+                                    role="img"
+                                    aria-label="Gráfica histórica de humedad relativa">
+                                </canvas>
+
+                            </div>
+
+                        </article>
+
+                    </div>
+
+                </section>
+
+                <!-- =========================================
+                     INFORMACIÓN ADICIONAL
+                ========================================== -->
+
+                <section
+                    class="details-section"
+                    aria-label="Información adicional">
+
+                    <!-- ===============================
+                         ESTADO DEL AULA
+                    ================================ -->
+
+                    <article class="detail-card">
+
+                        <div class="detail-header">
+
+                            <h2>Estado del aula</h2>
+
+                            <i data-lucide="school"></i>
+
+                        </div>
+
+                        <div class="classroom-status">
+
+                            <span class="classroom-status-icon">
+
+                                <i data-lucide="activity"></i>
+
+                            </span>
+
+                            <div>
+
+                                <strong id="aula-estado">
+
+                                    Sin información
+
+                                </strong>
+
+                                <p id="aula-descripcion">
+
+                                    Esperando mediciones ambientales.
+
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                    </article>
+
+                    <!-- ===============================
+                         ÚLTIMAS MEDICIONES
+                    ================================ -->
+
+                    <article class="detail-card">
+
+                        <div class="detail-header">
+
+                            <h2>Últimas mediciones</h2>
+
+                            <a href="historial.html">
+                                Ver historial
+                            </a>
+
+                        </div>
+
+                        <div
+                            class="recent-measurements"
+                            id="recent-measurements">
+
+                            <p class="empty-state">
+
+                                No hay mediciones disponibles.
+
+                            </p>
+
+                        </div>
+
+                    </article>
+
+                </section>
+
+            </main>
+
+            <!-- =============================================
+                 PIE DE PÁGINA
+            ============================================== -->
+
+            <footer class="dashboard-footer">
+
+                <span>
+                    SMART CLASSROOM © 2026
+                </span>
+
+                <span>
+                    Universidad de El Salvador
+                </span>
+
+            </footer>
+
+        </div>
+
+    </div>
+
+</body>
+
+</html>

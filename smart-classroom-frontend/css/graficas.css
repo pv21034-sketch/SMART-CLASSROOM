@@ -1,0 +1,528 @@
+
+/* ============================================
+   SMART CLASSROOM — GRÁFICAS
+   AMBIENTALES Y TERMODINÁMICAS
+   Universidad de El Salvador
+
+   Compatible con tema claro y oscuro.
+   ============================================ */
+
+/* ============================================
+   1. VARIABLES — TEMA OSCURO
+============================================ */
+
+.graphs-page {
+    --graphs-gold: #f4b942;
+    --graphs-blue: #75bfe5;
+    --graphs-green: #83cda4;
+    --graphs-purple: #c5a3f2;
+
+    --graphs-border: rgba(255, 255, 255, 0.09);
+    --graphs-surface: #191c22;
+
+    --graphs-text: #f6f4f0;
+    --graphs-heading: #f4f3f0;
+    --graphs-label: #b8bec8;
+    --graphs-muted: #aeb4bf;
+    --graphs-secondary: #9299a5;
+
+    --graphs-control-bg: #22262e;
+    --graphs-control-text: #f2f1ee;
+    --graphs-control-border: rgba(255,255,255,0.13);
+
+    --graphs-notice-text: #e5c68e;
+    --graphs-shadow: rgba(0,0,0,0.12);
+}
+
+/* ============================================
+   2. VARIABLES — TEMA CLARO
+============================================ */
+
+html[data-theme="light"] .graphs-page,
+body.graphs-page[data-theme="light"] {
+    --graphs-gold: #a86c08;
+    --graphs-blue: #087ba8;
+    --graphs-green: #168258;
+    --graphs-purple: #8051bd;
+
+    --graphs-border: rgba(75,65,45,0.13);
+    --graphs-surface: #ffffff;
+
+    --graphs-text: #242321;
+    --graphs-heading: #242321;
+    --graphs-label: #55514a;
+    --graphs-muted: #68645e;
+    --graphs-secondary: #77736d;
+
+    --graphs-control-bg: #f8f6f2;
+    --graphs-control-text: #242321;
+    --graphs-control-border: rgba(75,65,45,0.17);
+
+    --graphs-notice-text: #80520b;
+    --graphs-shadow: rgba(65,50,20,0.09);
+}
+
+/* ============================================
+   3. CONTENIDO
+============================================ */
+
+.graphs-content {
+    position: relative;
+    z-index: 1;
+}
+
+.graphs-welcome {
+    margin-bottom: 26px;
+}
+
+.graphs-welcome h1 {
+    font-size: clamp(30px, 3vw, 42px);
+    letter-spacing: -0.04em;
+}
+
+.graphs-welcome p {
+    max-width: 700px;
+    line-height: 1.7;
+}
+
+/* ============================================
+   4. PANELES
+============================================ */
+
+.graphs-panel,
+.graphs-chart-card,
+.graphs-stat {
+    background: var(--graphs-surface);
+    border: 1px solid var(--graphs-border);
+    border-radius: 20px;
+    color: var(--graphs-text);
+    transition:
+        background-color 0.25s ease,
+        border-color 0.25s ease,
+        color 0.25s ease;
+}
+
+.graphs-panel {
+    padding: 24px;
+    margin-bottom: 20px;
+}
+
+.graphs-panel-title,
+.graphs-stat-head,
+.graphs-chart-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+.graphs-panel-title h2,
+.graphs-info h2 {
+    margin: 0;
+    font-size: 17px;
+    color: var(--graphs-heading);
+}
+
+/* ============================================
+   5. ETIQUETA DE DATOS
+============================================ */
+
+.graphs-demo-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    color: var(--graphs-gold);
+    background: rgba(244,185,66,0.09);
+
+    border: 1px solid rgba(244,185,66,0.2);
+    border-radius: 30px;
+
+    padding: 7px 11px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.graphs-demo-tag svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* ============================================
+   6. FILTROS
+============================================ */
+
+.graphs-filters {
+    display: grid;
+    grid-template-columns:
+        minmax(180px, 1fr)
+        minmax(180px, 1fr)
+        auto;
+
+    gap: 16px;
+    align-items: end;
+    margin-top: 20px;
+}
+
+.graphs-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    color: var(--graphs-label);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.graphs-field select {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 14px;
+
+    color: var(--graphs-control-text);
+    background: var(--graphs-control-bg);
+
+    border: 1px solid var(--graphs-control-border);
+    border-radius: 11px;
+
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+}
+
+.graphs-field select option {
+    background: var(--graphs-control-bg);
+    color: var(--graphs-control-text);
+}
+
+.graphs-field select:focus-visible,
+.graphs-refresh:focus-visible {
+    outline: 2px solid var(--graphs-gold);
+    outline-offset: 2px;
+}
+
+.graphs-refresh {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+
+    min-height: 44px;
+    padding: 0 17px;
+
+    border: 1px solid rgba(244,185,66,0.35);
+    border-radius: 11px;
+
+    background: rgba(244,185,66,0.12);
+    color: var(--graphs-gold);
+
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.graphs-refresh:hover {
+    background: rgba(244,185,66,0.2);
+}
+
+.graphs-refresh svg {
+    width: 17px;
+    height: 17px;
+}
+
+/* ============================================
+   7. AVISO
+============================================ */
+
+.graphs-notice {
+    padding: 12px 16px;
+    margin-bottom: 20px;
+
+    border: 1px solid rgba(244,185,66,0.17);
+    border-radius: 12px;
+
+    color: var(--graphs-notice-text);
+    background: rgba(244,185,66,0.06);
+
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+/* ============================================
+   8. ESTADÍSTICAS
+============================================ */
+
+.graphs-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 30px;
+}
+
+.graphs-stat {
+    padding: 21px;
+    min-width: 0;
+}
+
+.graphs-stat-head {
+    color: var(--graphs-label);
+    font-size: 12px;
+}
+
+.graphs-stat-head svg {
+    flex-shrink: 0;
+    width: 19px;
+    height: 19px;
+    color: var(--graphs-gold);
+}
+
+.graphs-stat strong {
+    display: block;
+    margin: 20px 0 9px;
+
+    font-size: clamp(22px, 2.3vw, 32px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+
+    color: var(--graphs-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.graphs-stat small {
+    color: var(--graphs-secondary);
+    font-size: 11px;
+}
+
+/* ============================================
+   9. SECCIONES
+============================================ */
+
+.graphs-category {
+    margin-bottom: 35px;
+}
+
+.graphs-section-heading {
+    margin-bottom: 22px;
+}
+
+.graphs-section-heading h2 {
+    margin: 9px 0;
+    color: var(--graphs-text);
+    font-size: clamp(22px, 2.4vw, 29px);
+    letter-spacing: -0.03em;
+}
+
+.graphs-section-heading p {
+    margin: 0;
+    color: var(--graphs-muted);
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+/* ============================================
+   10. GRÁFICAS
+============================================ */
+
+.graphs-charts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.graphs-chart-card {
+    min-width: 0;
+    padding: 24px;
+
+    transition:
+        border-color 0.25s ease,
+        transform 0.25s ease,
+        box-shadow 0.25s ease,
+        background-color 0.25s ease;
+}
+
+.graphs-chart-card:hover {
+    border-color: rgba(244,185,66,0.28);
+    transform: translateY(-3px);
+    box-shadow: 0 15px 35px var(--graphs-shadow);
+}
+
+.graphs-chart-heading {
+    align-items: flex-start;
+}
+
+.graphs-chart-heading h2 {
+    margin: 8px 0;
+    color: var(--graphs-text);
+    font-size: 18px;
+}
+
+.graphs-chart-heading p {
+    margin: 0;
+    color: var(--graphs-muted);
+    font-size: 12px;
+}
+
+.graphs-chart-heading > svg {
+    flex-shrink: 0;
+    color: var(--graphs-gold);
+    width: 22px;
+    height: 22px;
+}
+
+.graphs-canvas-wrap {
+    position: relative;
+    height: 310px;
+    margin-top: 24px;
+}
+
+.graphs-canvas-wrap canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* ============================================
+   11. TERMODINÁMICA
+============================================ */
+
+.graphs-thermo-section {
+    margin-top: 36px;
+}
+
+.thermo-graph-card {
+    background:
+        linear-gradient(
+            145deg,
+            rgba(117,191,229,0.04),
+            transparent 65%
+        ),
+        var(--graphs-surface);
+}
+
+.thermo-graph-card:nth-child(1)
+.graphs-chart-heading > svg {
+    color: var(--graphs-blue);
+}
+
+.thermo-graph-card:nth-child(2) {
+    background:
+        linear-gradient(
+            145deg,
+            rgba(131,205,164,0.04),
+            transparent 65%
+        ),
+        var(--graphs-surface);
+}
+
+.thermo-graph-card:nth-child(2)
+.graphs-chart-heading > svg {
+    color: var(--graphs-green);
+}
+
+.thermo-graph-card:nth-child(3) {
+    background:
+        linear-gradient(
+            145deg,
+            rgba(244,185,66,0.04),
+            transparent 65%
+        ),
+        var(--graphs-surface);
+}
+
+.thermo-graph-card:nth-child(3)
+.graphs-chart-heading > svg {
+    color: var(--graphs-gold);
+}
+
+.thermo-graph-card:nth-child(4) {
+    background:
+        linear-gradient(
+            145deg,
+            rgba(197,163,242,0.04),
+            transparent 65%
+        ),
+        var(--graphs-surface);
+}
+
+.thermo-graph-card:nth-child(4)
+.graphs-chart-heading > svg {
+    color: var(--graphs-purple);
+}
+
+/* ============================================
+   12. INFORMACIÓN
+============================================ */
+
+.graphs-info {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.graphs-info p {
+    max-width: 840px;
+    color: var(--graphs-muted);
+    font-size: 13px;
+    line-height: 1.8;
+}
+
+.graphs-info > svg {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    color: var(--graphs-gold);
+}
+
+/* ============================================
+   13. RESPONSIVE
+============================================ */
+
+@media (max-width: 1300px) {
+    .graphs-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 1050px) {
+    .graphs-charts {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 700px) {
+    .graphs-filters {
+        grid-template-columns: 1fr;
+    }
+
+    .graphs-panel,
+    .graphs-chart-card {
+        padding: 19px;
+    }
+
+    .graphs-canvas-wrap {
+        height: 260px;
+    }
+}
+
+@media (max-width: 480px) {
+    .graphs-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .graphs-panel-title {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+/* ============================================
+   14. ACCESIBILIDAD
+============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    .graphs-chart-card {
+        transition: none;
+        transform: none;
+    }
+}

@@ -1,7 +1,9 @@
+
 [package]
 name = "smart_classroom_backend"
 version = "0.1.0"
 edition = "2021"
+default-run = "smart_classroom_backend"
 
 [dependencies]
 axum = { version = "0.7", features = ["ws"] }

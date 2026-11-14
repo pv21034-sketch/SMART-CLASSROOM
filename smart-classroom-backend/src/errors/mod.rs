@@ -1,8 +1,14 @@
-// Este archivo es la "puerta de entrada" del módulo errors.
-// Declara que api_error.rs es parte de este módulo...
-pub mod api_error;
 
-// ...y reexporta ApiError y ApiResult para que el resto del proyecto
-// pueda escribir `use crate::errors::ApiError` en vez de
-// `use crate::errors::api_error::ApiError` (más corto y limpio).
-pub use api_error::{ApiError, ApiResult};
+ // ============================================================
+ // SMART CLASSROOM - MODULO DE ERRORES
+ // ============================================================
+
+ // Manejo general de errores de la API.
+ pub mod api_error;
+
+ // Manejo de errores de PostgreSQL / SQLx.
+ pub mod db;
+
+ // Reexportamos los tipos existentes para mantener
+ // la compatibilidad con el resto del backend.
+ pub use api_error::{ApiError, ApiResult};

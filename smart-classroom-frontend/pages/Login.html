@@ -1,90 +1,245 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SMART CLASSROOM · Iniciar sesión</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../css/login.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d0e14">
+  <title>SMART CLASSROOM | Acceso</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/Login.css">
+  <script src="../js/Login.js" defer></script>
 </head>
+
 <body>
+  <div class="scene">
+    <div class="room-glow"></div>
+    <canvas id="physics" aria-hidden="true"></canvas>
 
-<div class="scene">
-  <div class="room-glow"></div>
-  <canvas id="physics"></canvas>
+    <main class="layout">
 
-  <main class="layout">
+      <!-- LÁMPARA INTERACTIVA -->
+      <section class="lamp-side" aria-label="Lámpara interactiva">
+        <div class="lamp">
+          <div class="cone"></div>
 
-    <!-- Lámpara -->
-    <section class="lamp-side" aria-label="Lámpara">
-      <div class="lamp">
-        <div class="cone"></div>
+          <svg viewBox="0 0 260 480" aria-hidden="true">
+            <defs>
+              <radialGradient id="glow">
+                <stop offset="0" stop-color="#fff4c2" stop-opacity=".95"/>
+                <stop offset="1" stop-color="#f5a623" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
 
-        <svg viewBox="0 0 260 480" aria-hidden="true">
-          <defs>
-            <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stop-color="#fff4c2" stop-opacity=".95"/>
-              <stop offset="100%" stop-color="#f5c518" stop-opacity="0"/>
-            </radialGradient>
-          </defs>
-          <!-- Poste -->
-          <rect x="128" y="120" width="4" height="320" rx="2" fill="#2a2a2f"/>
-          <!-- Base -->
-          <ellipse cx="130" cy="446" rx="34" ry="7" fill="#1b1b1f"/>
-          <!-- Brillo de la bombilla -->
-          <g class="bulb-glow">
-            <ellipse cx="130" cy="118" rx="62" ry="16" fill="url(#glow)"/>
-            <ellipse cx="130" cy="114" rx="40" ry="6" fill="#fff6cf"/>
-          </g>
-          <!-- Pantalla -->
-          <path class="shade-fill" d="M62 116 C62 84 92 66 130 66 C168 66 198 84 198 116 Z"/>
-          <path d="M62 116 L198 116" stroke="#0d0d10" stroke-width="2"/>
-        </svg>
+            <ellipse cx="100" cy="452" rx="52" ry="9" fill="#17171b"/>
+            <ellipse cx="100" cy="447" rx="46" ry="8" fill="#26262c"/>
 
-        <button class="pull" id="pull" type="button" aria-label="Encender o apagar la lámpara" aria-pressed="false">
-          <span class="cord"></span>
-          <span class="bead"></span>
-        </button>
+            <line x1="100" y1="444" x2="62" y2="302"
+                  stroke="#2a2a30" stroke-width="7"
+                  stroke-linecap="round"/>
 
-        <span class="hint">Jala la cadena para encender</span>
-      </div>
-    </section>
+            <line x1="62" y1="302" x2="100" y2="176"
+                  stroke="#2a2a30" stroke-width="6"
+                  stroke-linecap="round"/>
 
-    <!-- Formulario -->
-    <section class="form-side">
-      <form class="card" id="loginForm" novalidate inert>
-        <h1>Bienvenido</h1>
-        <p class="sub">Ingresa tus datos para acceder al panel del aula</p>
+            <circle cx="100" cy="444" r="8" class="joint"/>
+            <circle cx="62" cy="302" r="9" class="joint"/>
 
-        <div class="field">
-          <input type="text" id="identifier" name="identifier" placeholder="Usuario o correo" autocomplete="username" required>
-          <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-        </div>
+            <g transform="rotate(-7 130 190)">
+              <path class="shade"
+                    d="M66 190C66 130 100 98 134 98C168 98 198 130 198 190Z"/>
 
-        <div class="field">
-          <input type="password" id="password" name="password" placeholder="Contraseña" autocomplete="current-password" required>
-          <svg class="ico" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
-          <button class="toggle-pass" id="togglePass" type="button" aria-label="Mostrar contraseña">
-            <svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              <path d="M66 190H198"
+                    stroke="#c9962b" stroke-width="3"/>
+
+              <g class="bulb-glow">
+                <ellipse cx="131" cy="193" rx="62" ry="13"
+                         fill="url(#glow)"/>
+                <ellipse cx="131" cy="190" rx="38" ry="5"
+                         fill="#fff3c4"/>
+              </g>
+            </g>
+          </svg>
+
+          <button class="pull" id="pull" type="button"
+                  aria-label="Encender o apagar la lámpara"
+                  aria-pressed="false">
+            <span class="cord"></span>
+            <span class="bead"></span>
           </button>
+
+          <span class="hint">
+            Jala la cadena para encender o apagar
+          </span>
         </div>
+      </section>
 
-        <p class="error" id="error" role="alert" aria-live="polite"></p>
+      <!-- FORMULARIOS -->
+      <section class="form-side">
+        <div class="card" id="card" inert>
 
-        <button class="btn" id="submitBtn" type="submit">
-          <span class="spinner"></span>
-          <span class="label">Iniciar sesión</span>
-        </button>
+          <div class="brand">
+            <span class="brand-icon">SC</span>
+            <span>SMART CLASSROOM</span>
+          </div>
 
-        <p class="foot">SMART CLASSROOM · Monitoreo inteligente de aulas</p>
-      </form>
-    </section>
+          <h1 id="heading">Bienvenido</h1>
+          <p class="sub" id="sub">
+            Inicia sesión para continuar
+          </p>
 
-  </main>
-</div>
+          <div class="tabs" id="tabs">
+            <button type="button" class="on" data-go="signin">
+              Iniciar sesión
+            </button>
+            <button type="button" data-go="signup">
+              Registrarse
+            </button>
+          </div>
 
-<script src="../js/login.js"></script>
+          <!-- INICIO DE SESIÓN -->
+          <form data-p="signin" novalidate>
+            <label for="si-user">Usuario</label>
+
+            <div class="field">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="8" r="4"/>
+                <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/>
+              </svg>
+
+              <input id="si-user" name="identifier" type="text"
+                     placeholder="Tu nombre de usuario"
+                     autocomplete="username" required>
+            </div>
+
+            <div class="row">
+              <label for="si-pass">Contraseña</label>
+              <a href="#" data-go="forgot">¿Olvidaste?</a>
+            </div>
+
+            <div class="field">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="5" y="11" width="14" height="10" rx="2"/>
+                <path d="M8 11V8a4 4 0 0 1 8 0v3"/>
+              </svg>
+
+              <input id="si-pass" name="password" type="password"
+                     placeholder="Tu contraseña"
+                     autocomplete="current-password" required>
+
+              <button class="eye" type="button"
+                      aria-label="Mostrar contraseña"
+                      aria-pressed="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+            </div>
+
+            <label class="check" for="si-rec">
+              <input id="si-rec" type="checkbox">
+              <i aria-hidden="true"></i>
+              Recordarme
+            </label>
+
+            <p class="error" role="alert" aria-live="polite"></p>
+
+            <button class="btn" type="submit">
+              <span class="spinner" aria-hidden="true"></span>
+              <span class="label">Entrar →</span>
+            </button>
+          </form>
+
+          <!-- REGISTRO -->
+          <form data-p="signup" novalidate hidden>
+            <label for="su-user">Usuario</label>
+            <div class="field">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="8" r="4"/>
+                <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/>
+              </svg>
+              <input id="su-user" type="text"
+                     placeholder="Mínimo 3 caracteres"
+                     autocomplete="username" minlength="3" required>
+            </div>
+
+            <label for="su-pass">Contraseña</label>
+            <div class="field">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="5" y="11" width="14" height="10" rx="2"/>
+                <path d="M8 11V8a4 4 0 0 1 8 0v3"/>
+              </svg>
+              <input id="su-pass" type="password"
+                     placeholder="Mínimo 8 caracteres"
+                     autocomplete="new-password" minlength="8" required>
+              <button class="eye" type="button"
+                      aria-label="Mostrar contraseña"
+                      aria-pressed="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+            </div>
+
+            <label for="su-pass2">Repite la contraseña</label>
+            <div class="field">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="5" y="11" width="14" height="10" rx="2"/>
+                <path d="M8 11V8a4 4 0 0 1 8 0v3"/>
+              </svg>
+              <input id="su-pass2" type="password"
+                     placeholder="Repite la contraseña"
+                     autocomplete="new-password" required>
+            </div>
+
+            <p class="error" role="alert" aria-live="polite"></p>
+
+            <button class="btn" type="submit">
+              <span class="spinner" aria-hidden="true"></span>
+              <span class="label">Crear cuenta →</span>
+            </button>
+          </form>
+
+          <!-- RECUPERACIÓN -->
+          <div data-p="forgot" hidden>
+            <div class="note">
+              <b>¿No recuerdas tu contraseña?</b>
+              <p>
+                Por ahora el sistema no envía correos.
+                Contacta al administrador del aula
+                para restablecer tu acceso.
+              </p>
+            </div>
+            <button class="btn ghost" type="button" data-go="signin">
+              ← Volver a iniciar sesión
+            </button>
+          </div>
+
+          <p class="foot">
+            SMART CLASSROOM · Monitoreo inteligente de aulas
+          </p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- EFECTOS DE TRANSICIÓN -->
+  <div id="stage" aria-hidden="true"></div>
+  <div id="flash" aria-hidden="true"></div>
+  <div id="ring" aria-hidden="true">
+    <svg viewBox="0 0 80 80">
+      <circle cx="40" cy="40" r="36"/>
+    </svg>
+    <span id="num">0</span>
+  </div>
+  <div id="capL" aria-hidden="true"></div>
+  <div id="capR" aria-hidden="true"></div>
+  <div id="bar" aria-hidden="true"><i></i></div>
 </body>
 </html>

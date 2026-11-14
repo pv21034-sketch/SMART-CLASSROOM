@@ -1,3 +1,4 @@
+
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -32,6 +33,9 @@ pub enum ApiError {
     #[error("Error interno del servidor: {0}")]
     Internal(String),
 
+    // Reservado para el manejo de errores de WebSocket.
+    // Actualmente no se construye esta variante.
+    #[allow(dead_code)]
     #[error("Error de WebSocket: {0}")]
     WebSocket(String),
 }

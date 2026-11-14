@@ -1,0 +1,751 @@
+
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <meta name="description"
+          content="SMART CLASSROOM - Análisis termodinámico de las condiciones ambientales de aulas.">
+
+    <title>Termodinámica | SMART CLASSROOM</title>
+
+    <!-- TIPOGRAFÍA -->
+    <link rel="preconnect"
+          href="https://fonts.googleapis.com">
+
+    <link rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossorigin>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- ESTILOS -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <link rel="stylesheet" href="../css/termodinamica.css">
+
+    <!-- ICONOS -->
+    <script
+        src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"
+        defer>
+    </script>
+
+    <!-- GRÁFICAS -->
+    <script
+        src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"
+        defer>
+    </script>
+
+    <!-- JAVASCRIPT -->
+    <script src="../js/ui-enhance.js" defer></script>
+    <script src="../js/api.js" defer></script>
+    <script src="../js/layout.js" defer></script>
+    <script src="../js/termodinamica.js" defer></script>
+
+</head>
+
+<body class="dashboard-page thermodynamics-page">
+
+    <!-- FONDO AMBIENTAL -->
+    <div class="ambient" aria-hidden="true"></div>
+
+    <div class="app-shell">
+
+        <!-- =========================================
+             MENÚ LATERAL
+        ========================================== -->
+        <aside class="sidebar" id="sidebar">
+
+            <div class="sidebar-header">
+
+                <div class="brand-icon">
+                    <i data-lucide="graduation-cap"></i>
+                </div>
+
+                <div class="brand-text">
+                    <strong>SMART CLASSROOM</strong>
+                    <span>Environmental Intelligence</span>
+                </div>
+
+            </div>
+
+            <nav class="sidebar-nav"
+                 aria-label="Navegación principal">
+
+                <a href="dashboard.html"
+                   class="nav-link">
+
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard</span>
+                </a>
+
+                <!-- PÁGINA ACTIVA -->
+                <a href="termodinamica.html"
+                   class="nav-link active"
+                   aria-current="page">
+
+                    <i data-lucide="flask-conical"></i>
+                    <span>Termodinámica</span>
+                </a>
+
+                <a href="graficas.html"
+                   class="nav-link">
+
+                    <i data-lucide="chart-no-axes-combined"></i>
+                    <span>Gráficas</span>
+                </a>
+
+                <a href="historial.html"
+                   class="nav-link">
+
+                    <i data-lucide="history"></i>
+                    <span>Historial</span>
+                </a>
+
+                <a href="alertas.html"
+                   class="nav-link">
+
+                    <i data-lucide="bell-ring"></i>
+                    <span>Alertas</span>
+                </a>
+
+                <a href="configuracion.html"
+                   class="nav-link">
+
+                    <i data-lucide="settings-2"></i>
+                    <span>Configuración</span>
+                </a>
+
+            </nav>
+
+            <div class="sidebar-footer">
+
+                <div class="system-status">
+
+                    <span class="status-dot"
+                          id="sidebar-status-dot"></span>
+
+                    <span id="sidebar-status-text">
+                        Verificando conexión...
+                    </span>
+
+                </div>
+
+                <p>Universidad de El Salvador</p>
+                <small>SMART CLASSROOM © 2026</small>
+
+            </div>
+
+        </aside>
+
+        <!-- =========================================
+             CONTENIDO PRINCIPAL
+        ========================================== -->
+        <div class="main-wrapper">
+
+            <!-- BARRA SUPERIOR -->
+            <header class="topbar">
+
+                <div class="topbar-left">
+
+                    <button
+                        class="icon-button menu-toggle"
+                        id="menu-toggle"
+                        type="button"
+                        aria-label="Abrir o cerrar menú"
+                        aria-controls="sidebar"
+                        aria-expanded="false">
+
+                        <i data-lucide="menu"></i>
+                    </button>
+
+                    <div class="breadcrumb">
+
+                        <span>SMART CLASSROOM</span>
+
+                        <i data-lucide="chevron-right"></i>
+
+                        <strong>Termodinámica</strong>
+
+                    </div>
+
+                </div>
+
+                <div class="topbar-right">
+
+                    <span
+                        class="connection-indicator"
+                        id="connection-status"
+                        role="status"
+                        aria-live="polite">
+
+                        Sin verificar
+                    </span>
+
+                    <button
+                        class="icon-button"
+                        id="theme-toggle"
+                        type="button"
+                        aria-label="Cambiar tema">
+
+                        <i data-lucide="moon"></i>
+                    </button>
+
+                    <a href="alertas.html"
+                       class="icon-button notification-button"
+                       aria-label="Ver alertas">
+
+                        <i data-lucide="bell"></i>
+
+                        <span
+                            class="notification-count"
+                            id="notification-count">0</span>
+
+                    </a>
+
+                    <div class="user-avatar"
+                         aria-label="Usuario del sistema">
+
+                        <i data-lucide="user-round"></i>
+
+                    </div>
+
+                </div>
+
+            </header>
+
+            <!-- =========================================
+                 ANÁLISIS TERMODINÁMICO
+            ========================================== -->
+            <main class="dashboard-content thermo-content"
+                  id="main-content">
+
+                <!-- ENCABEZADO -->
+                <section class="welcome-section thermo-welcome">
+
+                    <div class="welcome-text">
+
+                        <span class="eyebrow">
+                            ANÁLISIS FÍSICO DEL AIRE HÚMEDO
+                        </span>
+
+                        <h1>Análisis termodinámico</h1>
+
+                        <p>
+                            Explora las propiedades termodinámicas
+                            calculadas a partir de la temperatura
+                            y humedad relativa registradas por
+                            el sensor DHT22.
+                        </p>
+
+                    </div>
+
+                    <div class="dashboard-actions">
+
+                        <label for="aula-select">
+                            Aula seleccionada
+                        </label>
+
+                        <select id="aula-select"
+                                class="aula-select">
+
+                            <option value="">
+                                Cargando aulas...
+                            </option>
+
+                        </select>
+
+                        <button
+                            class="refresh-button"
+                            id="refresh-button"
+                            type="button">
+
+                            <i data-lucide="refresh-cw"></i>
+                            <span>Actualizar</span>
+
+                        </button>
+
+                    </div>
+
+                </section>
+
+                <!-- ESTADO DE CONEXIÓN Y DATOS -->
+                <div class="data-notice"
+                     id="data-notice"
+                     role="status"
+                     aria-live="polite">
+
+                    Esperando resultados termodinámicos...
+
+                </div>
+
+                <!-- =========================================
+                     CUATRO PROPIEDADES TERMODINÁMICAS
+                ========================================== -->
+                <section class="thermo-section"
+                         aria-labelledby="thermo-title">
+
+                    <div class="section-heading">
+
+                        <div>
+                            <span class="eyebrow">
+                                PROPIEDADES CALCULADAS
+                            </span>
+
+                            <h2 id="thermo-title">
+                                Indicadores termodinámicos
+                            </h2>
+                        </div>
+
+                        <span class="last-update"
+                              id="last-update">
+
+                            Última actualización: —
+
+                        </span>
+
+                    </div>
+
+                    <div class="thermo-grid">
+
+                        <!-- PUNTO DE ROCÍO -->
+                        <article class="metric-card thermo-card dew-card">
+
+                            <div class="metric-header">
+
+                                <div class="metric-icon">
+                                    <i data-lucide="cloud-fog"></i>
+                                </div>
+
+                                <span class="metric-label">
+                                    Punto de rocío
+                                </span>
+
+                            </div>
+
+                            <div class="metric-value">
+
+                                <span id="punto-rocio-valor">—</span>
+
+                                <span class="metric-unit">°C</span>
+
+                            </div>
+
+                            <p class="metric-description"
+                               id="punto-rocio-estado">
+
+                                Esperando cálculo...
+
+                            </p>
+
+                            <div class="thermo-card-footer">
+                                <span>Modelo de Magnus</span>
+                                <i data-lucide="info"></i>
+                            </div>
+
+                        </article>
+
+                        <!-- HUMEDAD ABSOLUTA -->
+                        <article class="metric-card thermo-card absolute-card">
+
+                            <div class="metric-header">
+
+                                <div class="metric-icon">
+                                    <i data-lucide="waves"></i>
+                                </div>
+
+                                <span class="metric-label">
+                                    Humedad absoluta
+                                </span>
+
+                            </div>
+
+                            <div class="metric-value">
+
+                                <span id="humedad-absoluta-valor">—</span>
+
+                                <span class="metric-unit">g/m³</span>
+
+                            </div>
+
+                            <p class="metric-description"
+                               id="humedad-absoluta-estado">
+
+                                Esperando cálculo...
+
+                            </p>
+
+                            <div class="thermo-card-footer">
+                                <span>Modelo de gas ideal</span>
+                                <i data-lucide="info"></i>
+                            </div>
+
+                        </article>
+
+                        <!-- PRESIÓN DE VAPOR -->
+                        <article class="metric-card thermo-card vapor-card">
+
+                            <div class="metric-header">
+
+                                <div class="metric-icon">
+                                    <i data-lucide="gauge"></i>
+                                </div>
+
+                                <span class="metric-label">
+                                    Presión de vapor
+                                </span>
+
+                            </div>
+
+                            <div class="metric-value">
+
+                                <span id="presion-vapor-valor">—</span>
+
+                                <span class="metric-unit">kPa</span>
+
+                            </div>
+
+                            <p class="metric-description"
+                               id="presion-vapor-estado">
+
+                                Esperando cálculo...
+
+                            </p>
+
+                            <div class="thermo-card-footer">
+                                <span>Presión parcial del vapor</span>
+                                <i data-lucide="info"></i>
+                            </div>
+
+                        </article>
+
+                        <!-- VARIACIÓN TÉRMICA -->
+                        <article class="metric-card thermo-card variation-card">
+
+                            <div class="metric-header">
+
+                                <div class="metric-icon">
+                                    <i data-lucide="trending-up"></i>
+                                </div>
+
+                                <span class="metric-label">
+                                    Variación térmica
+                                </span>
+
+                            </div>
+
+                            <div class="metric-value">
+
+                                <span id="variacion-termica-valor">—</span>
+
+                                <span class="metric-unit">°C/min</span>
+
+                            </div>
+
+                            <p class="metric-description"
+                               id="variacion-termica-estado">
+
+                                Esperando dos mediciones...
+
+                            </p>
+
+                            <div class="thermo-card-footer">
+                                <span>Cambio de temperatura por minuto</span>
+                                <i data-lucide="info"></i>
+                            </div>
+
+                        </article>
+
+                    </div>
+
+                </section>
+
+                <!-- =========================================
+                     GRÁFICAS TERMODINÁMICAS
+                ========================================== -->
+                <section class="charts-section thermo-charts"
+                         aria-labelledby="thermo-charts-title">
+
+                    <div class="section-heading">
+
+                        <div>
+                            <span class="eyebrow">
+                                COMPORTAMIENTO TEMPORAL
+                            </span>
+
+                            <h2 id="thermo-charts-title">
+                                Evolución termodinámica
+                            </h2>
+                        </div>
+
+                        <select id="periodo-select"
+                                class="period-select"
+                                aria-label="Seleccionar período">
+
+                            <option value="hoy">Hoy</option>
+                            <option value="7d">7 días</option>
+                            <option value="30d">30 días</option>
+
+                        </select>
+
+                    </div>
+
+                    <div class="charts-grid">
+
+                        <article class="chart-card">
+
+                            <div class="chart-header">
+                                <div>
+                                    <h3>Punto de rocío</h3>
+                                    <p>Evolución en °C</p>
+                                </div>
+
+                                <i data-lucide="cloud-fog"></i>
+                            </div>
+
+                            <div class="chart-container">
+                                <canvas
+                                    id="punto-rocio-chart"
+                                    role="img"
+                                    aria-label="Gráfica histórica del punto de rocío">
+                                </canvas>
+                            </div>
+
+                        </article>
+
+                        <article class="chart-card">
+
+                            <div class="chart-header">
+                                <div>
+                                    <h3>Humedad absoluta</h3>
+                                    <p>Evolución en g/m³</p>
+                                </div>
+
+                                <i data-lucide="waves"></i>
+                            </div>
+
+                            <div class="chart-container">
+                                <canvas
+                                    id="humedad-absoluta-chart"
+                                    role="img"
+                                    aria-label="Gráfica histórica de humedad absoluta">
+                                </canvas>
+                            </div>
+
+                        </article>
+
+                        <article class="chart-card">
+
+                            <div class="chart-header">
+                                <div>
+                                    <h3>Presión de vapor</h3>
+                                    <p>Evolución en kPa</p>
+                                </div>
+
+                                <i data-lucide="gauge"></i>
+                            </div>
+
+                            <div class="chart-container">
+                                <canvas
+                                    id="presion-vapor-chart"
+                                    role="img"
+                                    aria-label="Gráfica histórica de presión de vapor">
+                                </canvas>
+                            </div>
+
+                        </article>
+
+                        <article class="chart-card">
+
+                            <div class="chart-header">
+                                <div>
+                                    <h3>Variación térmica</h3>
+                                    <p>Evolución en °C/min</p>
+                                </div>
+
+                                <i data-lucide="trending-up"></i>
+                            </div>
+
+                            <div class="chart-container">
+                                <canvas
+                                    id="variacion-termica-chart"
+                                    role="img"
+                                    aria-label="Gráfica histórica de variación térmica">
+                                </canvas>
+                            </div>
+
+                        </article>
+
+                    </div>
+
+                </section>
+
+                <!-- =========================================
+                     FUNDAMENTOS FÍSICOS
+                ========================================== -->
+                <section class="thermo-explanation"
+                         aria-labelledby="physics-title">
+
+                    <div class="section-heading">
+
+                        <div>
+                            <span class="eyebrow">
+                                FUNDAMENTO CIENTÍFICO
+                            </span>
+
+                            <h2 id="physics-title">
+                                Interpretación de las propiedades
+                            </h2>
+                        </div>
+
+                    </div>
+
+                    <div class="thermo-explanation-grid">
+
+                        <article class="detail-card">
+
+                            <div class="detail-header">
+                                <h2>Punto de rocío</h2>
+                                <i data-lucide="cloud-fog"></i>
+                            </div>
+
+                            <p>
+                                Temperatura a la que el aire debe
+                                enfriarse para alcanzar la saturación
+                                de vapor de agua, manteniendo constante
+                                su contenido de vapor.
+                            </p>
+
+                            <span class="physics-tag">
+                                Aproximación de Magnus
+                            </span>
+
+                        </article>
+
+                        <article class="detail-card">
+
+                            <div class="detail-header">
+                                <h2>Humedad absoluta</h2>
+                                <i data-lucide="waves"></i>
+                            </div>
+
+                            <p>
+                                Masa de vapor de agua presente por
+                                unidad de volumen de aire húmedo,
+                                expresada en gramos por metro cúbico.
+                            </p>
+
+                            <span class="physics-tag">
+                                Aproximación de gas ideal
+                            </span>
+
+                        </article>
+
+                        <article class="detail-card">
+
+                            <div class="detail-header">
+                                <h2>Presión de vapor</h2>
+                                <i data-lucide="gauge"></i>
+                            </div>
+
+                            <p>
+                                Presión parcial ejercida por el vapor
+                                de agua contenido en el aire, estimada
+                                a partir de la temperatura y la humedad
+                                relativa.
+                            </p>
+
+                            <span class="physics-tag">
+                                Presión de saturación de Magnus
+                            </span>
+
+                        </article>
+
+                        <article class="detail-card">
+
+                            <div class="detail-header">
+                                <h2>Variación térmica</h2>
+                                <i data-lucide="trending-up"></i>
+                            </div>
+
+                            <p>
+                                Cambio promedio de temperatura entre
+                                dos mediciones, dividido entre el
+                                tiempo transcurrido expresado en minutos.
+                            </p>
+
+                            <span class="physics-tag">
+                                ΔT / Δt
+                            </span>
+
+                        </article>
+
+                    </div>
+
+                </section>
+
+                <!-- =========================================
+                     INFORMACIÓN DEL MODELO
+                ========================================== -->
+                <section class="thermo-model-section">
+
+                    <article class="detail-card thermo-model-card">
+
+                        <div class="detail-header">
+
+                            <h2>Modelo de cálculo</h2>
+
+                            <i data-lucide="cpu"></i>
+
+                        </div>
+
+                        <p>
+                            Las propiedades termodinámicas son
+                            estimaciones derivadas de las mediciones
+                            del sensor DHT22.
+                        </p>
+
+                        <p>
+                            Los cálculos se realizan en el backend
+                            desarrollado con Rust, utilizando
+                            la aproximación de Magnus y la ecuación
+                            de estado del gas ideal.
+                        </p>
+
+                        <div class="model-tags">
+
+                            <span>ESP32</span>
+                            <span>DHT22</span>
+                            <span>Rust</span>
+                            <span>Magnus</span>
+                            <span>Gas ideal</span>
+
+                        </div>
+
+                    </article>
+
+                </section>
+
+            </main>
+
+            <!-- PIE DE PÁGINA -->
+            <footer class="dashboard-footer">
+
+                <span>SMART CLASSROOM © 2026</span>
+
+                <span>Universidad de El Salvador</span>
+
+            </footer>
+
+        </div>
+
+    </div>
+
+</body>
+</html>

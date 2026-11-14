@@ -1,0 +1,992 @@
+
+/* ============================================================
+   SMART CLASSROOM — CONFIGURACIÓN
+   Diseño grafito / dorado
+   Compatible con tema claro y oscuro
+   ============================================================ */
+
+/* ============================================================
+   1. VARIABLES — TEMA OSCURO
+   ============================================================ */
+
+.settings-page {
+    --settings-gold: #f4b942;
+    --settings-blue: #75bfe5;
+    --settings-green: #83cda4;
+    --settings-red: #f28b82;
+
+    --settings-border: rgba(255, 255, 255, 0.09);
+    --settings-surface: #191c22;
+    --settings-field: #22262e;
+
+    --settings-text: #f6f4f0;
+    --settings-heading: #f4f3f0;
+    --settings-label: #c9cdd5;
+    --settings-muted: #aeb4bf;
+    --settings-subtle: #9299a5;
+    --settings-body: #d6d9e0;
+
+    --settings-table-head: #22262e;
+    --settings-table-heading-text: #aeb5c1;
+    --settings-table-body-heading: #e7e8ec;
+    --settings-table-border: rgba(255, 255, 255, 0.055);
+    --settings-table-hover: rgba(255, 255, 255, 0.035);
+
+    --settings-input-text: #f2f1ee;
+    --settings-input-border: rgba(255, 255, 255, 0.13);
+    --settings-input-scheme: dark;
+
+    --settings-secondary-bg: #252932;
+    --settings-secondary-hover: #303540;
+    --settings-secondary-text: #d5d8df;
+
+    --settings-notice-text: #e5c68e;
+    --settings-success-text: #bce8c9;
+    --settings-error-text: #f2b5ae;
+
+    --settings-result-bg: #22262e;
+    --settings-result-label: #c8cdd5;
+    --settings-result-value: #f4f3ef;
+    --settings-result-muted: #9da6b2;
+
+    --settings-equation-bg: #22262e;
+    --settings-equation-title: #e9c98b;
+    --settings-equation-code-bg: #171a20;
+    --settings-equation-code-text: #e2e6ee;
+    --settings-equation-code-border: rgba(255, 255, 255, 0.06);
+
+    --settings-calculator-text: #b8c9d8;
+    --settings-helper-text: #9ea6b2;
+}
+
+/* ============================================================
+   2. VARIABLES — TEMA CLARO
+   ============================================================ */
+
+html[data-theme="light"] .settings-page,
+body.settings-page[data-theme="light"] {
+    --settings-gold: #a86c08;
+    --settings-blue: #087ba8;
+    --settings-green: #168258;
+    --settings-red: #b83f37;
+
+    --settings-border: rgba(75, 65, 45, 0.13);
+    --settings-surface: #ffffff;
+    --settings-field: #f8f6f2;
+
+    --settings-text: #242321;
+    --settings-heading: #242321;
+    --settings-label: #55514a;
+    --settings-muted: #68645e;
+    --settings-subtle: #77736d;
+    --settings-body: #3f3b35;
+
+    --settings-table-head: #f3f0eb;
+    --settings-table-heading-text: #625d55;
+    --settings-table-body-heading: #34312d;
+    --settings-table-border: rgba(75, 65, 45, 0.10);
+    --settings-table-hover: rgba(75, 65, 45, 0.045);
+
+    --settings-input-text: #242321;
+    --settings-input-border: rgba(75, 65, 45, 0.17);
+    --settings-input-scheme: light;
+
+    --settings-secondary-bg: #f0ece5;
+    --settings-secondary-hover: #e7e0d5;
+    --settings-secondary-text: #4a4338;
+
+    --settings-notice-text: #80520b;
+    --settings-success-text: #167447;
+    --settings-error-text: #b53d35;
+
+    --settings-result-bg: #f8f6f2;
+    --settings-result-label: #625d55;
+    --settings-result-value: #242321;
+    --settings-result-muted: #77736d;
+
+    --settings-equation-bg: #f8f6f2;
+    --settings-equation-title: #80520b;
+    --settings-equation-code-bg: #f0ede7;
+    --settings-equation-code-text: #34312d;
+    --settings-equation-code-border: rgba(75, 65, 45, 0.12);
+
+    --settings-calculator-text: #35566b;
+    --settings-helper-text: #68645e;
+}
+
+/* ============================================================
+   3. CONTENIDO
+   ============================================================ */
+
+.settings-content {
+    position: relative;
+    z-index: 1;
+    padding-bottom: 45px;
+}
+
+.settings-welcome {
+    margin-bottom: 26px;
+}
+
+.settings-welcome h1 {
+    font-size: clamp(30px, 3vw, 42px);
+    letter-spacing: -0.04em;
+}
+
+.settings-welcome p {
+    max-width: 760px;
+    line-height: 1.7;
+}
+
+/* ============================================================
+   4. AVISO
+   ============================================================ */
+
+.settings-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding: 14px 16px;
+
+    color: var(--settings-notice-text);
+    background: rgba(244, 185, 66, 0.06);
+    border: 1px solid rgba(244, 185, 66, 0.17);
+    border-radius: 12px;
+
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+.settings-notice svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+/* ============================================================
+   5. RESUMEN
+   ============================================================ */
+
+.settings-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 26px;
+}
+
+.settings-stat {
+    min-width: 0;
+    padding: 21px;
+
+    background: var(--settings-surface);
+    border: 1px solid var(--settings-border);
+    border-radius: 20px;
+
+    transition:
+        transform 0.25s ease,
+        border-color 0.25s ease;
+}
+
+.settings-stat:hover {
+    transform: translateY(-3px);
+    border-color: rgba(244, 185, 66, 0.22);
+}
+
+.settings-stat-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+
+    color: var(--settings-label);
+    font-size: 12px;
+}
+
+.settings-stat-top svg {
+    width: 19px;
+    height: 19px;
+    flex-shrink: 0;
+    color: var(--settings-gold);
+}
+
+.settings-stat strong {
+    display: block;
+    margin: 20px 0 9px;
+
+    color: var(--settings-text);
+    font-size: clamp(22px, 2.3vw, 32px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+}
+
+.settings-stat small {
+    color: var(--settings-subtle);
+    font-size: 11px;
+}
+
+/* ============================================================
+   6. NAVEGACIÓN INTERNA
+   ============================================================ */
+
+.settings-tabs {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+
+    margin-bottom: 25px;
+    padding: 8px;
+
+    background: var(--settings-surface);
+    border: 1px solid var(--settings-border);
+    border-radius: 16px;
+}
+
+.settings-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    min-height: 42px;
+    padding: 0 16px;
+
+    color: var(--settings-muted);
+    text-decoration: none;
+
+    border: 1px solid transparent;
+    border-radius: 10px;
+
+    font-size: 12px;
+    font-weight: 600;
+
+    transition:
+        background 0.2s ease,
+        color 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.settings-tab svg {
+    width: 16px;
+    height: 16px;
+}
+
+.settings-tab:hover,
+.settings-tab.active {
+    color: var(--settings-gold);
+    background: rgba(244, 185, 66, 0.1);
+    border-color: rgba(244, 185, 66, 0.18);
+}
+
+.settings-tab:focus-visible {
+    outline: 2px solid var(--settings-gold);
+    outline-offset: 2px;
+}
+
+/* ============================================================
+   7. PANELES
+   ============================================================ */
+
+.settings-panel {
+    margin-bottom: 24px;
+    padding: 25px;
+
+    background: var(--settings-surface);
+    border: 1px solid var(--settings-border);
+    border-radius: 20px;
+
+    scroll-margin-top: 95px;
+}
+
+.settings-panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 23px;
+}
+
+.settings-heading-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    min-width: 0;
+}
+
+.settings-section-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    width: 45px;
+    height: 45px;
+
+    color: var(--settings-gold);
+    background: rgba(244, 185, 66, 0.1);
+    border: 1px solid rgba(244, 185, 66, 0.15);
+    border-radius: 13px;
+}
+
+.settings-section-icon svg {
+    width: 21px;
+    height: 21px;
+}
+
+.settings-heading-left h2 {
+    margin: 0 0 6px;
+    color: var(--settings-heading);
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.settings-heading-left p {
+    margin: 0;
+    color: var(--settings-muted);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.settings-demo-tag,
+.settings-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    padding: 8px 12px;
+
+    color: var(--settings-gold);
+    background: rgba(244, 185, 66, 0.09);
+    border: 1px solid rgba(244, 185, 66, 0.2);
+    border-radius: 25px;
+
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* ============================================================
+   8. TABLAS
+   ============================================================ */
+
+.settings-table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--settings-border);
+    border-radius: 13px;
+}
+
+.settings-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.settings-table thead {
+    background: var(--settings-table-head);
+}
+
+.settings-table th {
+    padding: 16px 18px;
+    color: var(--settings-table-heading-text);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.035em;
+}
+
+.settings-table thead th {
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.settings-table tbody th {
+    color: var(--settings-table-body-heading);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.settings-table td {
+    padding: 15px 18px;
+    color: var(--settings-body);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.settings-table tbody tr {
+    border-top: 1px solid var(--settings-table-border);
+    transition: background 0.2s ease;
+}
+
+.settings-table tbody tr:hover {
+    background: var(--settings-table-hover);
+}
+
+.settings-variable {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+}
+
+.settings-variable svg {
+    width: 18px;
+    height: 18px;
+    color: var(--settings-gold);
+}
+
+#tabla-rangos {
+    min-width: 600px;
+}
+
+#tabla-rangos td:last-child {
+    color: var(--settings-label);
+    font-weight: 600;
+}
+
+#tabla-dispositivos {
+    min-width: 690px;
+}
+
+#tabla-usuarios {
+    min-width: 560px;
+}
+
+/* ============================================================
+   9. CAMPOS
+   ============================================================ */
+
+.settings-table input[type="number"],
+.settings-field input[type="number"] {
+    width: 100%;
+    min-height: 43px;
+    padding: 0 13px;
+
+    color: var(--settings-input-text);
+    background: var(--settings-field);
+    border: 1px solid var(--settings-input-border);
+    border-radius: 10px;
+
+    font: inherit;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+
+    outline: none;
+    color-scheme: var(--settings-input-scheme);
+
+    transition:
+        border-color 0.2s ease,
+        background 0.2s ease;
+}
+
+.settings-table input[type="number"] {
+    max-width: 185px;
+    min-width: 105px;
+}
+
+.settings-table input[type="number"]:hover,
+.settings-field input[type="number"]:hover {
+    border-color: rgba(244, 185, 66, 0.28);
+}
+
+.settings-table input[type="number"]:focus-visible,
+.settings-field input[type="number"]:focus-visible {
+    border-color: var(--settings-gold);
+    outline: 2px solid rgba(244, 185, 66, 0.35);
+    outline-offset: 2px;
+}
+
+.settings-table input[aria-invalid="true"],
+.settings-field input[aria-invalid="true"] {
+    border-color: var(--settings-red);
+    background: rgba(242, 139, 130, 0.06);
+}
+
+/* ============================================================
+   10. BOTONES Y ACCIONES
+   ============================================================ */
+
+.settings-form-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin-top: 22px;
+}
+
+.settings-form-footer p {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+
+    max-width: 570px;
+    margin: 0;
+
+    color: var(--settings-muted);
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+.settings-form-footer p svg {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: var(--settings-green);
+}
+
+.settings-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.settings-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    min-height: 44px;
+    padding: 0 17px;
+    border-radius: 11px;
+
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease,
+        opacity 0.2s ease;
+}
+
+.settings-button svg {
+    width: 16px;
+    height: 16px;
+}
+
+.settings-button-primary {
+    color: #1a1710;
+    background: var(--settings-gold);
+    border: 1px solid var(--settings-gold);
+}
+
+.settings-button-primary:hover:not(:disabled) {
+    background: #ffd077;
+}
+
+.settings-button-secondary {
+    color: var(--settings-secondary-text);
+    background: var(--settings-secondary-bg);
+    border: 1px solid var(--settings-input-border);
+}
+
+.settings-button-secondary:hover:not(:disabled) {
+    background: var(--settings-secondary-hover);
+}
+
+.settings-button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.settings-button:focus-visible {
+    outline: 2px solid var(--settings-gold);
+    outline-offset: 2px;
+}
+
+/* ============================================================
+   11. MENSAJES
+   ============================================================ */
+
+.settings-message {
+    margin: 0 0 20px;
+    padding: 13px 16px;
+
+    color: var(--settings-success-text);
+    background: rgba(131, 205, 164, 0.09);
+    border: 1px solid rgba(131, 205, 164, 0.2);
+    border-radius: 12px;
+
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+.settings-message.error {
+    color: var(--settings-error-text);
+    background: rgba(242, 139, 130, 0.09);
+    border-color: rgba(242, 139, 130, 0.22);
+}
+
+.settings-message[hidden],
+.settings-table[hidden] {
+    display: none !important;
+}
+
+/* ============================================================
+   12. ESTADOS DE DISPOSITIVOS
+   ============================================================ */
+
+.settings-device-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 10px;
+
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.settings-device-status.ready {
+    color: var(--settings-green);
+    background: rgba(131, 205, 164, 0.1);
+}
+
+.settings-device-status.pending {
+    color: var(--settings-notice-text);
+    background: rgba(244, 185, 66, 0.1);
+}
+
+.settings-device-status.offline {
+    color: var(--settings-error-text);
+    background: rgba(242, 139, 130, 0.1);
+}
+
+.settings-device-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+/* ============================================================
+   13. SISTEMA
+   ============================================================ */
+
+#tabla-sistema td:first-child {
+    color: var(--settings-table-heading-text);
+    font-weight: 600;
+    width: 35%;
+}
+
+#tabla-sistema td:last-child {
+    color: var(--settings-text);
+}
+
+/* ============================================================
+   14. CALCULADORA TERMODINÁMICA
+   ============================================================ */
+
+.settings-calculator-intro {
+    margin-bottom: 20px;
+    padding: 15px 17px;
+
+    background: rgba(117, 191, 229, 0.055);
+    border: 1px solid rgba(117, 191, 229, 0.14);
+    border-radius: 12px;
+}
+
+.settings-calculator-intro p {
+    margin: 0;
+    color: var(--settings-calculator-text);
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+.settings-calculator-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.settings-field {
+    min-width: 0;
+}
+
+.settings-field label {
+    display: block;
+    margin-bottom: 9px;
+    color: var(--settings-label);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.settings-field input[type="number"] {
+    max-width: none;
+}
+
+.settings-calculator-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 24px;
+}
+
+/* ============================================================
+   15. RESULTADOS
+   ============================================================ */
+
+.settings-results {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin: 24px 0 30px;
+}
+
+.settings-result-card {
+    min-width: 0;
+    padding: 20px;
+
+    background: var(--settings-result-bg);
+    border: 1px solid var(--settings-border);
+    border-radius: 15px;
+}
+
+.settings-result-heading {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+
+    color: var(--settings-result-label);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.settings-result-heading svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: var(--settings-gold);
+}
+
+.settings-result-card strong {
+    display: block;
+    margin: 18px 0 8px;
+
+    color: var(--settings-result-value);
+    font-size: clamp(19px, 2vw, 27px);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+.settings-result-card small {
+    color: var(--settings-result-muted);
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+/* ============================================================
+   16. ECUACIONES
+   ============================================================ */
+
+.settings-equations-heading {
+    margin: 30px 0 18px;
+}
+
+.settings-equations-heading h3 {
+    margin: 0 0 7px;
+    color: var(--settings-heading);
+    font-size: 17px;
+}
+
+.settings-equations-heading p {
+    margin: 0;
+    color: var(--settings-muted);
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+.settings-equations {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.settings-equation {
+    min-width: 0;
+    padding: 19px;
+
+    background: var(--settings-equation-bg);
+    border: 1px solid var(--settings-border);
+    border-radius: 14px;
+}
+
+.settings-equation h4 {
+    margin: 0 0 12px;
+    color: var(--settings-equation-title);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.settings-equation code {
+    display: block;
+    width: 100%;
+    margin: 9px 0;
+    padding: 12px 13px;
+
+    color: var(--settings-equation-code-text);
+    background: var(--settings-equation-code-bg);
+    border: 1px solid var(--settings-equation-code-border);
+    border-radius: 9px;
+
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.8;
+    overflow-wrap: anywhere;
+}
+
+.settings-equation p {
+    margin: 10px 0 0;
+    color: var(--settings-muted);
+    font-size: 11px;
+    line-height: 1.7;
+}
+
+.settings-helper {
+    margin: 17px 0 0;
+    color: var(--settings-helper-text);
+    font-size: 11px;
+    line-height: 1.8;
+}
+
+/* ============================================================
+   17. RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 1300px) {
+    .settings-summary,
+    .settings-results {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .settings-calculator-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .settings-form-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .settings-actions {
+        justify-content: flex-end;
+    }
+}
+
+@media (max-width: 700px) {
+    .settings-panel {
+        padding: 19px;
+    }
+
+    .settings-panel-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .settings-tabs {
+        gap: 6px;
+    }
+
+    .settings-tab {
+        flex: 1 1 auto;
+        padding: 0 12px;
+    }
+
+    .settings-actions {
+        flex-wrap: wrap;
+    }
+
+    .settings-actions .settings-button {
+        flex: 1;
+    }
+
+    .settings-table th,
+    .settings-table td {
+        padding: 14px 13px;
+    }
+
+    .settings-equations {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .settings-summary,
+    .settings-results,
+    .settings-calculator-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-heading-left {
+        align-items: flex-start;
+    }
+
+    .settings-section-icon {
+        width: 40px;
+        height: 40px;
+    }
+
+    .settings-heading-left h2 {
+        font-size: 16px;
+    }
+
+    .settings-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .settings-actions .settings-button {
+        width: 100%;
+    }
+
+    .settings-calculator-actions .settings-button {
+        width: 100%;
+    }
+}
+
+/* ============================================================
+   18. ACCESIBILIDAD
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    .settings-stat,
+    .settings-tab,
+    .settings-button,
+    .settings-table tbody tr,
+    .settings-table input[type="number"],
+    .settings-field input[type="number"] {
+        transition: none;
+    }
+}
+
+/* ============================================================
+   19. AJUSTES ADICIONALES — TEMA CLARO
+   ============================================================ */
+
+html[data-theme="light"] .settings-button-primary,
+body.settings-page[data-theme="light"] .settings-button-primary {
+    color: #ffffff;
+}
+
+html[data-theme="light"] .settings-button-primary:hover:not(:disabled),
+body.settings-page[data-theme="light"] .settings-button-primary:hover:not(:disabled) {
+    background: #925d06;
+}
+
+html[data-theme="light"] .settings-table input[type="number"],
+html[data-theme="light"] .settings-field input[type="number"],
+body.settings-page[data-theme="light"] .settings-table input[type="number"],
+body.settings-page[data-theme="light"] .settings-field input[type="number"] {
+    color-scheme: light;
+}

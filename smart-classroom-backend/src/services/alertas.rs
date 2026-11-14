@@ -1,50 +1,44 @@
-//! SMART CLASSROOM — Servicio de Alertas
-//!
-//! Evalúa las mediciones ambientales utilizando
-//! los rangos configurados para cada aula.
-//!
-//! Compatible con los modelos:
-//! - Medicion
-//! - RangoSensor
-//! - Alerta
-//!
-//! Cada alerta conserva una copia de los límites
-//! aplicados en el momento de su generación.
-//!
-//! Este servicio genera alertas en memoria.
-//! Su persistencia en PostgreSQL corresponde
-//! al servicio de ingesta o a la capa de datos.
+
+ //! SMART CLASSROOM — Servicio de Alertas
+ //!
+ //! Evalua las mediciones de temperatura y
+ //! humedad relativa segun los rangos del aula.
+ //!
+ //! Este servicio genera alertas en memoria.
+ //! La persistencia en PostgreSQL corresponde
+ //! al servicio de ingesta.
+ //!
+ //! Los limites aplicados se conservan dentro
+ //! del modelo Rust Alerta. Su persistencia
+ //! historica requiere columnas compatibles
+ //! en la base de datos.
 
 use crate::models::{Alerta, Medicion, RangoSensor};
 use chrono::Utc;
 use uuid::Uuid;
 
 // ============================================================
-// 1. VALIDACIÓN DEL RANGO
+// 1. VALIDACION DEL RANGO
 // ============================================================
 
-/// Verifica que el rango esté activo y sea válido.
+/// Verifica que el rango este activo y sea valido.
 fn rango_valido(rango: &RangoSensor) -> bool {
     rango.activo && rango.limites_validos()
 }
 
 // ============================================================
-// 2. EVALUACIÓN GENERAL
+// 2. EVALUACION GENERAL
 // ============================================================
 
-/// Evalúa una medición contra un rango ambiental.
+/// Evalua una medicion contra un rango.
 ///
-/// Devuelve:
-/// - Some(Alerta) si está fuera del rango.
-/// - None si está dentro del rango.
-/// - None si el rango está inactivo o es inválido.
+/// Devuelve Some(Alerta) cuando el valor
+/// esta fuera de los limites permitidos.
 ///
 /// IMPORTANTE:
-/// El código que llama a esta función debe
-/// verificar previamente que:
-/// 1. El rango corresponde al aula seleccionada.
-/// 2. El tipo de sensor de la medición coincide
-///    con el tipo de sensor del rango.
+/// El servicio que llama a esta funcion debe
+/// comprobar que el rango corresponda al aula
+/// y al tipo de sensor de la medicion.
 pub fn verificar_medicion(
     medicion: &Medicion,
     rango: &RangoSensor,
@@ -64,12 +58,20 @@ pub fn verificar_medicion(
     let mensaje = match tipo {
         "por_debajo" => format!(
             "La {} ({:.2} {}) está por debajo del mínimo permitido ({:.2} {})",
-            nombre_variable, medicion.valor, unidad, rango.valor_minimo, unidad
+            nombre_variable,
+            medicion.valor,
+            unidad,
+            rango.valor_minimo,
+            unidad
         ),
 
         "por_encima" => format!(
             "La {} ({:.2} {}) está por encima del máximo permitido ({:.2} {})",
-            nombre_variable, medicion.valor, unidad, rango.valor_maximo, unidad
+            nombre_variable,
+            medicion.valor,
+            unidad,
+            rango.valor_maximo,
+            unidad
         ),
 
         _ => return None,
@@ -79,55 +81,46 @@ pub fn verificar_medicion(
 }
 
 // ============================================================
-// 3. EVALUACIÓN POR VARIABLE AMBIENTAL
+// 3. EVALUACION POR VARIABLE
 // ============================================================
 
-/// Verifica si la temperatura está fuera del rango.
+/// Evalua temperatura en grados Celsius.
 ///
-/// El rango debe corresponder al tipo temperatura.
-pub fn verificar_temperatura(medicion: &Medicion, rango: &RangoSensor) -> Option<Alerta> {
+/// El rango debe pertenecer al tipo temperatura.
+pub fn verificar_temperatura(
+    medicion: &Medicion,
+    rango: &RangoSensor,
+) -> Option<Alerta> {
     verificar_medicion(medicion, rango, "temperatura", "°C")
 }
 
-/// Verifica si la humedad está fuera del rango.
+/// Evalua humedad relativa en porcentaje.
 ///
-/// El rango debe corresponder al tipo humedad.
-pub fn verificar_humedad(medicion: &Medicion, rango: &RangoSensor) -> Option<Alerta> {
-    verificar_medicion(medicion, rango, "humedad", "%")
-}
-
-/// Verifica si la iluminación está fuera del rango.
-///
-/// El rango debe corresponder al tipo iluminación.
-pub fn verificar_iluminacion(medicion: &Medicion, rango: &RangoSensor) -> Option<Alerta> {
-    verificar_medicion(medicion, rango, "iluminación", "lux")
-}
-
-/// Verifica si el ruido está fuera del rango.
-///
-/// El rango debe corresponder al tipo ruido.
-/// La unidad utilizada debe coincidir con la
-/// calibración del sensor de sonido.
-pub fn verificar_ruido(medicion: &Medicion, rango: &RangoSensor) -> Option<Alerta> {
-    verificar_medicion(medicion, rango, "nivel de ruido", "dB")
+/// El rango debe pertenecer al tipo humedad.
+pub fn verificar_humedad(
+    medicion: &Medicion,
+    rango: &RangoSensor,
+) -> Option<Alerta> {
+    verificar_medicion(medicion, rango, "humedad relativa", "%")
 }
 
 // ============================================================
-// 4. GENERACIÓN DE ALERTAS
+// 4. GENERACION DE ALERTAS
 // ============================================================
 
-/// Evalúa un conjunto de mediciones contra sus
-/// respectivos rangos ambientales.
+/// Procesa un conjunto de mediciones.
 ///
 /// Cada elemento contiene:
-/// - La medición.
-/// - El rango aplicable.
-/// - El nombre de la variable.
-/// - La unidad de medida.
+/// - Medicion.
+/// - Rango.
+/// - Nombre de la variable.
+/// - Unidad.
 ///
-/// Las asociaciones entre sensores, tipos y aulas
-/// deben validarse antes de llamar a esta función.
-pub fn generar_alertas(datos: &[(&Medicion, &RangoSensor, &str, &str)]) -> Vec<Alerta> {
+/// Las asociaciones entre aula, sensor y rango
+/// deben comprobarse previamente.
+pub fn generar_alertas(
+    datos: &[(&Medicion, &RangoSensor, &str, &str)],
+) -> Vec<Alerta> {
     datos
         .iter()
         .filter_map(|(medicion, rango, nombre, unidad)| {
@@ -137,14 +130,19 @@ pub fn generar_alertas(datos: &[(&Medicion, &RangoSensor, &str, &str)]) -> Vec<A
 }
 
 // ============================================================
-// 5. CREACIÓN DE ALERTAS
+// 5. CONSTRUCCION DE ALERTAS
 // ============================================================
 
-/// Construye una alerta compatible con PostgreSQL.
+/// Construye una alerta en memoria.
 ///
-/// Guarda los límites del rango como una copia
-/// histórica de la configuración aplicada.
-fn crear_alerta(medicion: &Medicion, rango: &RangoSensor, tipo: &str, mensaje: String) -> Alerta {
+/// Los limites se copian desde el rango
+/// utilizado al momento de evaluarla.
+fn crear_alerta(
+    medicion: &Medicion,
+    rango: &RangoSensor,
+    tipo: &str,
+    mensaje: String,
+) -> Alerta {
     Alerta {
         id: Uuid::new_v4(),
 
@@ -158,9 +156,10 @@ fn crear_alerta(medicion: &Medicion, rango: &RangoSensor, tipo: &str, mensaje: S
 
         estado: "activa".to_string(),
 
-        valor_minimo_aplicado: rango.valor_minimo,
+        // Conservamos los limites historicos.
+        valor_minimo_aplicado: Some(rango.valor_minimo),
 
-        valor_maximo_aplicado: rango.valor_maximo,
+        valor_maximo_aplicado: Some(rango.valor_maximo),
 
         generada_en: Utc::now(),
 
@@ -185,7 +184,11 @@ mod tests {
         }
     }
 
-    fn crear_rango_prueba(minimo: f64, maximo: f64, activo: bool) -> RangoSensor {
+    fn crear_rango_prueba(
+        minimo: f64,
+        maximo: f64,
+        activo: bool,
+    ) -> RangoSensor {
         RangoSensor {
             id: Uuid::new_v4(),
             aula_id: Uuid::new_v4(),
@@ -202,14 +205,14 @@ mod tests {
         let medicion = crear_medicion_prueba(35.0);
         let rango = crear_rango_prueba(20.0, 30.0, true);
 
-        let alerta = verificar_temperatura(&medicion, &rango).expect("Debe generar una alerta");
+        let alerta = verificar_temperatura(&medicion, &rango).unwrap();
 
         assert_eq!(alerta.tipo, "por_encima");
         assert_eq!(alerta.estado, "activa");
         assert_eq!(alerta.medicion_id, medicion.id);
         assert_eq!(alerta.rango_sensor_id, rango.id);
-        assert_eq!(alerta.valor_minimo_aplicado, 20.0);
-        assert_eq!(alerta.valor_maximo_aplicado, 30.0);
+        assert_eq!(alerta.valor_minimo_aplicado, Some(20.0));
+        assert_eq!(alerta.valor_maximo_aplicado, Some(30.0));
     }
 
     #[test]
@@ -217,7 +220,28 @@ mod tests {
         let medicion = crear_medicion_prueba(15.0);
         let rango = crear_rango_prueba(20.0, 30.0, true);
 
-        let alerta = verificar_temperatura(&medicion, &rango).expect("Debe generar una alerta");
+        let alerta = verificar_temperatura(&medicion, &rango).unwrap();
+
+        assert_eq!(alerta.tipo, "por_debajo");
+    }
+
+    #[test]
+    fn genera_alerta_por_humedad_alta() {
+        let medicion = crear_medicion_prueba(85.0);
+        let rango = crear_rango_prueba(40.0, 60.0, true);
+
+        let alerta = verificar_humedad(&medicion, &rango).unwrap();
+
+        assert_eq!(alerta.tipo, "por_encima");
+        assert!(alerta.mensaje.unwrap().contains("humedad relativa"));
+    }
+
+    #[test]
+    fn genera_alerta_por_humedad_baja() {
+        let medicion = crear_medicion_prueba(25.0);
+        let rango = crear_rango_prueba(40.0, 60.0, true);
+
+        let alerta = verificar_humedad(&medicion, &rango).unwrap();
 
         assert_eq!(alerta.tipo, "por_debajo");
     }
@@ -227,9 +251,7 @@ mod tests {
         let medicion = crear_medicion_prueba(25.0);
         let rango = crear_rango_prueba(20.0, 30.0, true);
 
-        let resultado = verificar_temperatura(&medicion, &rango);
-
-        assert!(resultado.is_none());
+        assert!(verificar_temperatura(&medicion, &rango).is_none());
     }
 
     #[test]
@@ -237,9 +259,7 @@ mod tests {
         let medicion = crear_medicion_prueba(35.0);
         let rango = crear_rango_prueba(20.0, 30.0, false);
 
-        let resultado = verificar_temperatura(&medicion, &rango);
-
-        assert!(resultado.is_none());
+        assert!(verificar_temperatura(&medicion, &rango).is_none());
     }
 
     #[test]
@@ -247,9 +267,7 @@ mod tests {
         let medicion = crear_medicion_prueba(35.0);
         let rango = crear_rango_prueba(30.0, 20.0, true);
 
-        let resultado = verificar_temperatura(&medicion, &rango);
-
-        assert!(resultado.is_none());
+        assert!(verificar_temperatura(&medicion, &rango).is_none());
     }
 
     #[test]
@@ -257,11 +275,10 @@ mod tests {
         let medicion = crear_medicion_prueba(35.0);
         let rango = crear_rango_prueba(20.0, 30.0, true);
 
-        let alerta = verificar_temperatura(&medicion, &rango).expect("Debe generar una alerta");
+        let alerta = verificar_temperatura(&medicion, &rango).unwrap();
 
-        assert_eq!(alerta.valor_minimo_aplicado, 20.0);
-
-        assert_eq!(alerta.valor_maximo_aplicado, 30.0);
+        assert_eq!(alerta.valor_minimo_aplicado, Some(20.0));
+        assert_eq!(alerta.valor_maximo_aplicado, Some(30.0));
     }
 
     #[test]
@@ -270,12 +287,11 @@ mod tests {
         let humedad = crear_medicion_prueba(80.0);
 
         let rango_temperatura = crear_rango_prueba(20.0, 30.0, true);
-
         let rango_humedad = crear_rango_prueba(40.0, 60.0, true);
 
         let datos = [
             (&temperatura, &rango_temperatura, "temperatura", "°C"),
-            (&humedad, &rango_humedad, "humedad", "%"),
+            (&humedad, &rango_humedad, "humedad relativa", "%"),
         ];
 
         let alertas = generar_alertas(&datos);

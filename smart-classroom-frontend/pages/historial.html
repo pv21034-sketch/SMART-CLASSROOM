@@ -1,91 +1,430 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Historial de mediciones - Smart Classroom</title>
+    <meta name="description" content="SMART CLASSROOM - Historial de mediciones ambientales reales">
+    <title>Historial | SMART CLASSROOM</title>
+
+    <!-- TIPOGRAFÍA -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- ESTILOS ORIGINALES -->
     <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="../css/historial.css">
+
+    <!-- ICONOS -->
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
+
+    <!-- JAVASCRIPT -->
+    <script src="../js/ui-enhance.js" defer></script>
+    <script src="../js/api.js" defer></script>
+    <script src="../js/layout.js" defer></script>
+    <script src="../js/historial.js" defer></script>
 </head>
-<body>
-    <!-- Navegación compartida (la llena layout.js) -->
-    <div id="navegacion"></div>
 
-    <main class="historial">
-        <h1 class="historial__titulo">Historial de mediciones</h1>
+<body class="dashboard-page history-page">
 
-        <form id="form-filtros" class="filtros">
-            <div class="filtros__campo">
-                <label for="filtro-aula">Aula</label>
-                <select id="filtro-aula" name="aula">
-                    <option value="">Todas las aulas</option>
-                </select>
+    <div class="ambient" aria-hidden="true"></div>
+
+    <div class="app-shell">
+
+        <!-- MENÚ LATERAL -->
+        <aside class="sidebar" id="sidebar">
+
+            <div class="sidebar-header">
+                <div class="brand-icon">
+                    <i data-lucide="graduation-cap"></i>
+                </div>
+
+                <div class="brand-text">
+                    <strong>SMART CLASSROOM</strong>
+                    <span>Environmental Intelligence</span>
+                </div>
             </div>
 
-            <div class="filtros__campo">
-                <label for="filtro-sensor">Sensor</label>
-                <select id="filtro-sensor" name="sensor">
-                    <option value="">Todos los sensores</option>
-                    <option value="temperatura">Temperatura</option>
-                    <option value="humedad">Humedad</option>
-                    <option value="iluminacion">Iluminación</option>
-                    <option value="ruido">Ruido</option>
-                </select>
+            <nav class="sidebar-nav" aria-label="Navegación principal">
+
+                <a href="dashboard.html" class="nav-link">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard</span>
+                </a>
+
+                <a href="termodinamica.html" class="nav-link">
+                    <i data-lucide="flask-conical"></i>
+                    <span>Termodinámica</span>
+                </a>
+
+                <a href="graficas.html" class="nav-link">
+                    <i data-lucide="chart-no-axes-combined"></i>
+                    <span>Gráficas</span>
+                </a>
+
+                <a href="historial.html"
+                   class="nav-link active"
+                   aria-current="page">
+                    <i data-lucide="history"></i>
+                    <span>Historial</span>
+                </a>
+
+                <a href="alertas.html" class="nav-link">
+                    <i data-lucide="bell-ring"></i>
+                    <span>Alertas</span>
+                </a>
+
+                <a href="configuracion.html" class="nav-link">
+                    <i data-lucide="settings-2"></i>
+                    <span>Configuración</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="system-status">
+                    <span class="status-dot" id="sidebar-status-dot"></span>
+                    <span id="sidebar-status-text">Verificando conexión...</span>
+                </div>
+
+                <p>Universidad de El Salvador</p>
+                <small>SMART CLASSROOM © 2026</small>
             </div>
+        </aside>
 
-            <div class="filtros__campo">
-                <label for="filtro-variable">Variable</label>
-                <select id="filtro-variable" name="variable">
-                    <option value="">Todas las variables</option>
-                    <option value="temperatura">Temperatura</option>
-                    <option value="humedad">Humedad</option>
-                    <option value="iluminacion">Iluminación</option>
-                    <option value="ruido">Ruido</option>
-                    <option value="confort">Confort</option>
-                </select>
-            </div>
+        <!-- CONTENIDO -->
+        <div class="main-wrapper">
 
-            <div class="filtros__campo">
-                <label for="fecha-inicial">Fecha inicial</label>
-                <input type="date" id="fecha-inicial" name="fechaInicial">
-            </div>
+            <!-- BARRA SUPERIOR -->
+            <header class="topbar">
 
-            <div class="filtros__campo">
-                <label for="fecha-final">Fecha final</label>
-                <input type="date" id="fecha-final" name="fechaFinal">
-            </div>
+                <div class="topbar-left">
+                    <button
+                        class="icon-button menu-toggle"
+                        id="menu-toggle"
+                        type="button"
+                        aria-label="Abrir o cerrar menú"
+                        aria-controls="sidebar"
+                        aria-expanded="false">
+                        <i data-lucide="menu"></i>
+                    </button>
 
-            <button type="submit" id="boton-buscar" class="boton">Buscar</button>
-        </form>
+                    <div class="breadcrumb">
+                        <span>SMART CLASSROOM</span>
+                        <i data-lucide="chevron-right"></i>
+                        <strong>Historial</strong>
+                    </div>
+                </div>
 
-        <!-- Mensajes para el usuario: errores, sin datos, validaciones -->
-        <p id="mensaje" class="mensaje" role="status" hidden></p>
+                <div class="topbar-right">
+                    <span
+                        class="connection-indicator"
+                        id="connection-status">
+                        Verificando conexión...
+                    </span>
 
-        <div class="tabla-contenedor">
-            <table id="tabla-mediciones" class="tabla" hidden>
-                <thead>
-                    <tr>
-                        <th>Fecha y hora</th>
-                        <th>Aula</th>
-                        <th>Sensor</th>
-                        <th>Variable</th>
-                        <th>Valor</th>
-                        <th>Estado</th>
-                    </tr>
-                </thead>
-                <tbody id="tabla-cuerpo"></tbody>
-            </table>
+                    <button
+                        class="icon-button"
+                        id="theme-toggle"
+                        type="button"
+                        aria-label="Cambiar tema">
+                        <i data-lucide="moon"></i>
+                    </button>
+
+                    <a href="alertas.html"
+                       class="icon-button notification-button"
+                       aria-label="Ver alertas">
+                        <i data-lucide="bell"></i>
+                        <span
+                            class="notification-count"
+                            id="notification-count">0</span>
+                    </a>
+
+                    <div class="user-avatar"
+                         aria-label="Usuario del sistema">
+                        <i data-lucide="user-round"></i>
+                    </div>
+                </div>
+            </header>
+
+            <main class="dashboard-content history-content"
+                  id="main-content">
+
+                <!-- ENCABEZADO -->
+                <section class="welcome-section history-welcome">
+                    <div class="welcome-text">
+                        <span class="eyebrow">REGISTRO AMBIENTAL</span>
+
+                        <h1>Historial de mediciones</h1>
+
+                        <p>
+                            Consulta, filtra y exporta registros reales
+                            de temperatura y humedad relativa
+                            de las aulas monitoreadas.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- INDICADORES -->
+                <section class="history-summary"
+                         aria-label="Resumen de mediciones">
+
+                    <article class="history-stat">
+                        <div class="history-stat-top">
+                            <span>Registros encontrados</span>
+                            <i data-lucide="database"></i>
+                        </div>
+                        <strong id="history-total">0</strong>
+                        <small>Mediciones filtradas</small>
+                    </article>
+
+                    <article class="history-stat">
+                        <div class="history-stat-top">
+                            <span>Temperatura promedio</span>
+                            <i data-lucide="thermometer"></i>
+                        </div>
+                        <strong id="history-temp-avg">—</strong>
+                        <small>Registros de temperatura</small>
+                    </article>
+
+                    <article class="history-stat">
+                        <div class="history-stat-top">
+                            <span>Humedad promedio</span>
+                            <i data-lucide="droplets"></i>
+                        </div>
+                        <strong id="history-humidity-avg">—</strong>
+                        <small>Registros de humedad relativa</small>
+                    </article>
+
+                    <article class="history-stat">
+                        <div class="history-stat-top">
+                            <span>Aulas con registros</span>
+                            <i data-lucide="school"></i>
+                        </div>
+                        <strong id="history-classrooms">0</strong>
+                        <small>Según los filtros aplicados</small>
+                    </article>
+                </section>
+
+                <!-- FILTROS -->
+                <section class="history-panel"
+                         aria-labelledby="history-filters-title">
+
+                    <div class="history-panel-heading">
+                        <h2 id="history-filters-title">
+                            Filtros de búsqueda
+                        </h2>
+
+                        <span class="history-demo-tag">
+                            <i data-lucide="database"></i>
+                            DATOS REALES
+                        </span>
+                    </div>
+
+                    <form id="form-filtros"
+                          class="history-filters">
+
+                        <label class="history-field">
+                            Aula
+                            <select id="filtro-aula" name="aula">
+                                <option value="">Todas las aulas</option>
+
+                                <option value="c337d423-65ff-4867-bbac-6819ff0b016e">
+                                    AULA-2B
+                                </option>
+
+                                <option value="704f12e8-1dd7-4130-bfed-4e4b6019d719">
+                                    AULA-A6
+                                </option>
+
+                                <option value="c38f5f0d-b44c-449d-a428-fd7369f7209d">
+                                    AULA-PRUEBAS
+                                </option>
+                            </select>
+                        </label>
+
+                        <label class="history-field">
+                            Sensor
+                            <select id="filtro-sensor" name="sensor">
+                                <option value="">Todos los sensores</option>
+                                <option value="dht22">DHT22</option>
+                            </select>
+                        </label>
+
+                        <label class="history-field">
+                            Variable
+                            <select id="filtro-variable" name="variable">
+                                <option value="">Todas las variables</option>
+                                <option value="temperatura">Temperatura</option>
+                                <option value="humedad">Humedad relativa</option>
+                            </select>
+                        </label>
+
+                        <label class="history-field">
+                            Fecha inicial
+                            <input type="date"
+                                   id="fecha-inicial"
+                                   name="fechaInicial">
+                        </label>
+
+                        <label class="history-field">
+                            Fecha final
+                            <input type="date"
+                                   id="fecha-final"
+                                   name="fechaFinal">
+                        </label>
+
+                        <div class="history-filter-actions">
+                            <button
+                                type="submit"
+                                id="boton-buscar"
+                                class="history-button history-button-primary">
+                                <i data-lucide="search"></i>
+                                Buscar
+                            </button>
+
+                            <button
+                                type="button"
+                                id="boton-limpiar"
+                                class="history-button history-button-secondary">
+                                <i data-lucide="rotate-ccw"></i>
+                                Limpiar
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- ESTADO DE CONSULTA -->
+                <div class="history-notice"
+                     id="history-notice">
+                    Consultando mediciones reales del backend...
+                </div>
+
+                <p id="mensaje"
+                   class="history-message"
+                   role="status"
+                   aria-live="polite"
+                   hidden></p>
+
+                <!-- TABLA -->
+                <section class="history-panel history-table-panel"
+                         aria-labelledby="history-table-title">
+
+                    <div class="history-table-heading">
+
+                        <div>
+                            <span class="eyebrow">
+                                CONSULTA DE REGISTROS
+                            </span>
+
+                            <h2 id="history-table-title">
+                                Mediciones registradas
+                            </h2>
+
+                            <p id="history-results-description">
+                                Cargando historial...
+                            </p>
+                        </div>
+
+                        <button
+                            type="button"
+                            id="boton-exportar"
+                            class="history-button history-export">
+                            <i data-lucide="download"></i>
+                            Exportar CSV
+                        </button>
+                    </div>
+
+                    <div class="history-search-row">
+                        <label for="history-search">
+                            Buscar en resultados
+                        </label>
+
+                        <div class="history-search-input">
+                            <i data-lucide="search"></i>
+
+                            <input
+                                id="history-search"
+                                type="search"
+                                placeholder="Buscar aula, variable o fecha..."
+                                autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div class="history-table-scroll">
+                        <table id="tabla-mediciones"
+                               class="history-table">
+
+                            <thead>
+                                <tr>
+                                    <th scope="col">Fecha y hora</th>
+                                    <th scope="col">Aula</th>
+                                    <th scope="col">Sensor</th>
+                                    <th scope="col">Variable</th>
+                                    <th scope="col">Valor</th>
+                                    <th scope="col">Estado</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="tabla-cuerpo"></tbody>
+                        </table>
+                    </div>
+
+                    <div id="history-empty"
+                         class="history-empty"
+                         hidden>
+                        <i data-lucide="search-x"></i>
+                        <strong>Sin resultados</strong>
+                        <p>
+                            No hay mediciones que coincidan
+                            con los filtros seleccionados.
+                        </p>
+                    </div>
+
+                    <!-- PAGINACIÓN -->
+                    <nav id="paginacion"
+                         class="history-pagination"
+                         aria-label="Paginación">
+
+                        <span id="history-page-summary">
+                            0 registros
+                        </span>
+
+                        <div class="history-pagination-controls">
+
+                            <button
+                                type="button"
+                                id="boton-anterior"
+                                class="history-button history-page-button">
+                                <i data-lucide="chevron-left"></i>
+                                Anterior
+                            </button>
+
+                            <span id="texto-pagina"
+                                  class="history-page-number">
+                                Página 1 de 1
+                            </span>
+
+                            <button
+                                type="button"
+                                id="boton-siguiente"
+                                class="history-button history-page-button">
+                                Siguiente
+                                <i data-lucide="chevron-right"></i>
+                            </button>
+                        </div>
+                    </nav>
+                </section>
+
+            </main>
+
+            <footer class="dashboard-footer">
+                <span>SMART CLASSROOM © 2026</span>
+                <span>Universidad de El Salvador</span>
+            </footer>
         </div>
+    </div>
 
-        <nav id="paginacion" class="paginacion" aria-label="Paginación" hidden>
-            <button type="button" id="boton-anterior" class="boton">Anterior</button>
-            <span id="texto-pagina" class="paginacion__texto"></span>
-            <button type="button" id="boton-siguiente" class="boton">Siguiente</button>
-        </nav>
-    </main>
-  <!--Aca van las rutas para raconectar las demas secciones de la pagina wed -->
-    <script src="../js/api.js"></script>
-    <script src="../js/layout.js"></script>
-    <script src="../js/historial.js"></script>
 </body>
 </html>

@@ -1,27 +1,25 @@
-//! SMART CLASSROOM — Servicio de Confort Ambiental
+
+//! SMART CLASSROOM
+//! Servicio de Confort Termico Ambiental
 //!
-//! Calcula los índices de confort térmico, visual
-//! y acústico utilizando las mediciones ambientales.
+//! Variables utilizadas:
+//! - Temperatura ambiental (°C).
+//! - Humedad relativa (%).
 //!
-//! Los índices individuales se expresan entre 0 y 1.
-//! El índice general se convierte a una escala de
-//! 0 a 100 para almacenarlo en PostgreSQL.
+//! Modelo de normalizacion propio del proyecto.
 //!
-//! Las fórmulas y los límites corresponden al
-//! modelo de normalización propio del proyecto.
-//! No sustituyen una evaluación normativa completa.
+//! El indice final se expresa entre 0 y 100.
+//!
+//! IMPORTANTE:
+//! Este indicador no sustituye una evaluacion
+//! normativa completa del confort termico.
 
 use serde::{Deserialize, Serialize};
 
 // ============================================================
-// 1. DATOS AMBIENTALES
+// 1. ESTRUCTURA DE DATOS
 // ============================================================
 
-/// Agrupa las cuatro variables ambientales necesarias
-/// para calcular el confort de un aula.
-///
-/// Esta estructura no representa una tabla de PostgreSQL.
-/// Se utiliza únicamente para realizar los cálculos.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct DatosAmbientales {
     /// Temperatura ambiental en grados Celsius.
@@ -29,36 +27,25 @@ pub struct DatosAmbientales {
 
     /// Humedad relativa en porcentaje.
     pub humedad: f64,
-
-    /// Iluminación ambiental en lux.
-    pub iluminacion: f64,
-
-    /// Nivel de ruido en la unidad utilizada
-    /// por el sistema de medición.
-    pub ruido: f64,
 }
 
 impl DatosAmbientales {
-    /// Valida que las cuatro variables sean finitas.
+    /// Verifica que los datos sean validos.
     pub fn validar(&self) -> Result<(), String> {
         if !self.temperatura.is_finite() {
-            return Err("La temperatura debe ser un número válido".to_string());
+            return Err("La temperatura debe ser un numero finito".into());
+        }
+
+        if !(-40.0..=85.0).contains(&self.temperatura) {
+            return Err("La temperatura debe estar entre -40 y 85 °C".into());
         }
 
         if !self.humedad.is_finite() {
-            return Err("La humedad debe ser un número válido".to_string());
+            return Err("La humedad relativa debe ser un numero finito".into());
         }
 
         if !(0.0..=100.0).contains(&self.humedad) {
-            return Err("La humedad relativa debe estar entre 0 y 100 %".to_string());
-        }
-
-        if !self.iluminacion.is_finite() || self.iluminacion < 0.0 {
-            return Err("La iluminación debe ser un número finito no negativo".to_string());
-        }
-
-        if !self.ruido.is_finite() {
-            return Err("El ruido debe ser un número válido".to_string());
+            return Err("La humedad relativa debe estar entre 0 y 100 %".into());
         }
 
         Ok(())
@@ -66,31 +53,18 @@ impl DatosAmbientales {
 }
 
 // ============================================================
-// 2. ÍNDICE DE CONFORT TÉRMICO
+// 2. NORMALIZACION DE TEMPERATURA
 // ============================================================
 
-/// Calcula el índice térmico utilizando temperatura
-/// y humedad relativa.
+/// Modelo triangular de temperatura.
 ///
-/// El resultado se encuentra entre 0 y 1.
-pub fn calcular_indice_termico(datos: &DatosAmbientales) -> Result<f64, String> {
-    datos.validar()?;
-
-    let indice_temperatura = calcular_indice_temperatura(datos.temperatura);
-
-    let indice_humedad = calcular_indice_humedad(datos.humedad);
-
-    Ok(indice_temperatura * indice_humedad)
-}
-
-/// Normaliza la temperatura entre 0 y 1.
+/// 21 °C -> indice 0.
+/// 26 °C -> indice 1.
+/// 31 °C -> indice 0.
 ///
-/// Referencias del modelo:
-/// - 21 °C: límite inferior.
-/// - 26 °C: punto central.
-/// - 31 °C: límite superior.
+/// Valores fuera del intervalo -> indice 0.
 fn calcular_indice_temperatura(temperatura: f64) -> f64 {
-    let indice: f64 = if temperatura <= 21.0 {
+    let indice = if temperatura <= 21.0 {
         0.0
     } else if temperatura < 26.0 {
         (temperatura - 21.0) / 5.0
@@ -103,11 +77,19 @@ fn calcular_indice_temperatura(temperatura: f64) -> f64 {
     indice.clamp(0.0, 1.0)
 }
 
-/// Normaliza la humedad relativa entre 0 y 1.
+// ============================================================
+// 3. NORMALIZACION DE HUMEDAD RELATIVA
+// ============================================================
+
+/// Modelo de humedad relativa.
 ///
-/// El intervalo de referencia es 40–60 %.
+/// HR <= 20 % -> 0.
+/// 20 % < HR < 40 % -> crecimiento lineal.
+/// 40 % <= HR <= 60 % -> 1.
+/// 60 % < HR < 90 % -> descenso lineal.
+/// HR >= 90 % -> 0.
 fn calcular_indice_humedad(humedad: f64) -> f64 {
-    let indice: f64 = if humedad <= 20.0 {
+    let indice = if humedad <= 20.0 {
         0.0
     } else if humedad < 40.0 {
         (humedad - 20.0) / 20.0
@@ -123,109 +105,58 @@ fn calcular_indice_humedad(humedad: f64) -> f64 {
 }
 
 // ============================================================
-// 3. ÍNDICE DE CONFORT VISUAL
+// 4. INDICE DE CONFORT TERMICO
 // ============================================================
 
-/// Calcula el índice visual a partir de la
-/// iluminación ambiental medida en lux.
+/// Calcula el indice termico normalizado.
 ///
-/// El intervalo central es de 300 a 500 lux.
-pub fn calcular_indice_visual(datos: &DatosAmbientales) -> Result<f64, String> {
+/// Formula:
+///
+/// I_termico = I_temperatura * I_humedad
+///
+/// Resultado entre 0 y 1.
+pub fn calcular_indice_termico(datos: &DatosAmbientales) -> Result<f64, String> {
     datos.validar()?;
 
-    let iluminacion = datos.iluminacion;
+    let indice_temperatura = calcular_indice_temperatura(datos.temperatura);
 
-    let indice: f64 = if iluminacion <= 0.0 {
-        0.0
-    } else if iluminacion < 300.0 {
-        iluminacion / 300.0
-    } else if iluminacion <= 500.0 {
-        1.0
-    } else if iluminacion < 1000.0 {
-        (1000.0 - iluminacion) / 500.0
-    } else {
-        0.0
-    };
+    let indice_humedad = calcular_indice_humedad(datos.humedad);
 
-    Ok(indice.clamp(0.0, 1.0))
+    let indice_termico = indice_temperatura * indice_humedad;
+
+    Ok(indice_termico.clamp(0.0, 1.0))
 }
 
 // ============================================================
-// 4. ÍNDICE DE CONFORT ACÚSTICO
+// 5. INDICE GENERAL DE CONFORT
 // ============================================================
 
-/// Calcula el índice acústico a partir del nivel
-/// de ruido ambiental.
+/// Ahora el confort general utiliza solamente
+/// temperatura y humedad relativa.
 ///
-/// La fórmula conserva los intervalos definidos
-/// originalmente por el proyecto.
-///
-/// Para interpretarlo como nivel sonoro en dBA,
-/// el sistema de adquisición debe proporcionar
-/// mediciones calibradas en esa unidad.
-pub fn calcular_indice_acustico(datos: &DatosAmbientales) -> Result<f64, String> {
-    datos.validar()?;
-
-    let ruido = datos.ruido;
-
-    let indice: f64 = if ruido <= 40.0 {
-        1.0
-    } else if ruido <= 50.0 {
-        1.0 - ((ruido - 40.0) / 100.0)
-    } else if ruido <= 60.0 {
-        0.9 - ((ruido - 50.0) * 0.02)
-    } else if ruido <= 65.0 {
-        0.7 - ((ruido - 60.0) * 0.08)
-    } else if ruido < 70.0 {
-        0.3 - ((ruido - 65.0) * 0.06)
-    } else {
-        0.0
-    };
-
-    Ok(indice.clamp(0.0, 1.0))
-}
-
-// ============================================================
-// 5. ÍNDICE GENERAL DE CONFORT
-// ============================================================
-
-/// Calcula el índice general de confort ambiental.
-///
-/// Promedia los índices térmico, visual y acústico
-/// con la misma ponderación.
-///
-/// Resultado: escala de 0 a 1.
+/// Resultado entre 0 y 1.
 pub fn calcular_indice_confort(datos: &DatosAmbientales) -> Result<f64, String> {
-    datos.validar()?;
-
-    let indice_termico = calcular_indice_termico(datos)?;
-
-    let indice_visual = calcular_indice_visual(datos)?;
-
-    let indice_acustico = calcular_indice_acustico(datos)?;
-
-    let indice_global: f64 = (indice_termico + indice_visual + indice_acustico) / 3.0;
-
-    Ok(indice_global.clamp(0.0, 1.0))
+    calcular_indice_termico(datos)
 }
 
-/// Convierte el índice general a una escala
-/// de 0 a 100, compatible con la tabla
-/// `indices_confort` de PostgreSQL.
+/// Convierte el indice a una escala de 0 a 100.
+///
+/// Compatible con la tabla indices_confort.
 pub fn calcular_indice_confort_porcentaje(datos: &DatosAmbientales) -> Result<f64, String> {
     let indice = calcular_indice_confort(datos)?;
 
-    Ok((indice * 100.0).clamp(0.0, 100.0))
+    let porcentaje = indice * 100.0;
+
+    Ok(porcentaje.clamp(0.0, 100.0))
 }
 
 // ============================================================
-// 6. INTERPRETACIÓN DEL ÍNDICE
+// 6. INTERPRETACION DEL CONFORT
 // ============================================================
 
-/// Devuelve una categoría interpretativa
-/// del índice general expresado entre 0 y 1.
+/// Clasificacion propia de SMART CLASSROOM.
 ///
-/// Clasificación propia de SMART CLASSROOM.
+/// Indice normalizado entre 0 y 1.
 pub fn obtener_estado_confort(indice: f64) -> &'static str {
     if !indice.is_finite() || !(0.0..=1.0).contains(&indice) {
         return "Índice inválido";
@@ -240,7 +171,7 @@ pub fn obtener_estado_confort(indice: f64) -> &'static str {
     }
 }
 
-/// Interpreta un índice expresado entre 0 y 100.
+/// Interpreta el indice en escala 0 a 100.
 pub fn obtener_estado_confort_porcentaje(indice: f64) -> &'static str {
     if !indice.is_finite() || !(0.0..=100.0).contains(&indice) {
         return "Índice inválido";
@@ -261,8 +192,6 @@ mod tests {
         DatosAmbientales {
             temperatura: 26.0,
             humedad: 50.0,
-            iluminacion: 400.0,
-            ruido: 40.0,
         }
     }
 
@@ -271,20 +200,6 @@ mod tests {
         let datos = datos_referencia();
 
         assert_eq!(calcular_indice_termico(&datos).unwrap(), 1.0);
-    }
-
-    #[test]
-    fn calcula_confort_visual_correctamente() {
-        let datos = datos_referencia();
-
-        assert_eq!(calcular_indice_visual(&datos).unwrap(), 1.0);
-    }
-
-    #[test]
-    fn calcula_confort_acustico_correctamente() {
-        let datos = datos_referencia();
-
-        assert_eq!(calcular_indice_acustico(&datos).unwrap(), 1.0);
     }
 
     #[test]
@@ -302,17 +217,43 @@ mod tests {
     }
 
     #[test]
+    fn calcula_confort_intermedio() {
+        let datos = DatosAmbientales {
+            temperatura: 28.5,
+            humedad: 50.0,
+        };
+
+        let resultado = calcular_indice_confort_porcentaje(&datos).unwrap();
+
+        assert!((resultado - 50.0).abs() < 1e-10);
+    }
+
+    #[test]
     fn rechaza_humedad_invalida() {
-        let mut datos = datos_referencia();
-        datos.humedad = 120.0;
+        let datos = DatosAmbientales {
+            temperatura: 26.0,
+            humedad: 120.0,
+        };
+
+        assert!(calcular_indice_confort(&datos).is_err());
+    }
+
+    #[test]
+    fn rechaza_temperatura_invalida() {
+        let datos = DatosAmbientales {
+            temperatura: 100.0,
+            humedad: 50.0,
+        };
 
         assert!(calcular_indice_confort(&datos).is_err());
     }
 
     #[test]
     fn rechaza_valores_no_finitos() {
-        let mut datos = datos_referencia();
-        datos.temperatura = f64::NAN;
+        let datos = DatosAmbientales {
+            temperatura: f64::NAN,
+            humedad: 50.0,
+        };
 
         assert!(calcular_indice_confort(&datos).is_err());
     }

@@ -1,25 +1,47 @@
-use serde::Deserialize;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
-/// JSON que envía el ESP32 en cada lectura:
+/// SMART CLASSROOM
+/// Datos ambientales enviados por el ESP32.
 ///
-/// ```json
+/// Medicion normal:
 /// {
 ///   "dispositivo_id": "esp32-a101",
 ///   "temperatura": 28.6,
-///   "humedad": 64.2,
-///   "iluminacion": 380,
-///   "ruido": 48
+///   "humedad": 64.2
 /// }
-/// ```
 ///
-/// `dispositivo_id` es el texto guardado en `dispositivos.identificador`
-/// (no el UUID interno). Las cuatro variables son opcionales para que el
-/// ESP32 pueda seguir enviando si un sensor falla; se exige al menos una.
-#[derive(Debug, Deserialize)]
+/// Medicion con aula:
+/// {
+///   "dispositivo_id": "esp32-a101",
+///   "aula_codigo": "AULA-2B",
+///   "temperatura": 28.6,
+///   "humedad": 64.2
+/// }
+///
+/// Medicion historica:
+/// {
+///   "dispositivo_id": "esp32-a101",
+///   "temperatura": 24.8,
+///   "humedad": 82.0,
+///   "medido_en": "2026-10-07T09:00:00-06:00"
+/// }
+///
+/// Si no se proporciona medido_en,
+/// el backend utiliza la fecha actual.
+///
+/// aula_codigo es opcional para mantener
+/// compatibilidad con solicitudes anteriores.
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct NuevaMedicion {
     pub dispositivo_id: String,
-    pub temperatura: Option<f64>,
-    pub humedad: Option<f64>,
-    pub iluminacion: Option<f64>,
-    pub ruido: Option<f64>,
+    pub temperatura: f64,
+    pub humedad: f64,
+
+    #[serde(default)]
+    pub medido_en: Option<DateTime<Utc>>,
+
+    #[serde(default)]
+    pub aula_codigo: Option<String>,
 }

@@ -1,4 +1,3 @@
-
 // SMART CLASSROOM - Creacion segura del primer administrador
 
 use anyhow::{bail, Context, Result};
@@ -27,8 +26,8 @@ async fn main() -> Result<()> {
     println!(" SMART CLASSROOM - PRIMER ADMINISTRADOR");
     println!("======================================");
 
-    let database_url = std::env::var("DATABASE_URL")
-        .context("Falta DATABASE_URL en el archivo .env")?;
+    let database_url =
+        std::env::var("DATABASE_URL").context("Falta DATABASE_URL en el archivo .env")?;
 
     // Conectar con PostgreSQL de Supabase.
     let pool = PgPoolOptions::new()
@@ -76,8 +75,7 @@ async fn main() -> Result<()> {
 
     // La contraseña se lee sin mostrarla en pantalla.
     let password = rpassword::prompt_password("Contrasena: ")?;
-    let confirmacion =
-        rpassword::prompt_password("Confirmar contrasena: ")?;
+    let confirmacion = rpassword::prompt_password("Confirmar contrasena: ")?;
 
     if password != confirmacion {
         bail!("Las contrasenas no coinciden.");
