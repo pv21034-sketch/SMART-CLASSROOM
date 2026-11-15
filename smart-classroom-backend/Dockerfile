@@ -5,8 +5,8 @@
 # ============================================
 
 # ETAPA 1: Compilación
-# Versión fija para compatibilidad con SQLx 0.7.4
-FROM rust:1.85.1-bookworm AS builder
+# Rust 1.89.0 para las dependencias actuales
+FROM rust:1.89.0-bookworm AS builder
 
 WORKDIR /app
 
