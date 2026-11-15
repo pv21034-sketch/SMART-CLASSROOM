@@ -5,7 +5,8 @@
 # ============================================
 
 # ETAPA 1: Compilación
-FROM rust:1-bookworm AS builder
+# Versión fija para compatibilidad con SQLx 0.7.4
+FROM rust:1.85.1-bookworm AS builder
 
 WORKDIR /app
 
@@ -19,7 +20,7 @@ RUN apt-get update && apt-get install -y \
 COPY . .
 
 # Compilar el servidor en modo release
-RUN cargo build --release --bin smart_classroom_backend
+RUN cargo build --release --locked --bin smart_classroom_backend
 
 # ETAPA 2: Ejecución
 FROM debian:bookworm-slim
@@ -36,7 +37,7 @@ COPY --from=builder \
     /app/target/release/smart_classroom_backend \
     /app/smart_classroom_backend
 
-# Puerto del servidor
+# Configuración del servidor
 ENV SERVER_HOST=0.0.0.0
 ENV SERVER_PORT=10000
 
