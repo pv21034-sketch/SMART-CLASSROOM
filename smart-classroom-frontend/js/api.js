@@ -3,13 +3,13 @@
 
 // ============================================================
 // SMART CLASSROOM - CLIENTE API
-// Desarrollo local y futuro despliegue
+// Backend desplegado en Render
 // ============================================================
 
 (function () {
     const API_URL = (
         window.SMART_CLASSROOM_CONFIG?.API_URL ||
-        "http://localhost:3000"
+        "https://smart-classroom-hitb.onrender.com"
     ).replace(/\/+$/, "");
 
     function obtenerToken() {
@@ -27,9 +27,11 @@
             headers.set("Authorization", `Bearer ${token}`);
         }
 
-        if (opciones.body != null &&
+        if (
+            opciones.body != null &&
             !(opciones.body instanceof FormData) &&
-            !headers.has("Content-Type")) {
+            !headers.has("Content-Type")
+        ) {
             headers.set("Content-Type", "application/json");
         }
 
@@ -42,8 +44,6 @@
         );
 
         if (respuesta.status === 401) {
-            // Sesión no autorizada o vencida.
-            // El guard de autenticación administra la sesión.
             throw new Error("Sesión no autorizada o vencida.");
         }
 
@@ -52,9 +52,11 @@
 
             try {
                 const error = await respuesta.json();
-                detalle = error.mensaje ||
-                          error.error ||
-                          detalle;
+
+                detalle =
+                    error.mensaje ||
+                    error.error ||
+                    detalle;
             } catch (_) {
                 // La respuesta no contiene JSON.
             }
