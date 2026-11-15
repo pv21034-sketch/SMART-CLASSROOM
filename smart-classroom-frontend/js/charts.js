@@ -5,25 +5,25 @@
 // SMART CLASSROOM - GRÁFICAS REALES
 // Universidad de El Salvador
 //
-// Fuente: Backend Rust / PostgreSQL / Supabase
+// Backend: Rust + Axum (Render)
+// Base de datos: PostgreSQL / Supabase
 // Endpoint: GET /api/mediciones
 //
-// 2 variables medidas por DHT22:
-// - Temperatura
-// - Humedad relativa
+// VARIABLES MEDIDAS:
+// 1. Temperatura
+// 2. Humedad relativa
 //
-// 4 variables calculadas:
-// - Punto de rocío
-// - Humedad absoluta
-// - Presión parcial de vapor
-// - Variación térmica
+// VARIABLES CALCULADAS:
+// 3. Punto de rocío
+// 4. Humedad absoluta
+// 5. Presión parcial del vapor de agua
+// 6. Tasa de variación térmica
 //
 // No genera datos ficticios.
 // No modifica registros históricos.
 // ============================================================
 
 (() => {
-
     document.addEventListener("DOMContentLoaded", () => {
 
         // ====================================================
@@ -61,7 +61,6 @@
         const graficas = new Map();
 
         let numeroSolicitud = 0;
-        let controlador = null;
 
         // ====================================================
         // 2. COMPROBACIONES
@@ -86,7 +85,8 @@
 
         if (!API || typeof API.get !== "function") {
             aviso.textContent =
-                "Error: no se pudo inicializar el cliente API.";
+                "Error: no se pudo inicializar el cliente API. " +
+                "Comprueba que api.js se cargue antes de graficas.js.";
             return;
         }
 
@@ -158,6 +158,8 @@
         }
 
         function fechaValida(valor) {
+            if (!valor) return null;
+
             const fecha = new Date(valor);
 
             return Number.isFinite(fecha.getTime())
@@ -166,7 +168,6 @@
         }
 
         function formatearNumero(valor, decimales = 2) {
-
             if (!Number.isFinite(valor)) {
                 return "—";
             }
@@ -181,7 +182,6 @@
         }
 
         function fechaLocal(fecha) {
-
             const partes = new Intl.DateTimeFormat(
                 "en-US",
                 {
@@ -203,7 +203,6 @@
         }
 
         function formatearFecha(fecha) {
-
             return new Intl.DateTimeFormat(
                 "es-SV",
                 {
@@ -219,9 +218,7 @@
         }
 
         function formatearEtiqueta(fecha, tipoPeriodo) {
-
             if (tipoPeriodo === "hoy") {
-
                 return new Intl.DateTimeFormat(
                     "es-SV",
                     {
@@ -247,7 +244,6 @@
         }
 
         function obtenerFechaInicio(tipoPeriodo) {
-
             const ahora = new Date();
 
             if (tipoPeriodo === "todo") {
@@ -255,7 +251,6 @@
             }
 
             if (tipoPeriodo === "hoy") {
-
                 const dia = fechaLocal(ahora);
 
                 return new Date(
@@ -277,13 +272,11 @@
         // ====================================================
 
         function configurarAulas() {
-
             const valorAnterior = aula.value;
 
-            aula.innerHTML = "";
+            aula.replaceChildren();
 
             AULAS.forEach(item => {
-
                 const opcion =
                     document.createElement("option");
 
@@ -303,7 +296,6 @@
         }
 
         function configurarPeriodos() {
-
             const opciones = [
                 ["hoy", "Hoy"],
                 ["7d", "7 días"],
@@ -313,10 +305,9 @@
 
             const valorAnterior = periodo.value;
 
-            periodo.innerHTML = "";
+            periodo.replaceChildren();
 
             opciones.forEach(([valor, texto]) => {
-
                 const opcion =
                     document.createElement("option");
 
@@ -340,7 +331,6 @@
         // ====================================================
 
         async function obtenerMediciones(aulaId, tipoPeriodo) {
-
             const parametros = new URLSearchParams({
                 aula_id: aulaId,
                 limit: "5000"
@@ -374,11 +364,9 @@
         // ====================================================
 
         function construirLecturas(filas) {
-
             const grupos = new Map();
 
             for (const fila of filas) {
-
                 const tipo = String(
                     fila.tipo_sensor || ""
                 ).trim().toLowerCase();
@@ -397,6 +385,7 @@
 
                 if (
                     !fecha ||
+                    fila.valor == null ||
                     !Number.isFinite(valor)
                 ) {
                     continue;
@@ -405,7 +394,6 @@
                 const clave = fecha.toISOString();
 
                 if (!grupos.has(clave)) {
-
                     grupos.set(clave, {
                         fecha,
                         temperatura: null,
@@ -427,7 +415,6 @@
             const lecturas = [];
 
             for (const grupo of grupos.values()) {
-
                 if (
                     grupo.temperatura === null ||
                     grupo.humedad === null
@@ -449,11 +436,9 @@
 
         // ====================================================
         // 8. CÁLCULOS TERMODINÁMICOS
-        // Mismas ecuaciones que el backend Rust.
         // ====================================================
 
         function calcularTermodinamica(T, HR) {
-
             if (
                 !Number.isFinite(T) ||
                 !Number.isFinite(HR) ||
@@ -465,6 +450,7 @@
                 return null;
             }
 
+            // Presión de saturación (kPa).
             const presionSaturacion =
                 0.61094 *
                 Math.exp(
@@ -472,9 +458,11 @@
                     (T + 243.04)
                 );
 
+            // Presión parcial del vapor de agua (kPa).
             const presionVapor =
                 (HR / 100) * presionSaturacion;
 
+            // Punto de rocío (°C).
             const gamma =
                 Math.log(HR / 100) +
                 (17.625 * T) /
@@ -484,6 +472,7 @@
                 (243.04 * gamma) /
                 (17.625 - gamma);
 
+            // Humedad absoluta (g/m³).
             const humedadAbsoluta =
                 216.7 *
                 (presionVapor * 10) /
@@ -505,7 +494,6 @@
         }
 
         function calcularVariacion(actual, anterior) {
-
             if (!actual || !anterior) {
                 return null;
             }
@@ -520,8 +508,7 @@
                 return null;
             }
 
-            // No unir jornadas diferentes como si fueran
-            // mediciones consecutivas de una misma sesión.
+            // No calcular entre jornadas diferentes.
             const fechaActual =
                 fechaLocal(actual.fecha);
 
@@ -539,11 +526,9 @@
         }
 
         function agregarPropiedades(lecturas) {
-
             const resultado = [];
 
             for (let i = 0; i < lecturas.length; i++) {
-
                 const lectura = lecturas[i];
 
                 const propiedades =
@@ -588,7 +573,6 @@
         // ====================================================
 
         function estadisticas(valores) {
-
             const validos = valores.filter(
                 Number.isFinite
             );
@@ -610,7 +594,6 @@
         }
 
         function actualizarEstadisticas(datos) {
-
             const temperaturas = estadisticas(
                 datos.map(d => d.temperatura)
             );
@@ -665,7 +648,6 @@
         // ====================================================
 
         function opcionesGrafica(config) {
-
             return {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -680,7 +662,6 @@
                 },
 
                 plugins: {
-
                     legend: {
                         display: false
                     },
@@ -691,9 +672,7 @@
                         bodyColor: "#e7e7e7",
 
                         callbacks: {
-
                             title: elementos => {
-
                                 const indice =
                                     elementos[0]?.dataIndex;
 
@@ -710,7 +689,6 @@
                             },
 
                             label: contexto => {
-
                                 const valor =
                                     contexto.parsed.y;
 
@@ -734,7 +712,6 @@
                 },
 
                 scales: {
-
                     x: {
                         ticks: {
                             color: "#aeb4bf",
@@ -749,11 +726,9 @@
 
                     y: {
                         ticks: {
-
                             color: "#aeb4bf",
 
                             callback: valor => {
-
                                 return (
                                     `${formatearNumero(
                                         Number(valor),
@@ -784,7 +759,6 @@
         // ====================================================
 
         function dibujarGrafica(config, datos, tipoPeriodo) {
-
             const canvas =
                 document.getElementById(config.id);
 
@@ -810,7 +784,6 @@
             );
 
             const valores = datos.map(dato => {
-
                 const valor = dato[config.clave];
 
                 return Number.isFinite(valor)
@@ -821,7 +794,6 @@
             });
 
             const grafica = new Chart(canvas, {
-
                 type: "line",
 
                 data: {
@@ -867,7 +839,6 @@
         }
 
         function actualizarGraficas(datos, tipoPeriodo) {
-
             configuraciones.forEach(config => {
                 dibujarGrafica(
                     config,
@@ -882,7 +853,6 @@
         // ====================================================
 
         function limpiarResultados() {
-
             actualizarEstadisticas([]);
 
             actualizarGraficas(
@@ -896,7 +866,6 @@
         // ====================================================
 
         async function actualizar() {
-
             const solicitudActual =
                 ++numeroSolicitud;
 
@@ -910,20 +879,20 @@
                 aulaSeleccionada?.nombre ||
                 "Aula seleccionada";
 
-            boton && (boton.disabled = true);
+            if (boton) {
+                boton.disabled = true;
+            }
 
             aviso.textContent =
                 `Consultando mediciones reales de ${nombreAula}...`;
 
             try {
-
                 const filas = await obtenerMediciones(
                     aulaId,
                     tipoPeriodo
                 );
 
-                // Ignorar respuestas antiguas si el usuario
-                // cambió de aula o período mientras cargaba.
+                // Ignorar respuestas antiguas.
                 if (solicitudActual !== numeroSolicitud) {
                     return;
                 }
@@ -942,7 +911,6 @@
                 );
 
                 if (!datos.length) {
-
                     aviso.textContent =
                         `No hay mediciones completas ` +
                         `para ${nombreAula} en el período seleccionado.`;
@@ -971,7 +939,6 @@
                 );
 
             } catch (error) {
-
                 if (solicitudActual !== numeroSolicitud) {
                     return;
                 }
@@ -988,9 +955,10 @@
                     error.message;
 
             } finally {
-
                 if (solicitudActual === numeroSolicitud) {
-                    boton && (boton.disabled = false);
+                    if (boton) {
+                        boton.disabled = false;
+                    }
                 }
             }
         }
@@ -1027,7 +995,5 @@
         console.log(
             "SMART CLASSROOM: módulo de gráficas reales iniciado."
         );
-
     });
-
 })();

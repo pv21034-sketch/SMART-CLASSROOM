@@ -3,7 +3,7 @@
 
 // ============================================================
 // SMART CLASSROOM - CLIENTE API
-// Backend desplegado en Render
+// Backend Rust + Axum desplegado en Render
 // ============================================================
 
 (function () {
@@ -35,13 +35,23 @@
             headers.set("Content-Type", "application/json");
         }
 
-        const respuesta = await fetch(
-            `${API_URL}${ruta}`,
-            {
+        let respuesta;
+
+        try {
+            respuesta = await fetch(`${API_URL}${ruta}`, {
                 ...opciones,
                 headers
-            }
-        );
+            });
+        } catch (error) {
+            console.error(
+                "SMART CLASSROOM - Error de conexión:",
+                error
+            );
+
+            throw new Error(
+                "No se pudo conectar con el backend de SMART CLASSROOM."
+            );
+        }
 
         if (respuesta.status === 401) {
             throw new Error("Sesión no autorizada o vencida.");
@@ -55,10 +65,11 @@
 
                 detalle =
                     error.mensaje ||
+                    error.message ||
                     error.error ||
                     detalle;
             } catch (_) {
-                // La respuesta no contiene JSON.
+                // La respuesta no contiene JSON válido.
             }
 
             throw new Error(detalle);
@@ -72,7 +83,7 @@
     }
 
     // ========================================================
-    // CONSULTAS
+    // MÉTODOS HTTP Y CONSULTAS
     // ========================================================
 
     const API = {
@@ -110,4 +121,9 @@
     };
 
     window.SmartClassroomAPI = API;
+
+    console.log(
+        "SMART CLASSROOM - Cliente API configurado:",
+        API_URL
+    );
 })();

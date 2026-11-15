@@ -4,40 +4,36 @@
 #include <DHT.h>
 #include <LiquidCrystal_I2C.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
-#include <WiFiClient.h>
 #include <time.h>
 #include <math.h>
 
 // ============================================================
 // SMART CLASSROOM - UNIVERSIDAD DE EL SALVADOR
-// ESP32 + DHT22 + LCD I2C + BACKEND RUST + SUPABASE
+// ESP32 + DHT22 + LCD I2C + RUST + RENDER + SUPABASE
+//
+// VERSION DE PRUEBAS
+//
+// - Lecturas cada 60 segundos
+// - Envio cualquier dia y hora
+// - Aula AULA-PRUEBAS
+// - Conexion HTTPS a Render
+// - Reintentos de envio
+// - Cola de mediciones pendientes
+// - Fecha y hora mediante NTP
+// - Pantalla LCD 16x2
 // ============================================================
-//
-// FUNCIONES:
-// 1. Leer temperatura y humedad relativa.
-// 2. Mostrar lecturas en pantalla LCD 16x2.
-// 3. Conectarse automaticamente al Wi-Fi.
-// 4. Sincronizar fecha y hora de El Salvador.
-// 5. Realizar mediciones cada minuto.
-// 6. Seleccionar aula segun modo de operacion.
-// 7. Enviar JSON mediante HTTP POST.
-// 8. Conservar mediciones pendientes en RAM.
-// 9. Reintentar envios fallidos.
-// 10. Conservar fecha original cuando hay NTP.
-//
-// Los calculos termodinamicos y las alertas
-// automaticas se realizan en el backend Rust.
-//
+
 // ============================================================
-// 1. CONFIGURACION DEL SENSOR DHT22
+// 1. SENSOR DHT22
 // ============================================================
 
 #define DHT_PIN 4
 #define DHT_TIPO DHT22
 
 // ============================================================
-// 2. CONFIGURACION DE PANTALLA LCD I2C
+// 2. PANTALLA LCD I2C
 // ============================================================
 
 #define SDA_PIN 21
@@ -48,93 +44,60 @@
 #define LCD_FILAS 2
 
 // ============================================================
-// 3. CONFIGURACION WIFI
+// 3. CONFIGURACION WIFI ORIGINAL
 // ============================================================
-//
-// Wi-Fi original del proyecto.
-// El ESP32 y la computadora deben estar
-// conectados a la misma red local.
-//
-// ============================================================
+
+// Se conserva el nombre de tu red Wi-Fi.
+// Coloca la misma contraseña de tu codigo original
+// en la constante WIFI_PASSWORD.
 
 const char* WIFI_SSID = "Redmi Note 14 Pro+ 5G";
 const char* WIFI_PASSWORD = "qians5zi6";
 
 // ============================================================
-// 4. CONFIGURACION DEL BACKEND RUST
+// 4. BACKEND RUST EN RENDER
 // ============================================================
-//
-// IP actual de Windows confirmada con ipconfig:
-//
-// 10.203.28.33
-//
-// IP del ESP32 observada anteriormente:
-//
-// 10.203.28.187
-//
-// ============================================================
-
-const char* BACKEND_IP = "10.203.28.33";
-
-const uint16_t BACKEND_PUERTO = 3000;
 
 const char* API_URL =
-    "http://10.203.28.33:3000/api/mediciones";
+    "https://smart-classroom-hitb.onrender.com/api/mediciones";
 
 const char* DISPOSITIVO_ID = "esp32-a101";
 
 // ============================================================
-// 5. CONFIGURACION DE OPERACION
+// 5. MODO DE OPERACION
 // ============================================================
 
-// true  = enviar mediciones al backend.
-// false = solo leer sensor y mostrar LCD.
-
+// Activar envio HTTP.
 const bool HABILITAR_ENVIO_HTTP = true;
 
-// false = modo de pruebas cualquier dia.
-// true  = modo oficial lunes y miercoles.
+// false = pruebas cualquier dia y hora.
+// true  = lunes y miercoles de 9:00 a 12:00.
+const bool EXIGIR_HORARIO_OFICIAL = false;
 
-const bool EXIGIR_HORARIO_OFICIAL = true;
-
-// Aula utilizada en modo de pruebas.
-
+// Aula para pruebas.
 const char* AULA_PRUEBAS = "AULA-PRUEBAS";
 
-// Aulas del modo oficial.
-
+// Aulas oficiales.
 const char* AULA_LUNES = "AULA-2B";
 const char* AULA_MIERCOLES = "AULA-A6";
 
 // ============================================================
-// 6. INTERVALOS DE FUNCIONAMIENTO
+// 6. INTERVALOS
 // ============================================================
 
-// Bienvenida LCD durante 15 segundos.
-
-const unsigned long TIEMPO_BIENVENIDA = 15000UL;
-
-// Una medicion cada 60 segundos.
+const unsigned long TIEMPO_BIENVENIDA = 3000UL;
 
 const unsigned long INTERVALO_MEDICION = 60000UL;
 
-// Alternar temperatura y humedad cada 3 segundos.
-
 const unsigned long INTERVALO_PANTALLA = 3000UL;
 
-// Reintentar conexion Wi-Fi cada 10 segundos.
-
 const unsigned long INTERVALO_WIFI = 10000UL;
-
-// Reintentar HTTP cada 5 segundos.
 
 const unsigned long INTERVALO_REINTENTO = 5000UL;
 
 // ============================================================
-// 7. HORA DE EL SALVADOR
+// 7. FECHA Y HORA
 // ============================================================
-
-// El Salvador utiliza UTC-6 sin horario de verano.
 
 const long GMT_OFFSET_SEGUNDOS = -6L * 3600L;
 
@@ -142,8 +105,6 @@ const int DAYLIGHT_OFFSET_SEGUNDOS = 0;
 
 const char* NTP_SERVIDOR_1 = "pool.ntp.org";
 const char* NTP_SERVIDOR_2 = "time.google.com";
-
-// Considerar valido el reloj a partir de 2025.
 
 const time_t TIEMPO_MINIMO_VALIDO = 1735689600;
 
@@ -175,22 +136,14 @@ unsigned long ultimoIntentoHTTP = 0;
 
 int pantallaActual = 0;
 
-// Identificador del ultimo minuto registrado.
-
 time_t ultimoMinutoRegistrado = -1;
 
 // ============================================================
-// 10. COLA TEMPORAL DE MEDICIONES
+// 10. COLA DE MEDICIONES
 // ============================================================
-//
-// Hasta 120 mediciones pendientes.
-//
-// Se almacenan en RAM.
-//
-// IMPORTANTE:
-// Si se reinicia el ESP32, esta cola se pierde.
-//
-// ============================================================
+
+// Hasta 120 mediciones pendientes en RAM.
+// Si se reinicia el ESP32, se pierde la cola.
 
 const int CAPACIDAD_COLA = 120;
 
@@ -201,11 +154,7 @@ struct MedicionPendiente {
 
     String aula;
 
-    // Fecha UTC original.
-    // Cero indica que no habia hora NTP valida.
-
     time_t fechaUTC;
-
 };
 
 MedicionPendiente cola[CAPACIDAD_COLA];
@@ -225,13 +174,7 @@ bool relojValido() {
 }
 
 // ============================================================
-// 12. CONVERTIR FECHA UTC A ISO 8601
-// ============================================================
-//
-// Ejemplo:
-//
-// 2026-11-14T17:01:56Z
-//
+// 12. CONVERTIR FECHA A ISO 8601
 // ============================================================
 
 String fechaISO8601(time_t fechaUTC) {
@@ -259,7 +202,7 @@ String fechaISO8601(time_t fechaUTC) {
 }
 
 // ============================================================
-// 13. AGREGAR MEDICION A LA COLA
+// 13. AGREGAR MEDICION A COLA
 // ============================================================
 
 bool agregarACola(
@@ -271,20 +214,16 @@ bool agregarACola(
 
     if (cantidadCola >= CAPACIDAD_COLA) {
 
-        Serial.println();
         Serial.println(
-            "ADVERTENCIA: Cola de mediciones llena."
-        );
-
-        Serial.println(
-            "No se almacenara la nueva medicion."
+            "ADVERTENCIA: Cola llena."
         );
 
         return false;
     }
 
     int posicion =
-        (inicioCola + cantidadCola) % CAPACIDAD_COLA;
+        (inicioCola + cantidadCola) %
+        CAPACIDAD_COLA;
 
     cola[posicion].temperatura = T;
     cola[posicion].humedad = HR;
@@ -293,14 +232,14 @@ bool agregarACola(
 
     cantidadCola++;
 
-    Serial.print("Medicion agregada a cola. Pendientes: ");
+    Serial.print("Pendientes: ");
     Serial.println(cantidadCola);
 
     return true;
 }
 
 // ============================================================
-// 14. ELIMINAR PRIMERA MEDICION CONFIRMADA
+// 14. ELIMINAR MEDICION CONFIRMADA
 // ============================================================
 
 void eliminarPrimeraMedicion() {
@@ -313,13 +252,14 @@ void eliminarPrimeraMedicion() {
     cola[inicioCola].fechaUTC = 0;
 
     inicioCola =
-        (inicioCola + 1) % CAPACIDAD_COLA;
+        (inicioCola + 1) %
+        CAPACIDAD_COLA;
 
     cantidadCola--;
 }
 
 // ============================================================
-// 15. CONEXION WIFI
+// 15. CONECTAR WIFI
 // ============================================================
 
 void conectarWiFi() {
@@ -329,9 +269,9 @@ void conectarWiFi() {
     }
 
     Serial.println();
-    Serial.println("==============================");
-    Serial.println("CONEXION WIFI");
-    Serial.println("==============================");
+    Serial.println("==========================");
+    Serial.println("CONECTANDO WIFI");
+    Serial.println("==========================");
 
     Serial.print("Red: ");
     Serial.println(WIFI_SSID);
@@ -349,7 +289,6 @@ void conectarWiFi() {
         WiFi.status() != WL_CONNECTED &&
         millis() - inicio < 15000UL
     ) {
-
         delay(500);
         Serial.print(".");
     }
@@ -358,13 +297,10 @@ void conectarWiFi() {
 
     if (WiFi.status() == WL_CONNECTED) {
 
-        Serial.println("WIFI: CONECTADO");
+        Serial.println("WIFI CONECTADO");
 
         Serial.print("IP ESP32: ");
         Serial.println(WiFi.localIP());
-
-        Serial.print("Puerta de enlace: ");
-        Serial.println(WiFi.gatewayIP());
 
         Serial.print("Senal: ");
         Serial.print(WiFi.RSSI());
@@ -372,63 +308,76 @@ void conectarWiFi() {
 
     } else {
 
-        Serial.println(
-            "WIFI: CONEXION FALLIDA"
-        );
+        Serial.println("ERROR WIFI");
     }
 
     ultimoIntentoWiFi = millis();
 }
 
 // ============================================================
-// 16. PROBAR CONEXION TCP AL BACKEND
+// 16. PROBAR CONEXION AL BACKEND RENDER
 // ============================================================
 
 void probarConexionBackend() {
 
-    Serial.println();
-    Serial.println("==============================");
-    Serial.println("PRUEBA TCP AL BACKEND RUST");
-    Serial.println("==============================");
-
     if (WiFi.status() != WL_CONNECTED) {
 
-        Serial.println("TCP: SIN WIFI");
+        Serial.println(
+            "Sin WiFi: no se puede probar Render."
+        );
+
         return;
     }
 
-    Serial.print("IP BACKEND: ");
-    Serial.println(BACKEND_IP);
+    Serial.println();
+    Serial.println("==========================");
+    Serial.println("PRUEBA HTTPS RENDER");
+    Serial.println("==========================");
 
-    Serial.print("PUERTO: ");
-    Serial.println(BACKEND_PUERTO);
+    WiFiClientSecure cliente;
 
-    WiFiClient cliente;
+    // SOLO PARA PRUEBAS.
+    // No valida el certificado del servidor.
+    cliente.setInsecure();
 
-    if (
-        cliente.connect(
-            BACKEND_IP,
-            BACKEND_PUERTO,
-            3000
-        )
-    ) {
+    HTTPClient http;
+
+    if (!http.begin(cliente, API_URL)) {
 
         Serial.println(
-            "TCP: CONEXION EXITOSA"
+            "No se pudo iniciar HTTPS."
         );
 
-        cliente.stop();
+        return;
+    }
+
+    http.setConnectTimeout(8000);
+    http.setTimeout(20000);
+
+    // GET sobre una ruta que normalmente acepta POST.
+    // 405 significa que el servidor respondio
+    // pero no acepta este metodo.
+    int codigo = http.GET();
+
+    Serial.print("Respuesta HTTP: ");
+    Serial.println(codigo);
+
+    if (codigo > 0) {
+
+        Serial.println(
+            "Servidor HTTPS accesible."
+        );
+
+        Serial.println(http.getString());
 
     } else {
 
         Serial.println(
-            "TCP: CONEXION FALLIDA"
-        );
-
-        Serial.println(
-            "Verificar IP, firewall y SERVER_HOST."
+            http.errorToString(codigo)
         );
     }
+
+    http.end();
 }
 
 // ============================================================
@@ -441,10 +390,7 @@ bool sincronizarHora() {
         return false;
     }
 
-    Serial.println();
-    Serial.println(
-        "Sincronizando hora de El Salvador..."
-    );
+    Serial.println("Sincronizando NTP...");
 
     configTime(
         GMT_OFFSET_SEGUNDOS,
@@ -458,7 +404,7 @@ bool sincronizarHora() {
     if (!getLocalTime(&fecha, 5000)) {
 
         Serial.println(
-            "ADVERTENCIA: NTP no disponible."
+            "NTP no disponible."
         );
 
         return false;
@@ -467,7 +413,7 @@ bool sincronizarHora() {
     if (!relojValido()) {
 
         Serial.println(
-            "ADVERTENCIA: Reloj sin fecha valida."
+            "Fecha NTP invalida."
         );
 
         return false;
@@ -491,12 +437,7 @@ bool sincronizarHora() {
 }
 
 // ============================================================
-// 18. SELECCION AUTOMATICA DE AULA
-// ============================================================
-//
-// Lunes     -> AULA-2B
-// Miercoles -> AULA-A6
-//
+// 18. OBTENER AULA ACTUAL
 // ============================================================
 
 String obtenerAulaActual() {
@@ -511,13 +452,9 @@ String obtenerAulaActual() {
         return "";
     }
 
-    // Lunes.
-
     if (fecha.tm_wday == 1) {
         return String(AULA_LUNES);
     }
-
-    // Miercoles.
 
     if (fecha.tm_wday == 3) {
         return String(AULA_MIERCOLES);
@@ -528,16 +465,6 @@ String obtenerAulaActual() {
 
 // ============================================================
 // 19. VERIFICAR HORARIO OFICIAL
-// ============================================================
-//
-// Se permite:
-//
-// Lunes y miercoles.
-//
-// Desde las 09:00:00 hasta las 12:00:00.
-//
-// La lectura de las 12:00 esta incluida.
-//
 // ============================================================
 
 bool estaEnHorarioOficial() {
@@ -572,10 +499,6 @@ bool estaEnHorarioOficial() {
 // ============================================================
 // 20. CONSTRUIR JSON
 // ============================================================
-//
-// Compatible con NuevaMedicion del backend Rust.
-//
-// ============================================================
 
 String construirJSON(
     const MedicionPendiente& medicion
@@ -598,8 +521,6 @@ String construirJSON(
     json += "\"humedad\":";
     json += String(medicion.humedad, 2);
 
-    // Conservar fecha original cuando existe NTP.
-
     String fecha = fechaISO8601(
         medicion.fechaUTC
     );
@@ -618,7 +539,7 @@ String construirJSON(
 }
 
 // ============================================================
-// 21. ENVIAR MEDICIONES AL BACKEND
+// 21. ENVIAR MEDICIONES A RENDER
 // ============================================================
 
 void enviarMedicionesPendientes() {
@@ -649,20 +570,24 @@ void enviarMedicionesPendientes() {
 
         String json = construirJSON(medicion);
 
-        WiFiClient cliente;
+        WiFiClientSecure cliente;
+
+        // SOLO PARA PRUEBAS HTTPS.
+        cliente.setInsecure();
+
         HTTPClient http;
 
         if (!http.begin(cliente, API_URL)) {
 
             Serial.println(
-                "ERROR: No se pudo iniciar HTTP."
+                "ERROR: No se pudo iniciar HTTPS."
             );
 
             return;
         }
 
-        http.setConnectTimeout(5000);
-        http.setTimeout(15000);
+        http.setConnectTimeout(8000);
+        http.setTimeout(20000);
 
         http.addHeader(
             "Content-Type",
@@ -670,9 +595,9 @@ void enviarMedicionesPendientes() {
         );
 
         Serial.println();
-        Serial.println("==============================");
-        Serial.println("ENVIANDO AL BACKEND RUST");
-        Serial.println("==============================");
+        Serial.println("==========================");
+        Serial.println("ENVIANDO A RENDER");
+        Serial.println("==========================");
 
         Serial.println(json);
 
@@ -681,15 +606,10 @@ void enviarMedicionesPendientes() {
         Serial.print("Codigo HTTP: ");
         Serial.println(codigo);
 
-        // Aceptar 200 OK o 201 Created.
-        //
-        // No eliminar mediciones cuando
-        // no exista confirmacion de exito.
-
         if (codigo == 200 || codigo == 201) {
 
             Serial.println(
-                "EXITO: Medicion aceptada."
+                "EXITO: Backend acepto medicion."
             );
 
             String respuesta = http.getString();
@@ -716,20 +636,25 @@ void enviarMedicionesPendientes() {
                     http.getString()
                 );
 
-                if (codigo >= 400 && codigo < 500) {
+                if (
+                    codigo >= 400 &&
+                    codigo < 500
+                ) {
 
                     Serial.println(
-                        "ERROR DE VALIDACION O AUTORIZACION."
+                        "ERROR DE VALIDACION."
                     );
 
                     Serial.println(
-                        "Revisar aula, dispositivo y JSON."
+                        "Revisar dispositivo, aula y JSON."
                     );
                 }
 
             } else {
 
-                Serial.print("Error de conexion HTTP: ");
+                Serial.print(
+                    "Error de conexion: "
+                );
 
                 Serial.println(
                     http.errorToString(codigo)
@@ -748,7 +673,7 @@ void enviarMedicionesPendientes() {
         http.end();
     }
 
-    Serial.print("Mediciones pendientes: ");
+    Serial.print("Pendientes: ");
     Serial.println(cantidadCola);
 }
 
@@ -775,7 +700,6 @@ void realizarMedicion() {
 
         medicionValida = false;
 
-        Serial.println();
         Serial.println(
             "ERROR: Lectura invalida del DHT22."
         );
@@ -789,9 +713,9 @@ void realizarMedicion() {
     medicionValida = true;
 
     Serial.println();
-    Serial.println("==============================");
-    Serial.println("SMART CLASSROOM - MEDICION");
-    Serial.println("==============================");
+    Serial.println("==========================");
+    Serial.println("SMART CLASSROOM");
+    Serial.println("==========================");
 
     Serial.printf(
         "Temperatura: %.2f C\n",
@@ -799,12 +723,9 @@ void realizarMedicion() {
     );
 
     Serial.printf(
-        "Humedad relativa: %.2f %%\n",
+        "Humedad: %.2f %%\n",
         humedad
     );
-
-    // Si HTTP esta desactivado, solamente
-    // mostrar las lecturas localmente.
 
     if (!HABILITAR_ENVIO_HTTP) {
         return;
@@ -817,7 +738,7 @@ void realizarMedicion() {
         if (!estaEnHorarioOficial()) {
 
             Serial.println(
-                "Fuera del horario oficial."
+                "Fuera de horario oficial."
             );
 
             return;
@@ -828,7 +749,7 @@ void realizarMedicion() {
         if (aula.isEmpty()) {
 
             Serial.println(
-                "ERROR: Aula no identificada."
+                "No se identifico el aula."
             );
 
             return;
@@ -836,15 +757,12 @@ void realizarMedicion() {
 
     } else {
 
-        // Modo de pruebas.
-
         aula = String(AULA_PRUEBAS);
     }
 
     time_t fechaMedicion = 0;
 
     if (relojValido()) {
-
         fechaMedicion = time(nullptr);
     }
 
@@ -855,7 +773,7 @@ void realizarMedicion() {
         fechaMedicion
     )) {
 
-        Serial.print("Aula seleccionada: ");
+        Serial.print("Aula: ");
         Serial.println(aula);
 
         if (fechaMedicion > 0) {
@@ -869,26 +787,22 @@ void realizarMedicion() {
         } else {
 
             Serial.println(
-                "Sin NTP: backend asignara hora."
+                "Sin NTP: backend asignara fecha."
             );
         }
     }
 }
 
 // ============================================================
-// 23. MEDICION SINCRONIZADA POR MINUTO
+// 23. CONTROLAR MEDICION CADA MINUTO
 // ============================================================
 
 void controlarMedicionPorMinuto() {
 
-    struct tm fecha;
+    unsigned long ahora = millis();
 
-    // Sin NTP se utiliza millis().
-
-    if (!relojValido() ||
-        !getLocalTime(&fecha, 100)) {
-
-        unsigned long ahora = millis();
+    // Si no hay reloj NTP, utilizar millis().
+    if (!relojValido()) {
 
         if (
             ahora - ultimaMedicion >=
@@ -903,36 +817,45 @@ void controlarMedicionPorMinuto() {
         return;
     }
 
-    time_t tiempoActual = time(nullptr);
+    struct tm fecha;
 
-    time_t minutoActual = tiempoActual / 60;
-
-    if (minutoActual == ultimoMinutoRegistrado) {
+    if (!getLocalTime(&fecha, 100)) {
         return;
     }
 
-    // Tomar una lectura al comienzo del minuto.
-    // Se toleran los primeros dos segundos.
+    time_t tiempoActual = time(nullptr);
 
-    if (fecha.tm_sec > 2) {
+    time_t minutoActual =
+        tiempoActual / 60;
+
+    // Evitar dos mediciones en el mismo minuto.
+    if (
+        minutoActual ==
+        ultimoMinutoRegistrado
+    ) {
+        return;
+    }
+
+    // Medir una vez por minuto, sin depender
+    // exclusivamente de los primeros 3 segundos.
+    // Esto evita perder lecturas si Render tarda.
+    if (
+        ahora - ultimaMedicion <
+        INTERVALO_MEDICION
+    ) {
         return;
     }
 
     ultimoMinutoRegistrado = minutoActual;
 
-    ultimaMedicion = millis();
-
-    Serial.println();
-    Serial.println("==============================");
+    ultimaMedicion = ahora;
 
     Serial.printf(
-        "MEDICION PROGRAMADA: %02d:%02d:%02d\n",
+        "MEDICION: %02d:%02d:%02d\n",
         fecha.tm_hour,
         fecha.tm_min,
         fecha.tm_sec
     );
-
-    Serial.println("==============================");
 
     realizarMedicion();
 }
@@ -956,7 +879,9 @@ void escribirLineaLCD(
         );
     }
 
-    while (texto.length() < LCD_COLUMNAS) {
+    while (
+        texto.length() < LCD_COLUMNAS
+    ) {
         texto += " ";
     }
 
@@ -982,7 +907,6 @@ void mostrarBienvenida() {
         "SMART CLASSROOM"
     );
 
-    Serial.println();
     Serial.println(
         "BIENVENIDO A SMART CLASSROOM"
     );
@@ -991,7 +915,7 @@ void mostrarBienvenida() {
 }
 
 // ============================================================
-// 26. ACTUALIZAR PANTALLA LCD
+// 26. ACTUALIZAR LCD
 // ============================================================
 
 void actualizarLCD() {
@@ -1041,7 +965,7 @@ void actualizarLCD() {
 }
 
 // ============================================================
-// 27. CONFIGURACION INICIAL
+// 27. SETUP
 // ============================================================
 
 void setup() {
@@ -1050,112 +974,76 @@ void setup() {
 
     delay(500);
 
-    // Iniciar I2C.
-
     Wire.begin(
         SDA_PIN,
         SCL_PIN
     );
 
-    // Iniciar sensor DHT22.
-
     dht.begin();
-
-    // Iniciar pantalla LCD.
 
     lcd.init();
     lcd.backlight();
 
     Serial.println();
-    Serial.println("================================");
+    Serial.println("==========================");
     Serial.println(" SMART CLASSROOM - UES");
-    Serial.println(" Monitor ambiental IoT");
-    Serial.println("================================");
+    Serial.println(" MODO PRUEBAS RENDER");
+    Serial.println("==========================");
 
     Serial.println("DHT22: GPIO 4");
     Serial.println("LCD SDA: GPIO 21");
     Serial.println("LCD SCL: GPIO 22");
 
-    Serial.println(
-        "MEDICION: CADA MINUTO"
-    );
-
     Serial.print("BACKEND: ");
     Serial.println(API_URL);
 
-    if (HABILITAR_ENVIO_HTTP) {
+    Serial.print("AULA: ");
+    Serial.println(AULA_PRUEBAS);
 
-        Serial.println(
-            "ENVIO HTTP: ACTIVADO"
-        );
+    Serial.println(
+        "ENVIO HTTPS: ACTIVADO"
+    );
 
-    } else {
-
-        Serial.println(
-            "ENVIO HTTP: DESACTIVADO"
-        );
-    }
-
-    if (EXIGIR_HORARIO_OFICIAL) {
-
-        Serial.println(
-            "MODO: HORARIO OFICIAL"
-        );
-
-        Serial.println(
-            "LUNES: AULA-2B"
-        );
-
-        Serial.println(
-            "MIERCOLES: AULA-A6"
-        );
-
-    } else {
-
-        Serial.println(
-            "MODO: PRUEBAS"
-        );
-
-        Serial.print("AULA: ");
-        Serial.println(AULA_PRUEBAS);
-    }
-
-    // Pantalla de bienvenida.
+    Serial.println(
+        "HORARIO OFICIAL: DESACTIVADO"
+    );
 
     mostrarBienvenida();
 
-    // Conectar Wi-Fi.
-
     conectarWiFi();
-
-    // Probar conexion al backend.
-
-    probarConexionBackend();
-
-    // Sincronizar reloj NTP.
 
     if (WiFi.status() == WL_CONNECTED) {
 
         sincronizarHora();
+
+        probarConexionBackend();
     }
 
-    // Esperar al siguiente minuto.
-
+    // Iniciar una medicion inmediatamente.
+    // Asi no necesitas esperar un minuto
+    // para comprobar el DHT22.
     ultimaMedicion = millis();
 
-    Serial.println();
-    Serial.println(
-        "Esperando el siguiente minuto..."
-    );
+    realizarMedicion();
 
-    // Mostrar estado inicial en LCD.
+    if (relojValido()) {
+
+        ultimoMinutoRegistrado =
+            time(nullptr) / 60;
+    }
 
     actualizarLCD();
 
     ultimaPantalla = millis();
 
+    // Permitir el primer envio inmediatamente.
     ultimoIntentoHTTP =
         millis() - INTERVALO_REINTENTO;
+
+    Serial.println();
+    Serial.println(
+        "Sistema iniciado correctamente."
+    );
 }
 
 // ============================================================
@@ -1180,9 +1068,9 @@ void loop() {
 
         if (WiFi.status() == WL_CONNECTED) {
 
-            probarConexionBackend();
-
             sincronizarHora();
+
+            probarConexionBackend();
         }
     }
 
@@ -1195,7 +1083,7 @@ void loop() {
     ahora = millis();
 
     // --------------------------------------------------------
-    // ACTUALIZAR LCD CADA 3 SEGUNDOS
+    // ACTUALIZAR LCD
     // --------------------------------------------------------
 
     if (
@@ -1225,4 +1113,6 @@ void loop() {
 
         enviarMedicionesPendientes();
     }
+
+    delay(10);
 }

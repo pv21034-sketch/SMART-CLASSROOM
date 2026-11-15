@@ -1,32 +1,25 @@
 
+"use strict";
+
 /* ============================================================
    SMART CLASSROOM — HISTORIAL DE MEDICIONES REALES
    Universidad de El Salvador
 
-   BACKEND:
-   Rust + Axum + SQLx
+   Backend: Rust + Axum + SQLx en Render
+   Base de datos: PostgreSQL / Supabase
+   Endpoint: GET /api/mediciones
 
-   BASE DE DATOS:
-   PostgreSQL / Supabase
+   Funcionalidades:
+   - Temperatura y humedad relativa
+   - Tres aulas reales
+   - Filtros por aula, sensor, variable y fechas
+   - Búsqueda de registros
+   - Paginación de 10 registros
+   - Estadísticas ambientales
+   - Exportación CSV compatible con Excel
 
-   ENDPOINT:
-   GET /api/mediciones
-
-   FUNCIONALIDADES:
-   - Temperatura y humedad relativa.
-   - Tres aulas reales.
-   - Historial de octubre, noviembre y fechas futuras.
-   - Filtros por aula, sensor, variable y fechas.
-   - Búsqueda de registros.
-   - Paginación de 10 registros.
-   - Estadísticas ambientales.
-   - Exportación CSV compatible con Excel.
-   - Indicadores visuales originales.
-
-   IMPORTANTE:
-   - No genera mediciones sintéticas.
-   - No modifica registros de Supabase.
-   - No inventa estados de alerta.
+   No genera mediciones ficticias.
+   No modifica registros históricos.
    ============================================================ */
 
 (() => {
@@ -40,7 +33,6 @@
 
         const LIMITE_POR_PAGINA = 10;
         const LIMITE_API = 5000;
-
         const ZONA_HORARIA = "America/El_Salvador";
 
         const API = window.SmartClassroomAPI;
@@ -64,93 +56,49 @@
         ];
 
         // ====================================================
-        // 2. ELEMENTOS HTML ORIGINALES
+        // 2. ELEMENTOS HTML
         // ====================================================
 
-        const formFiltros =
-            document.getElementById("form-filtros");
+        const $ = id => document.getElementById(id);
 
-        const filtroAula =
-            document.getElementById("filtro-aula");
+        const formFiltros = $("form-filtros");
+        const filtroAula = $("filtro-aula");
+        const filtroSensor = $("filtro-sensor");
+        const filtroVariable = $("filtro-variable");
 
-        const filtroSensor =
-            document.getElementById("filtro-sensor");
+        const fechaInicial = $("fecha-inicial");
+        const fechaFinal = $("fecha-final");
 
-        const filtroVariable =
-            document.getElementById("filtro-variable");
+        const botonBuscar = $("boton-buscar");
+        const botonLimpiar = $("boton-limpiar");
+        const botonExportar = $("boton-exportar");
 
-        const fechaInicial =
-            document.getElementById("fecha-inicial");
+        const campoBusqueda = $("history-search");
 
-        const fechaFinal =
-            document.getElementById("fecha-final");
+        const mensaje = $("mensaje");
 
-        const botonBuscar =
-            document.getElementById("boton-buscar");
+        const tabla = $("tabla-mediciones");
+        const tablaCuerpo = $("tabla-cuerpo");
+        const estadoVacio = $("history-empty");
 
-        const botonLimpiar =
-            document.getElementById("boton-limpiar");
+        const paginacion = $("paginacion");
+        const botonAnterior = $("boton-anterior");
+        const botonSiguiente = $("boton-siguiente");
 
-        const botonExportar =
-            document.getElementById("boton-exportar");
-
-        const campoBusqueda =
-            document.getElementById("history-search");
-
-        const mensaje =
-            document.getElementById("mensaje");
-
-        const tabla =
-            document.getElementById("tabla-mediciones");
-
-        const tablaCuerpo =
-            document.getElementById("tabla-cuerpo");
-
-        const estadoVacio =
-            document.getElementById("history-empty");
-
-        const paginacion =
-            document.getElementById("paginacion");
-
-        const botonAnterior =
-            document.getElementById("boton-anterior");
-
-        const botonSiguiente =
-            document.getElementById("boton-siguiente");
-
-        const textoPagina =
-            document.getElementById("texto-pagina");
-
-        const resumenPagina =
-            document.getElementById(
-                "history-page-summary"
-            );
+        const textoPagina = $("texto-pagina");
+        const resumenPagina = $("history-page-summary");
 
         const descripcionResultados =
-            document.getElementById(
-                "history-results-description"
-            );
+            $("history-results-description");
 
-        const totalElemento =
-            document.getElementById("history-total");
+        const totalElemento = $("history-total");
+        const temperaturaElemento = $("history-temp-avg");
+        const humedadElemento = $("history-humidity-avg");
+        const aulasElemento = $("history-classrooms");
 
-        const temperaturaElemento =
-            document.getElementById("history-temp-avg");
-
-        const humedadElemento =
-            document.getElementById("history-humidity-avg");
-
-        const aulasElemento =
-            document.getElementById("history-classrooms");
-
-        const aviso =
-            document.getElementById("history-notice");
-
-        const estadoConexion =
-            document.getElementById("connection-status");
-
-        const estadoSidebar =
-            document.getElementById("sidebar-status-text");
+        const aviso = $("history-notice");
+        const estadoConexion = $("connection-status");
+        const estadoSidebar = $("sidebar-status-text");
 
         // ====================================================
         // 3. COMPROBACIONES
@@ -163,9 +111,8 @@
             !paginacion
         ) {
             console.error(
-                "SMART CLASSROOM: faltan elementos del Historial."
+                "SMART CLASSROOM: faltan elementos HTML del historial."
             );
-
             return;
         }
 
@@ -174,14 +121,14 @@
         }
 
         if (!API || typeof API.get !== "function") {
-
-            mostrarMensaje(
-                "No se pudo inicializar el cliente API."
-            );
+            if (mensaje) {
+                mensaje.textContent =
+                    "No se pudo inicializar el cliente API.";
+            }
 
             if (aviso) {
                 aviso.textContent =
-                    "Error: no se pudo conectar con la API.";
+                    "Error: comprueba que api.js se cargue antes de historial.js.";
             }
 
             return;
@@ -201,14 +148,15 @@
         let consultaLimitada = false;
 
         // ====================================================
-        // 5. CONFIGURAR AULAS REALES
+        // 5. CONFIGURAR AULAS
         // ====================================================
 
         function configurarAulas() {
+            if (!filtroAula) return;
 
             const seleccionAnterior = filtroAula.value;
 
-            filtroAula.innerHTML = "";
+            filtroAula.replaceChildren();
 
             const opcionTodas =
                 document.createElement("option");
@@ -218,16 +166,16 @@
 
             filtroAula.appendChild(opcionTodas);
 
-            AULAS.forEach(aula => {
-
+            for (const aula of AULAS) {
                 const opcion =
                     document.createElement("option");
 
                 opcion.value = aula.id;
-                opcion.textContent = aula.nombre;
+                opcion.textContent =
+                    `${aula.codigo} · ${aula.nombre}`;
 
                 filtroAula.appendChild(opcion);
-            });
+            }
 
             const existe = AULAS.some(
                 aula => aula.id === seleccionAnterior
@@ -239,20 +187,18 @@
         }
 
         // ====================================================
-        // 6. FUNCIONES AUXILIARES
+        // 6. UTILIDADES
         // ====================================================
 
         function redondear(valor, decimales = 1) {
-
             if (!Number.isFinite(valor)) {
-                return null;
+                return "—";
             }
 
-            return Number(valor.toFixed(decimales));
+            return valor.toFixed(decimales);
         }
 
         function nombreAula(aulaId) {
-
             const aula = AULAS.find(
                 item => item.id === aulaId
             );
@@ -263,9 +209,7 @@
         }
 
         function nombreVariable(variable) {
-
             switch (variable) {
-
                 case "temperatura":
                     return "Temperatura";
 
@@ -273,11 +217,12 @@
                     return "Humedad relativa";
 
                 default:
-                    return variable || "Desconocida";
+                    return "Variable desconocida";
             }
         }
 
         function obtenerFechaObjeto(fechaHora) {
+            if (!fechaHora) return null;
 
             const fecha = new Date(fechaHora);
 
@@ -286,39 +231,26 @@
                 : null;
         }
 
-        // ====================================================
-        // 7. FECHAS EN HORARIO DE EL SALVADOR
-        // ====================================================
-
         function formatearFecha(fechaHora) {
-
             const fecha = obtenerFechaObjeto(fechaHora);
 
-            if (!fecha) {
-                return "—";
-            }
+            if (!fecha) return "—";
 
-            return new Intl.DateTimeFormat(
-                "es-SV",
-                {
-                    timeZone: ZONA_HORARIA,
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: false
-                }
-            ).format(fecha);
+            return new Intl.DateTimeFormat("es-SV", {
+                timeZone: ZONA_HORARIA,
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false
+            }).format(fecha);
         }
 
         function obtenerFechaSimple(fechaHora) {
-
             const fecha = obtenerFechaObjeto(fechaHora);
 
-            if (!fecha) {
-                return "";
-            }
+            if (!fecha) return "";
 
             const partes = new Intl.DateTimeFormat(
                 "en-US",
@@ -331,83 +263,69 @@
             ).formatToParts(fecha);
 
             const obtener = tipo =>
-                partes.find(
-                    parte => parte.type === tipo
-                )?.value;
+                partes.find(parte => parte.type === tipo)?.value;
 
-            return (
-                `${obtener("year")}-` +
-                `${obtener("month")}-` +
-                `${obtener("day")}`
-            );
+            return [
+                obtener("year"),
+                obtener("month"),
+                obtener("day")
+            ].join("-");
         }
 
-        // ====================================================
-        // 8. MENSAJES
-        // ====================================================
-
         function mostrarMensaje(texto) {
-
-            if (!mensaje) {
-                return;
-            }
+            if (!mensaje) return;
 
             mensaje.textContent = texto;
-            mensaje.hidden = false;
+            mensaje.hidden = !texto;
         }
 
         function ocultarMensaje() {
-
-            if (!mensaje) {
-                return;
-            }
+            if (!mensaje) return;
 
             mensaje.textContent = "";
             mensaje.hidden = true;
         }
 
         function actualizarAviso(texto) {
-
             if (aviso) {
                 aviso.textContent = texto;
             }
         }
 
         function actualizarConexion(conectado) {
-
             if (estadoConexion) {
                 estadoConexion.textContent = conectado
-                    ? "Conectado · Datos reales"
-                    : "Sin conexión";
+                    ? "API conectada"
+                    : "API desconectada";
             }
 
             if (estadoSidebar) {
                 estadoSidebar.textContent = conectado
-                    ? "Sistema conectado"
-                    : "Sin conexión";
+                    ? "Backend conectado"
+                    : "Backend desconectado";
+            }
+
+            const punto = $("sidebar-status-dot");
+
+            if (punto) {
+                punto.style.backgroundColor = conectado
+                    ? "#22c55e"
+                    : "#ef4444";
             }
         }
 
         // ====================================================
-        // 9. VALIDACIÓN DE FECHAS
+        // 7. VALIDAR FECHAS
         // ====================================================
 
         function fechasValidas() {
+            const inicio = fechaInicial?.value || "";
+            const final = fechaFinal?.value || "";
 
-            const inicio = fechaInicial.value;
-            const final = fechaFinal.value;
-
-            if (
-                inicio &&
-                final &&
-                inicio > final
-            ) {
-
+            if (inicio && final && inicio > final) {
                 mostrarMensaje(
-                    "La fecha inicial no puede ser " +
-                    "posterior a la fecha final."
+                    "La fecha inicial no puede ser posterior a la fecha final."
                 );
-
                 return false;
             }
 
@@ -415,11 +333,10 @@
         }
 
         // ====================================================
-        // 10. CONSTRUIR CONSULTA PARA RUST
+        // 8. CONSTRUIR CONSULTA HTTP
         // ====================================================
 
         function construirConsulta() {
-
             const parametros = new URLSearchParams();
 
             parametros.set(
@@ -427,47 +344,34 @@
                 String(LIMITE_API)
             );
 
-            // Aula seleccionada.
-            if (filtroAula.value) {
+            const aulaId = filtroAula?.value || "";
 
-                parametros.set(
-                    "aula_id",
-                    filtroAula.value
-                );
+            if (aulaId) {
+                parametros.set("aula_id", aulaId);
             }
 
-            // Variable seleccionada.
-            if (filtroVariable.value) {
+            const inicio = fechaInicial?.value || "";
+            const final = fechaFinal?.value || "";
 
-                parametros.set(
-                    "tipo",
-                    filtroVariable.value
-                );
-            }
-
-            // Fecha inicial.
-            if (fechaInicial.value) {
-
-                const inicio = new Date(
-                    `${fechaInicial.value}T00:00:00-06:00`
+            if (inicio) {
+                const fechaInicio = new Date(
+                    `${inicio}T00:00:00-06:00`
                 );
 
                 parametros.set(
                     "desde",
-                    inicio.toISOString()
+                    fechaInicio.toISOString()
                 );
             }
 
-            // Fecha final.
-            if (fechaFinal.value) {
-
-                const final = new Date(
-                    `${fechaFinal.value}T23:59:59.999-06:00`
+            if (final) {
+                const fechaFin = new Date(
+                    `${final}T23:59:59.999-06:00`
                 );
 
                 parametros.set(
                     "hasta",
-                    final.toISOString()
+                    fechaFin.toISOString()
                 );
             }
 
@@ -475,14 +379,20 @@
         }
 
         // ====================================================
-        // 11. ADAPTAR REGISTROS REALES A TU TABLA
+        // 9. NORMALIZAR MEDICIONES REALES
         // ====================================================
 
         function normalizarMediciones(registros) {
-
             const resultado = [];
 
             for (const registro of registros) {
+                if (
+                    registro.valor === null ||
+                    registro.valor === undefined ||
+                    registro.valor === ""
+                ) {
+                    continue;
+                }
 
                 const valor = Number(registro.valor);
 
@@ -509,28 +419,21 @@
                 }
 
                 resultado.push({
-
                     id: registro.id,
 
                     fecha_hora: registro.medido_en,
-
                     fechaObjeto: fecha,
 
                     aula_id: registro.aula_id,
-
-                    aula: nombreAula(
-                        registro.aula_id
-                    ),
+                    aula: nombreAula(registro.aula_id),
 
                     sensor: "DHT22",
-
                     sensor_id: "dht22",
 
                     dispositivo_id:
                         registro.dispositivo_id,
 
                     variable,
-
                     variable_nombre:
                         nombreVariable(variable),
 
@@ -538,61 +441,42 @@
 
                     unidad:
                         registro.unidad ||
-                        (
-                            variable === "temperatura"
-                                ? "°C"
-                                : "%"
-                        ),
+                        (variable === "temperatura"
+                            ? "°C"
+                            : "%"),
 
-                    // El endpoint no devuelve el
-                    // estado histórico de alertas.
+                    // No se inventan estados históricos.
                     estado: "Registrada"
                 });
             }
 
-            // Más recientes primero.
-            resultado.sort((a, b) => {
-
-                const diferencia =
+            resultado.sort(
+                (a, b) =>
                     b.fechaObjeto.getTime() -
-                    a.fechaObjeto.getTime();
-
-                if (diferencia !== 0) {
-                    return diferencia;
-                }
-
-                return String(b.id).localeCompare(
-                    String(a.id)
-                );
-            });
+                    a.fechaObjeto.getTime()
+            );
 
             return resultado;
         }
 
         // ====================================================
-        // 12. OBTENER MEDICIONES REALES
+        // 10. CARGAR MEDICIONES DESDE RENDER
         // ====================================================
 
         async function cargarMediciones() {
-
-            ocultarMensaje();
-
-            if (!fechasValidas()) {
-                return;
-            }
+            if (!fechasValidas()) return;
 
             const solicitud = ++numeroSolicitud;
-
-            actualizarAviso(
-                "Consultando mediciones reales de PostgreSQL..."
-            );
 
             if (botonBuscar) {
                 botonBuscar.disabled = true;
             }
 
-            try {
+            actualizarAviso(
+                "Consultando mediciones reales en PostgreSQL..."
+            );
 
+            try {
                 const parametros = construirConsulta();
 
                 const ruta =
@@ -605,9 +489,8 @@
                 }
 
                 if (!Array.isArray(respuesta)) {
-
                     throw new Error(
-                        "La API no devolvió una lista de mediciones."
+                        "El backend no devolvió un arreglo de mediciones."
                     );
                 }
 
@@ -620,47 +503,35 @@
 
                 paginaActual = 1;
 
+                ocultarMensaje();
                 actualizarConexion(true);
 
                 aplicarFiltros();
 
-                if (consultaLimitada) {
+                const advertencia = consultaLimitada
+                    ? ` Se alcanzó el límite de ${LIMITE_API} registros; pueden existir más mediciones.`
+                    : "";
 
-                    actualizarAviso(
-                        `Se recibieron ${mediciones.length} ` +
-                        `mediciones. Se alcanzó el límite ` +
-                        `de ${LIMITE_API} registros por consulta. ` +
-                        `Utiliza filtros de fecha para consultar ` +
-                        `otros períodos.`
-                    );
-
-                } else {
-
-                    actualizarAviso(
-                        `Datos reales obtenidos correctamente. ` +
-                        `${mediciones.length} mediciones ` +
-                        `consultadas desde PostgreSQL.`
-                    );
-                }
+                actualizarAviso(
+                    `Se consultaron ${mediciones.length} mediciones reales.${advertencia}`
+                );
 
                 console.log(
                     "SMART CLASSROOM - Historial:",
                     {
                         registros: mediciones.length,
-                        aula: filtroAula.value || "Todas",
-                        variable:
-                            filtroVariable.value || "Todas"
+                        limiteAlcanzado: consultaLimitada,
+                        endpoint: ruta
                     }
                 );
 
             } catch (error) {
-
                 if (solicitud !== numeroSolicitud) {
                     return;
                 }
 
                 console.error(
-                    "Error al cargar historial:",
+                    "SMART CLASSROOM - Error en historial:",
                     error
                 );
 
@@ -668,65 +539,55 @@
                 medicionesFiltradas = [];
 
                 paginaActual = 1;
-                totalPaginas = 1;
 
                 actualizarConexion(false);
-
                 aplicarFiltros();
 
                 actualizarAviso(
-                    "Error al consultar el backend: " +
-                    error.message
+                    "No se pudieron consultar las mediciones."
                 );
 
                 mostrarMensaje(
-                    "Verifica que el servidor Rust esté " +
-                    "ejecutándose y tenga conexión " +
-                    "con PostgreSQL."
+                    "Error al consultar el historial: " +
+                    error.message
                 );
 
             } finally {
-
-                if (solicitud === numeroSolicitud && botonBuscar) {
+                if (
+                    solicitud === numeroSolicitud &&
+                    botonBuscar
+                ) {
                     botonBuscar.disabled = false;
                 }
             }
         }
 
         // ====================================================
-        // 13. FILTROS ORIGINALES
+        // 11. FILTRAR MEDICIONES
         // ====================================================
 
         function aplicarFiltros() {
-
-            if (!fechasValidas()) {
-                return;
-            }
+            if (!fechasValidas()) return;
 
             const aulaSeleccionada =
-                filtroAula.value;
+                filtroAula?.value || "";
 
             const sensorSeleccionado =
-                filtroSensor.value;
+                filtroSensor?.value || "";
 
             const variableSeleccionada =
-                filtroVariable.value;
+                filtroVariable?.value || "";
 
-            const inicio =
-                fechaInicial.value;
+            const inicio = fechaInicial?.value || "";
+            const final = fechaFinal?.value || "";
 
-            const final =
-                fechaFinal.value;
-
-            const busqueda =
-                campoBusqueda.value
-                    .trim()
-                    .toLocaleLowerCase("es");
+            const busqueda = String(
+                campoBusqueda?.value || ""
+            ).trim().toLowerCase();
 
             medicionesFiltradas = mediciones.filter(
                 medicion => {
 
-                    // Aula.
                     if (
                         aulaSeleccionada &&
                         medicion.aula_id !== aulaSeleccionada
@@ -734,27 +595,31 @@
                         return false;
                     }
 
-                    // Sensor.
                     if (
                         sensorSeleccionado &&
-                        medicion.sensor_id !== sensorSeleccionado
+                        ![
+                            medicion.sensor_id,
+                            medicion.sensor
+                        ].some(
+                            valor =>
+                                String(valor).toLowerCase() ===
+                                sensorSeleccionado.toLowerCase()
+                        )
                     ) {
                         return false;
                     }
 
-                    // Variable.
                     if (
                         variableSeleccionada &&
-                        medicion.variable !== variableSeleccionada
+                        medicion.variable !==
+                        variableSeleccionada.toLowerCase()
                     ) {
                         return false;
                     }
 
-                    // Fechas.
-                    const fecha =
-                        obtenerFechaSimple(
-                            medicion.fecha_hora
-                        );
+                    const fecha = obtenerFechaSimple(
+                        medicion.fecha_hora
+                    );
 
                     if (inicio && fecha < inicio) {
                         return false;
@@ -764,24 +629,21 @@
                         return false;
                     }
 
-                    // Búsqueda de texto.
                     if (busqueda) {
-
                         const contenido = [
-                            medicion.fecha_hora,
-                            formatearFecha(
-                                medicion.fecha_hora
-                            ),
+                            medicion.id,
                             medicion.aula,
                             medicion.sensor,
+                            medicion.dispositivo_id,
+                            medicion.variable,
                             medicion.variable_nombre,
                             medicion.valor,
                             medicion.unidad,
                             medicion.estado,
-                            medicion.dispositivo_id || ""
-                        ]
-                            .join(" ")
-                            .toLocaleLowerCase("es");
+                            formatearFecha(
+                                medicion.fecha_hora
+                            )
+                        ].join(" ").toLowerCase();
 
                         if (!contenido.includes(busqueda)) {
                             return false;
@@ -800,9 +662,10 @@
                 )
             );
 
-            if (paginaActual > totalPaginas) {
-                paginaActual = totalPaginas;
-            }
+            paginaActual = Math.min(
+                paginaActual,
+                totalPaginas
+            );
 
             actualizarResumen();
             mostrarTabla();
@@ -810,40 +673,40 @@
         }
 
         // ====================================================
-        // 14. ESTADÍSTICAS
+        // 12. ESTADÍSTICAS
         // ====================================================
 
         function promedio(valores) {
+            const validos = valores.filter(
+                Number.isFinite
+            );
 
-            if (valores.length === 0) {
+            if (validos.length === 0) {
                 return null;
             }
 
-            const suma = valores.reduce(
+            const suma = validos.reduce(
                 (total, valor) => total + valor,
                 0
             );
 
-            return suma / valores.length;
+            return suma / validos.length;
         }
 
         function actualizarResumen() {
+            const temperaturas = medicionesFiltradas
+                .filter(
+                    medicion =>
+                        medicion.variable === "temperatura"
+                )
+                .map(medicion => medicion.valor);
 
-            const temperaturas =
-                medicionesFiltradas
-                    .filter(
-                        item =>
-                            item.variable === "temperatura"
-                    )
-                    .map(item => item.valor);
-
-            const humedades =
-                medicionesFiltradas
-                    .filter(
-                        item =>
-                            item.variable === "humedad"
-                    )
-                    .map(item => item.valor);
+            const humedades = medicionesFiltradas
+                .filter(
+                    medicion =>
+                        medicion.variable === "humedad"
+                )
+                .map(medicion => medicion.valor);
 
             const promedioTemperatura =
                 promedio(temperaturas);
@@ -852,48 +715,49 @@
                 promedio(humedades);
 
             const aulas = new Set(
-                medicionesFiltradas.map(
-                    item => item.aula_id
-                )
+                medicionesFiltradas
+                    .map(medicion => medicion.aula_id)
+                    .filter(Boolean)
             );
 
-            totalElemento.textContent =
-                medicionesFiltradas.length.toLocaleString(
-                    "es-SV"
-                );
+            if (totalElemento) {
+                totalElemento.textContent =
+                    medicionesFiltradas.length;
+            }
 
-            temperaturaElemento.textContent =
-                promedioTemperatura === null
-                    ? "—"
-                    : `${promedioTemperatura.toFixed(1)} °C`;
+            if (temperaturaElemento) {
+                temperaturaElemento.textContent =
+                    promedioTemperatura === null
+                        ? "—"
+                        : `${redondear(promedioTemperatura)} °C`;
+            }
 
-            humedadElemento.textContent =
-                promedioHumedad === null
-                    ? "—"
-                    : `${promedioHumedad.toFixed(1)} %`;
+            if (humedadElemento) {
+                humedadElemento.textContent =
+                    promedioHumedad === null
+                        ? "—"
+                        : `${redondear(promedioHumedad)} %`;
+            }
 
-            aulasElemento.textContent =
-                String(aulas.size);
+            if (aulasElemento) {
+                aulasElemento.textContent =
+                    aulas.size;
+            }
 
-            descripcionResultados.textContent =
-                `${medicionesFiltradas.length} ` +
-                `registros reales encontrados.`;
-
-            botonExportar.disabled =
-                medicionesFiltradas.length === 0;
+            if (descripcionResultados) {
+                descripcionResultados.textContent =
+                    `${medicionesFiltradas.length} registros encontrados.`;
+            }
         }
 
         // ====================================================
-        // 15. CREACIÓN SEGURA DE CELDAS
+        // 13. CREAR CELDAS SEGURAS
         // ====================================================
 
         function crearCelda(texto, clase = "") {
+            const celda = document.createElement("td");
 
-            const celda =
-                document.createElement("td");
-
-            celda.textContent =
-                texto ?? "—";
+            celda.textContent = String(texto ?? "—");
 
             if (clase) {
                 celda.className = clase;
@@ -903,14 +767,12 @@
         }
 
         function crearCeldaVariable(medicion) {
+            const celda = document.createElement("td");
 
-            const celda =
-                document.createElement("td");
-
-            const contenedor =
+            const etiqueta =
                 document.createElement("span");
 
-            contenedor.className =
+            etiqueta.className =
                 "history-variable";
 
             const punto =
@@ -929,53 +791,48 @@
             texto.textContent =
                 medicion.variable_nombre;
 
-            contenedor.appendChild(punto);
-            contenedor.appendChild(texto);
-
-            celda.appendChild(contenedor);
+            etiqueta.append(punto, texto);
+            celda.appendChild(etiqueta);
 
             return celda;
         }
 
         function crearCeldaEstado(estado) {
-
-            const celda =
-                document.createElement("td");
+            const celda = document.createElement("td");
 
             const etiqueta =
                 document.createElement("span");
 
-            // Conservamos el estilo original.
             etiqueta.className =
-                "history-status " +
-                (
-                    estado === "Normal"
-                        ? "normal"
-                        : estado === "Alerta"
-                            ? "alert"
-                            : ""
-                );
+                "history-status";
 
-            etiqueta.textContent = estado;
+            const punto =
+                document.createElement("span");
 
+            punto.className =
+                "history-status-dot";
+
+            const texto =
+                document.createElement("span");
+
+            texto.textContent = estado;
+
+            etiqueta.append(punto, texto);
             celda.appendChild(etiqueta);
 
             return celda;
         }
 
         // ====================================================
-        // 16. MOSTRAR TABLA
+        // 14. MOSTRAR TABLA
         // ====================================================
 
         function mostrarTabla() {
-
             tablaCuerpo.replaceChildren();
 
-            const total =
-                medicionesFiltradas.length;
+            const total = medicionesFiltradas.length;
 
             if (total === 0) {
-
                 tabla.hidden = true;
 
                 if (estadoVacio) {
@@ -995,24 +852,15 @@
                 (paginaActual - 1) *
                 LIMITE_POR_PAGINA;
 
-            const fin =
-                inicio + LIMITE_POR_PAGINA;
+            const registros = medicionesFiltradas.slice(
+                inicio,
+                inicio + LIMITE_POR_PAGINA
+            );
 
-            const pagina =
-                medicionesFiltradas.slice(
-                    inicio,
-                    fin
-                );
-
-            const fragmento =
-                document.createDocumentFragment();
-
-            pagina.forEach(medicion => {
-
+            for (const medicion of registros) {
                 const fila =
                     document.createElement("tr");
 
-                // Fecha y hora.
                 fila.appendChild(
                     crearCelda(
                         formatearFecha(
@@ -1022,84 +870,93 @@
                     )
                 );
 
-                // Aula.
                 fila.appendChild(
-                    crearCelda(medicion.aula)
+                    crearCelda(
+                        medicion.aula,
+                        "history-classroom"
+                    )
                 );
 
-                // Sensor.
                 fila.appendChild(
-                    crearCelda(medicion.sensor)
+                    crearCelda(
+                        medicion.sensor,
+                        "history-sensor"
+                    )
                 );
 
-                // Variable.
                 fila.appendChild(
                     crearCeldaVariable(medicion)
                 );
 
-                // Valor.
                 fila.appendChild(
                     crearCelda(
-                        `${medicion.valor.toFixed(1)} ` +
-                        medicion.unidad,
+                        `${redondear(medicion.valor)} ${medicion.unidad}`,
                         "history-value"
                     )
                 );
 
-                // Estado.
                 fila.appendChild(
                     crearCeldaEstado(
                         medicion.estado
                     )
                 );
 
-                fragmento.appendChild(fila);
-            });
-
-            tablaCuerpo.appendChild(fragmento);
+                tablaCuerpo.appendChild(fila);
+            }
         }
 
         // ====================================================
-        // 17. PAGINACIÓN ORIGINAL
+        // 15. PAGINACIÓN
         // ====================================================
 
         function actualizarPaginacion() {
+            const total = medicionesFiltradas.length;
 
-            const total =
-                medicionesFiltradas.length;
+            totalPaginas = Math.max(
+                1,
+                Math.ceil(total / LIMITE_POR_PAGINA)
+            );
 
-            const inicio =
-                total === 0
-                    ? 0
-                    : (paginaActual - 1) *
-                      LIMITE_POR_PAGINA + 1;
+            paginaActual = Math.min(
+                paginaActual,
+                totalPaginas
+            );
+
+            const inicio = total === 0
+                ? 0
+                : (paginaActual - 1) *
+                  LIMITE_POR_PAGINA + 1;
 
             const fin = Math.min(
                 paginaActual * LIMITE_POR_PAGINA,
                 total
             );
 
-            textoPagina.textContent =
-                `Página ${paginaActual} de ${totalPaginas}`;
+            if (textoPagina) {
+                textoPagina.textContent =
+                    `Página ${paginaActual} de ${totalPaginas}`;
+            }
 
-            resumenPagina.textContent =
-                `Mostrando ${inicio}–${fin} ` +
-                `de ${total} registros`;
+            if (resumenPagina) {
+                resumenPagina.textContent =
+                    `Mostrando ${inicio}–${fin} de ${total} registros`;
+            }
 
-            botonAnterior.disabled =
-                paginaActual <= 1;
+            if (botonAnterior) {
+                botonAnterior.disabled =
+                    paginaActual <= 1;
+            }
 
-            botonSiguiente.disabled =
-                paginaActual >= totalPaginas;
+            if (botonSiguiente) {
+                botonSiguiente.disabled =
+                    paginaActual >= totalPaginas;
+            }
 
             paginacion.hidden = total === 0;
         }
 
         function irPaginaAnterior() {
-
-            if (paginaActual <= 1) {
-                return;
-            }
+            if (paginaActual <= 1) return;
 
             paginaActual--;
 
@@ -1108,7 +965,6 @@
         }
 
         function irPaginaSiguiente() {
-
             if (paginaActual >= totalPaginas) {
                 return;
             }
@@ -1120,120 +976,114 @@
         }
 
         // ====================================================
-        // 18. EXPORTACIÓN CSV REAL
+        // 16. EXPORTAR CSV PARA EXCEL
         // ====================================================
 
         function escaparCSV(valor) {
-
             const texto = String(valor ?? "");
 
-            // Evitar interpretación de fórmulas al
-            // abrir valores de texto en Excel.
-            const seguro = /^[=+\-@\t\r]/.test(texto)
-                ? "'" + texto
-                : texto;
+            // Escapar comillas y separadores.
+            const escapado = texto.replace(/"/g, '""');
 
-            return (
-                '"' +
-                seguro.replace(/"/g, '""') +
-                '"'
-            );
+            // Proteger contra interpretación de fórmulas
+            // al abrir datos de texto en Excel.
+            const protegido = /^[=+\-@\t\r]/.test(texto)
+                ? "'" + escapado
+                : escapado;
+
+            return `"${protegido}"`;
         }
 
         function exportarCSV() {
-
             if (medicionesFiltradas.length === 0) {
-
                 mostrarMensaje(
                     "No hay registros para exportar."
                 );
-
                 return;
             }
 
             const encabezados = [
+                "ID",
                 "Fecha y hora",
                 "Aula",
                 "Sensor",
+                "Dispositivo",
                 "Variable",
                 "Valor",
                 "Unidad",
-                "Estado",
-                "Origen",
-                "ID de medición",
-                "ID de dispositivo"
+                "Estado"
             ];
 
-            const filas = [encabezados];
+            const filas = [
+                encabezados
+            ];
 
-            medicionesFiltradas.forEach(medicion => {
-
+            for (const medicion of medicionesFiltradas) {
                 filas.push([
-                    formatearFecha(
-                        medicion.fecha_hora
-                    ),
+                    medicion.id,
+                    formatearFecha(medicion.fecha_hora),
                     medicion.aula,
                     medicion.sensor,
+                    medicion.dispositivo_id,
                     medicion.variable_nombre,
                     medicion.valor,
                     medicion.unidad,
-                    medicion.estado,
-                    "POSTGRESQL",
-                    medicion.id || "",
-                    medicion.dispositivo_id || ""
+                    medicion.estado
                 ]);
-            });
+            }
 
+            // CSV con punto y coma para Excel regional.
             const contenido = filas
-                .map(
-                    fila => fila
-                        .map(escaparCSV)
-                        .join(";")
+                .map(fila =>
+                    fila.map(escaparCSV).join(";")
                 )
                 .join("\r\n");
 
-            // BOM para compatibilidad con Excel.
+            // BOM UTF-8 para preservar acentos.
             const archivo = new Blob(
-                ["\uFEFF" + contenido],
+                ["\uFEFF", contenido],
                 {
-                    type: "text/csv;charset=utf-8;"
+                    type:
+                        "text/csv;charset=utf-8;"
                 }
             );
 
-            const url =
-                URL.createObjectURL(archivo);
+            const url = URL.createObjectURL(archivo);
 
             const enlace =
                 document.createElement("a");
 
             enlace.href = url;
 
+            const fecha = new Date()
+                .toISOString()
+                .slice(0, 10);
+
             enlace.download =
-                "smart-classroom-historial-real.csv";
+                `SMART_CLASSROOM_HISTORIAL_${fecha}.csv`;
 
             document.body.appendChild(enlace);
 
             enlace.click();
-
             enlace.remove();
 
             URL.revokeObjectURL(url);
 
             mostrarMensaje(
-                `Se exportaron ${medicionesFiltradas.length} ` +
-                `registros reales correctamente.`
+                `Se exportaron ${medicionesFiltradas.length} registros reales correctamente.`
             );
         }
 
         // ====================================================
-        // 19. LIMPIAR FILTROS
+        // 17. LIMPIAR FILTROS
         // ====================================================
 
         function limpiarFiltros() {
-
             formFiltros.reset();
 
-            campoBusqueda.value = "";
+            if (campoBusqueda) {
+                campoBusqueda.value = "";
+            }
 
             paginaActual = 1;
 
@@ -1241,56 +1091,54 @@
         }
 
         // ====================================================
-        // 20. EVENTOS
+        // 18. EVENTOS
         // ====================================================
 
         formFiltros.addEventListener(
             "submit",
             evento => {
-
                 evento.preventDefault();
 
                 paginaActual = 1;
-
                 cargarMediciones();
             }
         );
 
-        botonLimpiar.addEventListener(
+        botonLimpiar?.addEventListener(
             "click",
             limpiarFiltros
         );
 
-        botonAnterior.addEventListener(
+        botonAnterior?.addEventListener(
             "click",
             irPaginaAnterior
         );
 
-        botonSiguiente.addEventListener(
+        botonSiguiente?.addEventListener(
             "click",
             irPaginaSiguiente
         );
 
-        botonExportar.addEventListener(
+        botonExportar?.addEventListener(
             "click",
             exportarCSV
         );
 
-        campoBusqueda.addEventListener(
+        campoBusqueda?.addEventListener(
             "input",
             () => {
-
                 paginaActual = 1;
-
                 aplicarFiltros();
             }
         );
 
         // ====================================================
-        // 21. INICIALIZACIÓN
+        // 19. INICIALIZACIÓN
         // ====================================================
 
         configurarAulas();
+
+        actualizarConexion(false);
 
         actualizarAviso(
             "Preparando consulta del historial..."
@@ -1301,7 +1149,5 @@
         console.log(
             "SMART CLASSROOM: Historial real inicializado."
         );
-
     });
-
 })();

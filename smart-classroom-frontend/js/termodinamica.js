@@ -6,16 +6,40 @@
 // Universidad de El Salvador
 //
 // Datos reales desde GET /api/mediciones
-// Propiedades calculadas con las ecuaciones de Rust.
-// No modifica datos en PostgreSQL.
+// Backend Rust + Axum en Render
+// Base de datos PostgreSQL / Supabase
+//
+// Variables calculadas:
+// 1. Punto de rocío
+// 2. Humedad absoluta
+// 3. Presión parcial del vapor de agua
+// 4. Tasa de variación térmica
+//
+// No genera datos ficticios.
+// No modifica registros en PostgreSQL.
 // ============================================================
 
 document.addEventListener("DOMContentLoaded", () => {
+
+    // ========================================================
+    // CONFIGURACIÓN
+    // ========================================================
 
     const API = window.SmartClassroomAPI;
 
     const INTERVALO_ACTUALIZACION = 60000;
     const ZONA_HORARIA = "America/El_Salvador";
+
+    // Tolerancia para emparejar temperatura y humedad
+    // cuando PostgreSQL guarda timestamps ligeramente
+    // diferentes. Solo se emparejan registros compatibles.
+    const TOLERANCIA_PAREJA_MS = 2000;
+
+    // No calcular variación térmica entre jornadas ni
+    // entre mediciones excesivamente separadas.
+    const INTERVALO_MAXIMO_VARIACION_MS = 60 * 60 * 1000;
+
+    const LIMITE_API = 5000;
 
     const aulas = [
         {
@@ -57,6 +81,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let cargando = false;
     let generacion = 0;
+    let controladorActual = null;
 
     // ========================================================
     // 1. UTILIDADES
@@ -64,7 +89,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function escribir(elemento, contenido) {
         if (elemento) {
-            elemento.textContent = contenido;
+            elemento.textContent = String(contenido);
         }
     }
 
@@ -75,8 +100,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function fechaValida(valor) {
-        const fecha = new Date(valor);
-        return Number.isFinite(fecha.getTime()) ? fecha : null;
+        if (valor === null || valor === undefined || valor === "") {
+            return null;
+        }
+
+        const fecha = valor instanceof Date
+            ? valor
+            : new Date(valor);
+
+        return Number.isFinite(fecha.getTime())
+            ? fecha
+            : null;
     }
 
     function formatoFecha(valor) {
@@ -113,7 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function fechaLocalISO(fecha) {
-        const partes = new Intl.DateTimeFormat("en-CA", {
+        const partes = new Intl.DateTimeFormat("en-US", {
             timeZone: ZONA_HORARIA,
             year: "numeric",
             month: "2-digit",
@@ -133,16 +167,31 @@ document.addEventListener("DOMContentLoaded", () => {
     function inicioPeriodo(periodo) {
         const ahora = new Date();
 
+        // Todo el historial: sin filtro de fecha.
+        if (
+            periodo === "todo" ||
+            periodo === "all" ||
+            periodo === "historico"
+        ) {
+            return null;
+        }
+
         if (periodo === "hoy") {
-            // El Salvador utiliza UTC-06:00 todo el año.
             const dia = fechaLocalISO(ahora);
+
+            // El Salvador utiliza UTC-06:00.
             return new Date(`${dia}T00:00:00-06:00`);
         }
 
-        const dias = periodo === "30d" ? 30 : 7;
+        const dias = periodo === "30d"
+            ? 30
+            : periodo === "7d"
+                ? 7
+                : 7;
 
         return new Date(
-            ahora.getTime() - dias * 24 * 60 * 60 * 1000
+            ahora.getTime() -
+            dias * 24 * 60 * 60 * 1000
         );
     }
 
@@ -152,7 +201,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ========================================================
     // 2. MODELO TERMODINÁMICO
-    // Misma formulación que services/termodinamica.rs
     // ========================================================
 
     function calcularTermodinamica(temperatura, humedad) {
@@ -168,6 +216,8 @@ document.addEventListener("DOMContentLoaded", () => {
             return null;
         }
 
+        // Presión de saturación en kPa.
+        // Aproximación de Magnus.
         const presionSaturacion =
             0.61094 *
             Math.exp(
@@ -175,19 +225,25 @@ document.addEventListener("DOMContentLoaded", () => {
                 (temperatura + 243.04)
             );
 
+        // Presión parcial del vapor en kPa.
         const presionVapor =
             (humedad / 100) * presionSaturacion;
 
+        // Punto de rocío en °C.
         const gamma =
             Math.log(humedad / 100) +
             (17.625 * temperatura) /
             (243.04 + temperatura);
 
         const puntoRocio =
-            (243.04 * gamma) / (17.625 - gamma);
+            (243.04 * gamma) /
+            (17.625 - gamma);
 
+        // Humedad absoluta en g/m³.
+        // Convertimos kPa a hPa multiplicando por 10.
         const humedadAbsoluta =
-            216.7 * (presionVapor * 10) /
+            216.7 *
+            (presionVapor * 10) /
             (temperatura + 273.15);
 
         if (
@@ -205,23 +261,54 @@ document.addEventListener("DOMContentLoaded", () => {
         };
     }
 
+    // ========================================================
+    // 3. VARIACIÓN TÉRMICA
+    // ========================================================
+
     function calcularVariacion(actual, anterior) {
 
         if (!actual || !anterior) {
             return null;
         }
 
-        const segundos =
-            (actual.fecha.getTime() -
-             anterior.fecha.getTime()) / 1000;
-
-        if (segundos <= 0) {
+        if (
+            !Number.isFinite(actual.temperatura) ||
+            !Number.isFinite(anterior.temperatura)
+        ) {
             return null;
         }
 
+        const tiempoActual = actual.fecha.getTime();
+        const tiempoAnterior = anterior.fecha.getTime();
+
+        const diferenciaMs =
+            tiempoActual - tiempoAnterior;
+
+        if (diferenciaMs <= 0) {
+            return null;
+        }
+
+        // Evitar diferencias entre jornadas.
+        if (
+            fechaLocalISO(actual.fecha) !==
+            fechaLocalISO(anterior.fecha)
+        ) {
+            return null;
+        }
+
+        // Evitar intervalos excesivamente largos.
+        if (
+            diferenciaMs >
+            INTERVALO_MAXIMO_VARIACION_MS
+        ) {
+            return null;
+        }
+
+        const minutos = diferenciaMs / 60000;
+
         const resultado =
-            (actual.temperatura - anterior.temperatura) /
-            (segundos / 60);
+            (actual.temperatura -
+             anterior.temperatura) / minutos;
 
         return Number.isFinite(resultado)
             ? resultado
@@ -229,18 +316,31 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ========================================================
-    // 3. CONSULTAR MEDICIONES REALES
+    // 4. CONSULTAR MEDICIONES REALES
     // ========================================================
 
     async function obtenerMediciones(aulaId, periodo) {
 
-        const desde = inicioPeriodo(periodo).toISOString();
+        if (!API || typeof API.get !== "function") {
+            throw new Error(
+                "No se encontró SmartClassroomAPI. " +
+                "Comprueba que api.js se cargue primero."
+            );
+        }
 
         const parametros = new URLSearchParams({
             aula_id: aulaId,
-            desde,
-            limit: "5000"
+            limit: String(LIMITE_API)
         });
+
+        const desde = inicioPeriodo(periodo);
+
+        if (desde) {
+            parametros.set(
+                "desde",
+                desde.toISOString()
+            );
+        }
 
         const respuesta = await API.get(
             `/api/mediciones?${parametros.toString()}`
@@ -248,7 +348,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!Array.isArray(respuesta)) {
             throw new Error(
-                "El backend no devolvió un historial válido."
+                "El backend no devolvió un arreglo válido de mediciones."
             );
         }
 
@@ -256,63 +356,141 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ========================================================
-    // 4. AGRUPAR TEMPERATURA Y HUMEDAD
+    // 5. AGRUPAR TEMPERATURA Y HUMEDAD
     // ========================================================
 
     function construirLecturas(filas) {
 
-        const grupos = new Map();
+        const temperaturas = [];
+        const humedades = [];
 
         for (const fila of filas) {
 
             const tipo = String(
                 fila.tipo_sensor || ""
-            ).trim().toLowerCase();
-
-            if (tipo !== "temperatura" && tipo !== "humedad") {
-                continue;
-            }
-
-            const fecha = fechaValida(fila.medido_en);
-            const valor = Number(fila.valor);
-
-            if (!fecha || !Number.isFinite(valor)) {
-                continue;
-            }
-
-            const clave = fecha.toISOString();
-
-            if (!grupos.has(clave)) {
-                grupos.set(clave, {
-                    fecha,
-                    temperatura: null,
-                    humedad: null
-                });
-            }
-
-            const grupo = grupos.get(clave);
-
-            if (tipo === "temperatura") {
-                grupo.temperatura = valor;
-            } else {
-                grupo.humedad = valor;
-            }
-        }
-
-        const lecturas = [];
-
-        for (const grupo of grupos.values()) {
+            )
+                .trim()
+                .toLowerCase();
 
             if (
-                grupo.temperatura === null ||
-                grupo.humedad === null
+                tipo !== "temperatura" &&
+                tipo !== "humedad"
             ) {
                 continue;
             }
 
+            const fecha = fechaValida(
+                fila.medido_en
+            );
+
+            if (
+                !fecha ||
+                fila.valor === null ||
+                fila.valor === undefined ||
+                fila.valor === ""
+            ) {
+                continue;
+            }
+
+            const valor = Number(fila.valor);
+
+            if (!Number.isFinite(valor)) {
+                continue;
+            }
+
+            const medicion = {
+                fecha,
+                valor,
+                aulaId: fila.aula_id || null,
+                dispositivoId: fila.dispositivo_id || null
+            };
+
+            if (tipo === "temperatura") {
+                temperaturas.push(medicion);
+            } else {
+                humedades.push(medicion);
+            }
+        }
+
+        temperaturas.sort(
+            (a, b) =>
+                a.fecha.getTime() -
+                b.fecha.getTime()
+        );
+
+        humedades.sort(
+            (a, b) =>
+                a.fecha.getTime() -
+                b.fecha.getTime()
+        );
+
+        const lecturas = [];
+        const usadas = new Set();
+
+        // Cada temperatura se empareja con la humedad
+        // más cercana dentro de la tolerancia.
+        for (const temperatura of temperaturas) {
+
+            let mejorIndice = -1;
+            let mejorDiferencia =
+                TOLERANCIA_PAREJA_MS + 1;
+
+            for (let i = 0; i < humedades.length; i++) {
+
+                if (usadas.has(i)) {
+                    continue;
+                }
+
+                const humedad = humedades[i];
+
+                // No mezclar aulas diferentes.
+                if (
+                    temperatura.aulaId &&
+                    humedad.aulaId &&
+                    temperatura.aulaId !== humedad.aulaId
+                ) {
+                    continue;
+                }
+
+                // No mezclar dispositivos diferentes.
+                if (
+                    temperatura.dispositivoId &&
+                    humedad.dispositivoId &&
+                    temperatura.dispositivoId !==
+                    humedad.dispositivoId
+                ) {
+                    continue;
+                }
+
+                const diferencia = Math.abs(
+                    temperatura.fecha.getTime() -
+                    humedad.fecha.getTime()
+                );
+
+                if (
+                    diferencia <= TOLERANCIA_PAREJA_MS &&
+                    diferencia < mejorDiferencia
+                ) {
+                    mejorDiferencia = diferencia;
+                    mejorIndice = i;
+
+                    if (diferencia === 0) {
+                        break;
+                    }
+                }
+            }
+
+            if (mejorIndice === -1) {
+                continue;
+            }
+
+            usadas.add(mejorIndice);
+
+            const humedad = humedades[mejorIndice];
+
             const propiedades = calcularTermodinamica(
-                grupo.temperatura,
-                grupo.humedad
+                temperatura.valor,
+                humedad.valor
             );
 
             if (!propiedades) {
@@ -320,28 +498,36 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             lecturas.push({
-                ...grupo,
+                fecha: temperatura.fecha,
+                temperatura: temperatura.valor,
+                humedad: humedad.valor,
+
                 ...propiedades,
+
                 variacion: null
             });
         }
 
         lecturas.sort(
-            (a, b) => a.fecha.getTime() - b.fecha.getTime()
+            (a, b) =>
+                a.fecha.getTime() -
+                b.fecha.getTime()
         );
 
+        // Calcular variación térmica.
         for (let i = 1; i < lecturas.length; i++) {
-            lecturas[i].variacion = calcularVariacion(
-                lecturas[i],
-                lecturas[i - 1]
-            );
+            lecturas[i].variacion =
+                calcularVariacion(
+                    lecturas[i],
+                    lecturas[i - 1]
+                );
         }
 
         return lecturas;
     }
 
     // ========================================================
-    // 5. TARJETAS DE RESULTADOS
+    // 6. TARJETAS DE RESULTADOS
     // ========================================================
 
     function limpiarTarjetas() {
@@ -351,10 +537,25 @@ document.addEventListener("DOMContentLoaded", () => {
         escribir(elementos.vapor, "—");
         escribir(elementos.variacion, "—");
 
-        escribir(elementos.estadoRocio, "Sin datos disponibles");
-        escribir(elementos.estadoAbsoluta, "Sin datos disponibles");
-        escribir(elementos.estadoVapor, "Sin datos disponibles");
-        escribir(elementos.estadoVariacion, "Sin datos disponibles");
+        escribir(
+            elementos.estadoRocio,
+            "Sin datos disponibles"
+        );
+
+        escribir(
+            elementos.estadoAbsoluta,
+            "Sin datos disponibles"
+        );
+
+        escribir(
+            elementos.estadoVapor,
+            "Sin datos disponibles"
+        );
+
+        escribir(
+            elementos.estadoVariacion,
+            "Sin datos disponibles"
+        );
 
         escribir(
             elementos.ultima,
@@ -369,16 +570,17 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        const actual = lecturas[lecturas.length - 1];
+        const actual =
+            lecturas[lecturas.length - 1];
 
         escribir(
             elementos.rocio,
-            numero(actual.puntoRocio)
+            numero(actual.puntoRocio, 2)
         );
 
         escribir(
             elementos.absoluta,
-            numero(actual.humedadAbsoluta)
+            numero(actual.humedadAbsoluta, 2)
         );
 
         escribir(
@@ -411,7 +613,7 @@ document.addEventListener("DOMContentLoaded", () => {
         escribir(
             elementos.estadoVariacion,
             actual.variacion === null
-                ? "Se necesitan dos lecturas consecutivas."
+                ? "Se necesitan dos lecturas consecutivas de la misma jornada."
                 : actual.variacion > 0
                     ? "La temperatura está aumentando."
                     : actual.variacion < 0
@@ -426,7 +628,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ========================================================
-    // 6. GRÁFICAS CON CHART.JS
+    // 7. GRÁFICAS CON CHART.JS
     // ========================================================
 
     function crearGrafica(id, etiqueta, color) {
@@ -434,6 +636,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const canvas = document.getElementById(id);
 
         if (!canvas || !window.Chart) {
+            console.warn(
+                `No se pudo crear la gráfica: ${id}`
+            );
             return null;
         }
 
@@ -445,37 +650,52 @@ document.addEventListener("DOMContentLoaded", () => {
 
         return new Chart(contexto, {
             type: "line",
+
             data: {
                 labels: [],
+
                 datasets: [{
                     label: etiqueta,
                     data: [],
+
                     borderColor: color,
                     backgroundColor: color,
+
                     borderWidth: 2,
                     pointRadius: 2,
                     pointHoverRadius: 5,
+
                     tension: 0.25,
                     spanGaps: false
                 }]
             },
+
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 animation: false,
+
                 interaction: {
                     mode: "index",
                     intersect: false
                 },
+
                 plugins: {
                     legend: {
                         display: false
                     },
+
                     tooltip: {
                         callbacks: {
-                            title: elementos => {
+                            title: items => {
+                                const indice =
+                                    items[0]?.dataIndex;
+
+                                const fechas =
+                                    items[0]?.chart?._fechasReales;
+
                                 const fecha =
-                                    elementos[0]?.raw?.fecha;
+                                    fechas?.[indice];
 
                                 return fecha
                                     ? formatoFecha(fecha)
@@ -484,22 +704,28 @@ document.addEventListener("DOMContentLoaded", () => {
                         }
                     }
                 },
+
                 scales: {
                     x: {
                         ticks: {
                             maxTicksLimit: 7,
                             color: "#9ca3af"
                         },
+
                         grid: {
-                            color: "rgba(156,163,175,0.08)"
+                            color:
+                                "rgba(156,163,175,0.08)"
                         }
                     },
+
                     y: {
                         ticks: {
                             color: "#9ca3af"
                         },
+
                         grid: {
-                            color: "rgba(156,163,175,0.08)"
+                            color:
+                                "rgba(156,163,175,0.08)"
                         }
                     }
                 }
@@ -513,6 +739,11 @@ document.addEventListener("DOMContentLoaded", () => {
             console.error(
                 "SMART CLASSROOM: Chart.js no está disponible."
             );
+
+            mostrarAviso(
+                "Error: no se pudo cargar Chart.js."
+            );
+
             return;
         }
 
@@ -552,11 +783,18 @@ document.addEventListener("DOMContentLoaded", () => {
         );
 
         grafica.data.datasets[0].data = lecturas.map(
-            lectura => ({
-                x: formatoHora(lectura.fecha),
-                y: lectura[campo],
-                fecha: lectura.fecha.toISOString()
-            })
+            lectura => {
+                const valor = lectura[campo];
+
+                return Number.isFinite(valor)
+                    ? valor
+                    : null;
+            }
+        );
+
+        // Conservar las fechas completas para tooltips.
+        grafica._fechasReales = lecturas.map(
+            lectura => lectura.fecha
         );
 
         grafica.update("none");
@@ -590,7 +828,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ========================================================
-    // 7. SELECTOR DE AULAS
+    // 8. SELECTOR DE AULAS
     // ========================================================
 
     function inicializarAulas() {
@@ -599,11 +837,15 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        elementos.aula.innerHTML = "";
+        const seleccionAnterior =
+            elementos.aula.value;
+
+        elementos.aula.replaceChildren();
 
         for (const aula of aulas) {
 
-            const opcion = document.createElement("option");
+            const opcion =
+                document.createElement("option");
 
             opcion.value = aula.id;
             opcion.textContent = aula.nombre;
@@ -611,31 +853,36 @@ document.addEventListener("DOMContentLoaded", () => {
             elementos.aula.appendChild(opcion);
         }
 
-        // En pruebas, seleccionar el aula que recibe
-        // las lecturas físicas del ESP32.
-        elementos.aula.value =
-            "c38f5f0d-b44c-449d-a428-fd7369f7209d";
+        const existe = aulas.some(
+            aula => aula.id === seleccionAnterior
+        );
+
+        // Mantener selección si existe.
+        // De lo contrario, seleccionar AULA-PRUEBAS.
+        elementos.aula.value = existe
+            ? seleccionAnterior
+            : "c38f5f0d-b44c-449d-a428-fd7369f7209d";
     }
 
     // ========================================================
-    // 8. ACTUALIZACIÓN DE INFORMACIÓN
+    // 9. ACTUALIZACIÓN DE INFORMACIÓN
     // ========================================================
 
     async function actualizarDatos() {
 
+        const solicitudActual = ++generacion;
+
         if (!API || typeof API.get !== "function") {
             mostrarAviso(
-                "Error: no se encontró SmartClassroomAPI."
+                "Error: no se encontró SmartClassroomAPI. " +
+                "Comprueba que api.js se cargue primero."
             );
             return;
         }
 
-        if (cargando) {
-            return;
-        }
-
         const aulaId = elementos.aula?.value;
-        const periodo = elementos.periodo?.value || "hoy";
+        const periodo =
+            elementos.periodo?.value || "hoy";
 
         if (!aulaId) {
             mostrarAviso("Selecciona un aula.");
@@ -643,13 +890,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         cargando = true;
-        const solicitudActual = ++generacion;
 
         if (elementos.actualizar) {
             elementos.actualizar.disabled = true;
         }
 
-        mostrarAviso("Consultando mediciones reales...");
+        mostrarAviso(
+            "Consultando mediciones reales..."
+        );
 
         try {
 
@@ -658,11 +906,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 periodo
             );
 
+            // Si el usuario cambió de aula o período
+            // mientras se consultaba, ignorar resultados
+            // de solicitudes anteriores.
             if (solicitudActual !== generacion) {
                 return;
             }
 
-            const lecturas = construirLecturas(filas);
+            const lecturas =
+                construirLecturas(filas);
 
             actualizarTarjetas(lecturas);
             actualizarGraficas(lecturas);
@@ -677,21 +929,33 @@ document.addEventListener("DOMContentLoaded", () => {
             } else {
 
                 const nombreAula =
-                    aulas.find(a => a.id === aulaId)?.nombre ||
+                    aulas.find(
+                        aula => aula.id === aulaId
+                    )?.nombre ||
                     "Aula seleccionada";
+
+                const ultima =
+                    lecturas[lecturas.length - 1];
+
+                const advertencia =
+                    filas.length >= LIMITE_API
+                        ? " Se alcanzó el límite de consulta; pueden existir más registros."
+                        : "";
 
                 mostrarAviso(
                     `${nombreAula}: ${lecturas.length} ` +
                     "mediciones completas. " +
                     `Última lectura: ${
-                        formatoFecha(
-                            lecturas[lecturas.length - 1].fecha
-                        )
-                    }.`
+                        formatoFecha(ultima.fecha)
+                    }.${advertencia}`
                 );
             }
 
         } catch (error) {
+
+            if (solicitudActual !== generacion) {
+                return;
+            }
 
             console.error(
                 "SMART CLASSROOM - Termodinámica:",
@@ -707,16 +971,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
         } finally {
 
-            cargando = false;
+            if (solicitudActual === generacion) {
+                cargando = false;
 
-            if (elementos.actualizar) {
-                elementos.actualizar.disabled = false;
+                if (elementos.actualizar) {
+                    elementos.actualizar.disabled = false;
+                }
             }
         }
     }
 
     // ========================================================
-    // 9. EVENTOS
+    // 10. EVENTOS
     // ========================================================
 
     inicializarAulas();
@@ -743,10 +1009,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     actualizarDatos();
 
-    // Actualización automática cada minuto.
+    // Actualización automática cada 60 segundos.
     setInterval(
         actualizarDatos,
         INTERVALO_ACTUALIZACION
     );
 
+    console.log(
+        "SMART CLASSROOM: módulo termodinámico iniciado."
+    );
 });
