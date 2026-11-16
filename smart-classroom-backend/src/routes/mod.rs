@@ -10,6 +10,7 @@ pub mod sensores;
 
 pub mod dispositivos;
 pub mod rangos;
+pub mod tipos_sensor;
 
 #[path = "Auth.rs"]
 pub mod auth;
@@ -42,6 +43,9 @@ pub fn create_router() -> Router {
 
         // Rangos ambientales
         .merge(rangos::router())
+
+        // Tipos de sensor
+        .merge(tipos_sensor::router())
 
         // WebSocket
         .route("/ws", get(crate::websocket::ws_handler))
