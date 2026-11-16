@@ -95,15 +95,21 @@ body.alerts-page[data-theme="light"] {
 .alerts-content {
     position: relative;
     z-index: 1;
+    min-width: 0;
 }
 
 .alerts-welcome {
     margin-bottom: 26px;
 }
 
+.alerts-welcome .welcome-text {
+    min-width: 0;
+}
+
 .alerts-welcome h1 {
     font-size: clamp(30px, 3vw, 42px);
     letter-spacing: -0.04em;
+    overflow-wrap: break-word;
 }
 
 .alerts-welcome p {
@@ -128,6 +134,10 @@ body.alerts-page[data-theme="light"] {
     background: var(--alerts-surface);
     border: 1px solid var(--alerts-border);
     border-radius: 20px;
+
+    transition:
+        background-color 0.25s ease,
+        border-color 0.25s ease;
 }
 
 .alerts-stat-top {
@@ -137,6 +147,11 @@ body.alerts-page[data-theme="light"] {
     gap: 12px;
     color: var(--alerts-label);
     font-size: 12px;
+}
+
+.alerts-stat-top span {
+    min-width: 0;
+    overflow-wrap: break-word;
 }
 
 .alerts-stat-top svg {
@@ -162,15 +177,17 @@ body.alerts-page[data-theme="light"] {
     font-weight: 700;
     letter-spacing: -0.03em;
     font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
 }
 
 .alerts-stat small {
     color: var(--alerts-subtle);
     font-size: 11px;
+    line-height: 1.5;
 }
 
 /* ============================================
-   5. AVISO DE DEMOSTRACIÓN
+   5. AVISO DEL SISTEMA
    ============================================ */
 
 .alerts-notice {
@@ -179,12 +196,15 @@ body.alerts-page[data-theme="light"] {
     gap: 12px;
     margin-bottom: 20px;
     padding: 14px 16px;
+
     color: var(--alerts-notice-text);
     background: rgba(244, 185, 66, 0.06);
     border: 1px solid rgba(244, 185, 66, 0.17);
     border-radius: 12px;
+
     font-size: 12px;
     line-height: 1.7;
+    overflow-wrap: anywhere;
 }
 
 .alerts-notice svg {
@@ -199,11 +219,16 @@ body.alerts-page[data-theme="light"] {
    ============================================ */
 
 .alerts-panel {
+    min-width: 0;
     margin-bottom: 22px;
     padding: 24px;
     background: var(--alerts-surface);
     border: 1px solid var(--alerts-border);
     border-radius: 20px;
+
+    transition:
+        background-color 0.25s ease,
+        border-color 0.25s ease;
 }
 
 .alerts-panel-heading {
@@ -211,30 +236,37 @@ body.alerts-page[data-theme="light"] {
     justify-content: space-between;
     align-items: center;
     gap: 16px;
+    min-width: 0;
 }
 
 .alerts-panel-heading h2 {
     margin: 0;
     color: var(--alerts-heading);
     font-size: 17px;
+    overflow-wrap: break-word;
 }
 
 .alerts-demo-tag {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    flex-shrink: 0;
     padding: 7px 11px;
+
     color: var(--alerts-gold);
     background: rgba(244, 185, 66, 0.09);
     border: 1px solid rgba(244, 185, 66, 0.2);
     border-radius: 30px;
+
     font-size: 11px;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .alerts-demo-tag svg {
     width: 14px;
     height: 14px;
+    flex-shrink: 0;
 }
 
 /* ============================================
@@ -265,14 +297,20 @@ body.alerts-page[data-theme="light"] {
     min-width: 0;
     min-height: 44px;
     padding: 0 13px;
+
     color: var(--alerts-control-text);
     background: var(--alerts-control-bg);
     border: 1px solid var(--alerts-control-border);
     border-radius: 11px;
+
     font: inherit;
     font-size: 13px;
     outline: none;
     color-scheme: var(--alerts-input-scheme);
+}
+
+.alerts-field select {
+    cursor: pointer;
 }
 
 .alerts-field select option {
@@ -293,6 +331,7 @@ body.alerts-page[data-theme="light"] {
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
+    min-width: 0;
 }
 
 /* ============================================
@@ -307,14 +346,18 @@ body.alerts-page[data-theme="light"] {
     min-height: 44px;
     padding: 0 16px;
     border-radius: 11px;
+
     font: inherit;
     font-size: 12px;
     font-weight: 600;
+
     cursor: pointer;
     white-space: nowrap;
+
     transition:
-        background 0.2s ease,
+        background-color 0.2s ease,
         border-color 0.2s ease,
+        color 0.2s ease,
         opacity 0.2s ease;
 }
 
@@ -330,8 +373,9 @@ body.alerts-page[data-theme="light"] {
     border: 1px solid var(--alerts-gold);
 }
 
-.alerts-button-primary:hover {
+.alerts-button-primary:hover:not(:disabled) {
     background: #ffd077;
+    border-color: #ffd077;
 }
 
 .alerts-button-secondary,
@@ -341,7 +385,7 @@ body.alerts-page[data-theme="light"] {
     border: 1px solid var(--alerts-control-border);
 }
 
-.alerts-button-secondary:hover,
+.alerts-button-secondary:hover:not(:disabled),
 .alerts-page-button:hover:not(:disabled) {
     background: var(--alerts-secondary-hover);
 }
@@ -354,10 +398,12 @@ body.alerts-page[data-theme="light"] {
 .alerts-attend-button {
     min-height: 35px;
     padding: 0 11px;
+
     color: var(--alerts-gold);
     background: rgba(244, 185, 66, 0.1);
     border: 1px solid rgba(244, 185, 66, 0.28);
     border-radius: 9px;
+
     font-size: 11px;
 }
 
@@ -372,11 +418,15 @@ body.alerts-page[data-theme="light"] {
 .alerts-message {
     margin: 0 0 20px;
     padding: 13px 16px;
+
     color: var(--alerts-success-text);
     background: rgba(131, 205, 164, 0.09);
     border: 1px solid rgba(131, 205, 164, 0.2);
     border-radius: 12px;
+
     font-size: 13px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
 }
 
 .alerts-message.error {
@@ -393,7 +443,7 @@ body.alerts-page[data-theme="light"] {
 }
 
 /* ============================================
-   10. TABLA
+   10. PANEL DE TABLA
    ============================================ */
 
 .alerts-table-panel {
@@ -409,24 +459,33 @@ body.alerts-page[data-theme="light"] {
     padding: 24px 24px 18px;
 }
 
+.alerts-table-heading > div {
+    min-width: 0;
+}
+
 .alerts-table-heading h2 {
     margin: 8px 0;
     color: var(--alerts-text);
     font-size: 19px;
+    overflow-wrap: break-word;
 }
 
 .alerts-table-heading p {
     margin: 0;
     color: var(--alerts-muted);
     font-size: 12px;
+    line-height: 1.6;
 }
 
 .alerts-table-counter {
+    flex-shrink: 0;
     padding: 8px 12px;
+
     color: var(--alerts-gold);
     background: rgba(244, 185, 66, 0.09);
     border: 1px solid rgba(244, 185, 66, 0.2);
     border-radius: 20px;
+
     font-size: 11px;
     font-weight: 600;
     white-space: nowrap;
@@ -452,14 +511,17 @@ body.alerts-page[data-theme="light"] {
 .alerts-search-input {
     position: relative;
     width: min(100%, 360px);
+    min-width: 0;
 }
 
 .alerts-search-input svg {
     position: absolute;
     top: 50%;
     left: 13px;
+
     width: 17px;
     height: 17px;
+
     color: var(--alerts-subtle);
     transform: translateY(-50%);
     pointer-events: none;
@@ -467,12 +529,15 @@ body.alerts-page[data-theme="light"] {
 
 .alerts-search-input input {
     width: 100%;
+    min-width: 0;
     min-height: 43px;
     padding: 0 13px 0 40px;
+
     color: var(--alerts-control-text);
     background: var(--alerts-control-bg);
     border: 1px solid var(--alerts-control-border);
     border-radius: 11px;
+
     font: inherit;
     font-size: 12px;
     outline: none;
@@ -480,6 +545,7 @@ body.alerts-page[data-theme="light"] {
 
 .alerts-search-input input::placeholder {
     color: var(--alerts-subtle);
+    opacity: 1;
 }
 
 /* ============================================
@@ -488,7 +554,9 @@ body.alerts-page[data-theme="light"] {
 
 .alerts-table-scroll {
     width: 100%;
+    max-width: 100%;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .alerts-table {
@@ -504,6 +572,7 @@ body.alerts-page[data-theme="light"] {
 
 .alerts-table th {
     padding: 16px 15px;
+
     color: var(--alerts-muted);
     font-size: 11px;
     font-weight: 600;
@@ -514,6 +583,7 @@ body.alerts-page[data-theme="light"] {
 
 .alerts-table td {
     padding: 17px 15px;
+
     color: var(--alerts-body);
     font-size: 12px;
     line-height: 1.5;
@@ -522,7 +592,7 @@ body.alerts-page[data-theme="light"] {
 }
 
 .alerts-table tbody tr {
-    transition: background 0.2s ease;
+    transition: background-color 0.2s ease;
 }
 
 .alerts-table tbody tr:hover {
@@ -548,23 +618,25 @@ body.alerts-page[data-theme="light"] {
     background: var(--alerts-blue);
 }
 
-.alerts-value {
+.alerts-table td.alerts-value {
     color: var(--alerts-heading);
     font-weight: 700;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
 }
 
-.alerts-date {
+.alerts-table td.alerts-date {
     color: var(--alerts-muted);
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
 }
 
-.alerts-description {
+.alerts-table td.alerts-description {
     min-width: 220px;
     max-width: 330px;
     color: var(--alerts-label);
+    overflow-wrap: anywhere;
+    white-space: normal;
 }
 
 /* ============================================
@@ -577,6 +649,7 @@ body.alerts-page[data-theme="light"] {
     gap: 6px;
     padding: 6px 10px;
     border-radius: 20px;
+
     font-size: 11px;
     font-weight: 600;
     white-space: nowrap;
@@ -595,6 +668,7 @@ body.alerts-page[data-theme="light"] {
 .alerts-status-dot {
     width: 6px;
     height: 6px;
+    flex-shrink: 0;
     border-radius: 50%;
     background: currentColor;
 }
@@ -630,6 +704,7 @@ body.alerts-page[data-theme="light"] {
 .alerts-empty p {
     color: var(--alerts-muted);
     font-size: 13px;
+    line-height: 1.6;
 }
 
 /* ============================================
@@ -648,6 +723,7 @@ body.alerts-page[data-theme="light"] {
 #alerts-page-summary {
     color: var(--alerts-muted);
     font-size: 12px;
+    line-height: 1.5;
 }
 
 .alerts-pagination-controls {
@@ -663,7 +739,7 @@ body.alerts-page[data-theme="light"] {
 }
 
 /* ============================================
-   16. RESPONSIVE
+   16. RESPONSIVE — ESCRITORIO
    ============================================ */
 
 @media (max-width: 1300px) {
@@ -672,11 +748,19 @@ body.alerts-page[data-theme="light"] {
     }
 }
 
+/* ============================================
+   17. RESPONSIVE — TABLET
+   ============================================ */
+
 @media (max-width: 1050px) {
     .alerts-filters {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
+
+/* ============================================
+   18. RESPONSIVE — CELULAR
+   ============================================ */
 
 @media (max-width: 700px) {
     .alerts-summary,
@@ -719,7 +803,19 @@ body.alerts-page[data-theme="light"] {
         justify-content: space-between;
         flex-wrap: wrap;
     }
+
+    .alerts-table-counter {
+        align-self: flex-start;
+    }
+
+    .alerts-welcome h1 {
+        font-size: clamp(27px, 7vw, 34px);
+    }
 }
+
+/* ============================================
+   19. RESPONSIVE — CELULAR PEQUEÑO
+   ============================================ */
 
 @media (max-width: 480px) {
     .alerts-panel-heading {
@@ -734,21 +830,76 @@ body.alerts-page[data-theme="light"] {
     .alerts-filter-actions .alerts-button {
         flex: 1;
     }
+
+    .alerts-stat {
+        padding: 19px;
+    }
+
+    .alerts-stat strong {
+        font-size: 27px;
+    }
+
+    .alerts-pagination-controls {
+        gap: 8px;
+    }
+
+    .alerts-page-button {
+        padding: 0 10px;
+        font-size: 12px;
+    }
 }
 
 /* ============================================
-   17. ACCESIBILIDAD
+   20. RESPONSIVE — PANTALLAS MUY PEQUEÑAS
+   ============================================ */
+
+@media (max-width: 360px) {
+    .alerts-panel {
+        padding: 14px;
+    }
+
+    .alerts-table-panel {
+        padding: 0;
+    }
+
+    .alerts-stat {
+        padding: 16px;
+    }
+
+    .alerts-table-heading {
+        padding: 15px;
+    }
+
+    .alerts-search-row {
+        padding: 0 15px 15px;
+    }
+
+    .alerts-pagination {
+        padding: 15px;
+    }
+
+    .alerts-page-number {
+        width: 100%;
+        text-align: center;
+        order: -1;
+    }
+}
+
+/* ============================================
+   21. ACCESIBILIDAD
    ============================================ */
 
 @media (prefers-reduced-motion: reduce) {
     .alerts-button,
+    .alerts-panel,
+    .alerts-stat,
     .alerts-table tbody tr {
         transition: none;
     }
 }
 
 /* ============================================
-   18. AJUSTES ADICIONALES PARA TEMA CLARO
+   22. AJUSTES ADICIONALES PARA TEMA CLARO
    ============================================ */
 
 html[data-theme="light"] .alerts-button-primary,
@@ -756,9 +907,11 @@ body.alerts-page[data-theme="light"] .alerts-button-primary {
     color: #ffffff;
 }
 
-html[data-theme="light"] .alerts-button-primary:hover,
-body.alerts-page[data-theme="light"] .alerts-button-primary:hover {
+html[data-theme="light"] .alerts-button-primary:hover:not(:disabled),
+body.alerts-page[data-theme="light"] .alerts-button-primary:hover:not(:disabled) {
+    color: #ffffff;
     background: #925d06;
+    border-color: #925d06;
 }
 
 html[data-theme="light"] .alerts-field input,
@@ -766,4 +919,19 @@ html[data-theme="light"] .alerts-field select,
 body.alerts-page[data-theme="light"] .alerts-field input,
 body.alerts-page[data-theme="light"] .alerts-field select {
     color-scheme: light;
+}
+
+html[data-theme="light"] .alerts-attend-button,
+body.alerts-page[data-theme="light"] .alerts-attend-button {
+    color: #80520b;
+}
+
+html[data-theme="light"] .alerts-status.active,
+body.alerts-page[data-theme="light"] .alerts-status.active {
+    color: var(--alerts-active-text);
+}
+
+html[data-theme="light"] .alerts-status.attended,
+body.alerts-page[data-theme="light"] .alerts-status.attended {
+    color: var(--alerts-attended-text);
 }

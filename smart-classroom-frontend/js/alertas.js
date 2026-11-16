@@ -2,30 +2,28 @@
 "use strict";
 
 /* ============================================================
-   SMART CLASSROOM - CENTRO DE ALERTAS
+   SMART CLASSROOM — CENTRO DE ALERTAS
    Universidad de El Salvador
 
-   Integración real:
+   Backend: Rust + Axum
+   Base de datos: PostgreSQL / Supabase
+
+   Endpoints:
    GET /api/aulas
    GET /api/alertas
    PUT /api/alertas/{id}/estado
-
-   Backend: Rust + Axum en Render
-   Base de datos: PostgreSQL / Supabase
 
    Sin registros simulados.
    ============================================================ */
 
 (() => {
-    "use strict";
-
     document.addEventListener("DOMContentLoaded", () => {
 
         // ====================================================
         // 1. CONFIGURACIÓN
         // ====================================================
 
-        const API_URL = (
+        const API_URL = String(
             window.SMART_CLASSROOM_CONFIG?.API_URL ||
             "https://smart-classroom-hitb.onrender.com"
         ).replace(/\/+$/, "");
@@ -42,7 +40,8 @@
             pagina: 1,
             guardando: null,
             cargando: false,
-            error: false
+            error: false,
+            numeroConsulta: 0
         };
 
         const nombresVariables = {
@@ -57,24 +56,24 @@
         async function peticion(ruta, opciones = {}) {
             const token = sessionStorage.getItem("sc_token");
 
+            const headers = {
+                Accept: "application/json",
+                ...(opciones.body !== undefined
+                    ? { "Content-Type": "application/json" }
+                    : {}),
+                ...(token
+                    ? { Authorization: `Bearer ${token}` }
+                    : {}),
+                ...(opciones.headers || {})
+            };
+
             const respuesta = await fetch(API_URL + ruta, {
                 ...opciones,
-                headers: {
-                    Accept: "application/json",
-
-                    ...(opciones.body !== undefined
-                        ? { "Content-Type": "application/json" }
-                        : {}),
-
-                    ...(token
-                        ? { Authorization: `Bearer ${token}` }
-                        : {}),
-
-                    ...(opciones.headers || {})
-                }
+                headers
             });
 
             const texto = await respuesta.text();
+
             let datos = null;
 
             if (texto) {
@@ -86,14 +85,15 @@
             }
 
             if (!respuesta.ok) {
-                throw new Error(
+                const detalle =
                     typeof datos === "string"
                         ? datos
                         : datos?.mensaje ||
                           datos?.message ||
                           datos?.error ||
-                          `Error HTTP ${respuesta.status}`
-                );
+                          `Error HTTP ${respuesta.status}`;
+
+                throw new Error(String(detalle));
             }
 
             return datos;
@@ -133,37 +133,22 @@
             }
         }
 
-        function mensaje(texto, error = false) {
+        function mensaje(texto, esError = false) {
             const elemento = $("mensaje");
 
             if (!elemento) return;
 
             elemento.textContent = texto;
             elemento.hidden = !texto;
-            elemento.classList.toggle("error", error);
+            elemento.classList.toggle("error", esError);
         }
 
-        function conexion(conectado) {
-            escribir(
-                "connection-status",
-                conectado ? "API conectada" : "Sin conexión"
-            );
-
-            escribir(
-                "sidebar-status-text",
-                conectado
-                    ? "Backend conectado"
-                    : "Backend desconectado"
-            );
-
-            const punto = $("sidebar-status-dot");
-
-            if (punto) {
-                punto.style.backgroundColor = conectado
-                    ? "#22c55e"
-                    : "#ef4444";
-            }
+        function aviso(texto) {
+            escribir("alerts-notice-text", texto);
         }
+
+        // Los indicadores globales de conexión
+        // pertenecen a layout.js.
 
         function iconos() {
             if (window.lucide) {
@@ -186,17 +171,26 @@
 
             if (!fecha) return "";
 
-            const partes = new Intl.DateTimeFormat("en-US", {
-                timeZone: ZONA_HORARIA,
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit"
-            }).formatToParts(fecha);
+            const partes = new Intl.DateTimeFormat(
+                "en-US",
+                {
+                    timeZone: ZONA_HORARIA,
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit"
+                }
+            ).formatToParts(fecha);
 
             const obtener = tipo =>
-                partes.find(parte => parte.type === tipo)?.value;
+                partes.find(
+                    parte => parte.type === tipo
+                )?.value || "";
 
-            return `${obtener("year")}-${obtener("month")}-${obtener("day")}`;
+            return [
+                obtener("year"),
+                obtener("month"),
+                obtener("day")
+            ].join("-");
         }
 
         function formatearFecha(valor) {
@@ -241,7 +235,8 @@
             const texto = normalizarTexto(valor);
 
             if (
-                ["activa", "activo", "pendiente"].includes(texto)
+                ["activa", "activo", "pendiente"]
+                    .includes(texto)
             ) {
                 return "activa";
             }
@@ -258,16 +253,29 @@
 
         function nombreAula(id) {
             const aula = estado.aulas.find(
-                item => item.id === id
+                item => String(item.id) === String(id)
             );
 
-            return aula
-                ? `${aula.codigo} · ${aula.nombre}`
-                : id || "Aula no disponible";
+            if (!aula) {
+                return id || "Aula no disponible";
+            }
+
+            const codigo = aula.codigo || "";
+            const nombre = aula.nombre || "";
+
+            if (
+                codigo &&
+                nombre &&
+                codigo !== nombre
+            ) {
+                return `${codigo} · ${nombre}`;
+            }
+
+            return codigo || nombre || String(id);
         }
 
         // ====================================================
-        // 4. CARGAR AULAS REALES
+        // 4. CARGAR AULAS
         // ====================================================
 
         async function cargarAulas() {
@@ -284,25 +292,22 @@
             selector.replaceChildren();
 
             const todas = document.createElement("option");
-
             todas.value = "";
             todas.textContent = "Todas las aulas";
-
             selector.appendChild(todas);
 
             for (const aula of estado.aulas) {
                 const opcion = document.createElement("option");
 
-                opcion.value = aula.id;
-                opcion.textContent =
-                    `${aula.codigo} · ${aula.nombre}`;
+                opcion.value = String(aula.id);
+                opcion.textContent = nombreAula(aula.id);
 
                 selector.appendChild(opcion);
             }
 
             if (
                 estado.aulas.some(
-                    aula => aula.id === anterior
+                    aula => String(aula.id) === anterior
                 )
             ) {
                 selector.value = anterior;
@@ -368,7 +373,9 @@
             return {
                 id: registro.id,
 
-                aula_id: aulaId,
+                aula_id: aulaId === null
+                    ? null
+                    : String(aulaId),
 
                 aula: String(nombre),
 
@@ -412,23 +419,34 @@
         // 6. CONSULTAR ALERTAS REALES
         // ====================================================
 
+        function actualizarBotonConsulta() {
+            const boton = $("boton-buscar");
+
+            if (boton) {
+                boton.disabled =
+                    estado.cargando ||
+                    estado.guardando !== null;
+            }
+        }
+
         async function cargarAlertas() {
-            if (estado.cargando) return false;
+            const consulta = ++estado.numeroConsulta;
 
             estado.cargando = true;
             estado.error = false;
 
-            escribir(
-                "alerts-notice-text",
+            actualizarBotonConsulta();
+
+            aviso(
                 "Consultando alertas registradas en PostgreSQL..."
             );
 
-            const boton = $("boton-buscar");
-
-            if (boton) boton.disabled = true;
-
             try {
                 const respuesta = await peticion("/api/alertas");
+
+                if (consulta !== estado.numeroConsulta) {
+                    return false;
+                }
 
                 estado.alertas = lista(respuesta, "alertas")
                     .map(normalizarAlerta)
@@ -439,27 +457,28 @@
                             (fechaValida(a.fecha_hora)?.getTime() || 0)
                     );
 
-                conexion(true);
-                mensaje("");
+                estado.pagina = Math.max(1, estado.pagina);
+
                 aplicarFiltros();
 
-                escribir(
-                    "alerts-notice-text",
+                aviso(
                     `Se consultaron ${estado.alertas.length} alertas reales del backend.`
                 );
 
                 return true;
 
             } catch (error) {
+                if (consulta !== estado.numeroConsulta) {
+                    return false;
+                }
+
                 estado.error = true;
                 estado.alertas = [];
                 estado.filtradas = [];
 
-                conexion(false);
                 aplicarFiltros();
 
-                escribir(
-                    "alerts-notice-text",
+                aviso(
                     "No se pudieron consultar las alertas."
                 );
 
@@ -470,21 +489,22 @@
                 );
 
                 console.error(
-                    "SMART CLASSROOM - Alertas:",
+                    "SMART CLASSROOM - Error en alertas:",
                     error
                 );
 
                 return false;
 
             } finally {
-                estado.cargando = false;
-
-                if (boton) boton.disabled = false;
+                if (consulta === estado.numeroConsulta) {
+                    estado.cargando = false;
+                    actualizarBotonConsulta();
+                }
             }
         }
 
         // ====================================================
-        // 7. FILTROS
+        // 7. VALIDACIÓN Y FILTROS
         // ====================================================
 
         function filtrosValidos() {
@@ -496,7 +516,6 @@
                     "La fecha inicial no puede ser posterior a la final.",
                     true
                 );
-
                 return false;
             }
 
@@ -525,62 +544,74 @@
                 $("alerts-search")?.value
             );
 
-            estado.filtradas = estado.alertas.filter(alerta => {
-                if (
-                    filtroEstado &&
-                    alerta.estado !== filtroEstado
-                ) {
-                    return false;
-                }
+            estado.filtradas = estado.alertas.filter(
+                alerta => {
 
-                if (
-                    filtroAula &&
-                    alerta.aula_id !== filtroAula
-                ) {
-                    return false;
-                }
-
-                if (
-                    filtroVariable &&
-                    alerta.variable !== filtroVariable
-                ) {
-                    return false;
-                }
-
-                const fecha = fechaLocal(alerta.fecha_hora);
-
-                if (inicio && fecha < inicio) return false;
-                if (fin && fecha > fin) return false;
-
-                if (busqueda) {
-                    const contenido = normalizarTexto([
-                        alerta.aula,
-                        alerta.variable,
-                        nombresVariables[alerta.variable] || "",
-                        alerta.valor ?? "",
-                        alerta.unidad,
-                        alerta.descripcion,
-                        alerta.estado,
-                        alerta.tipo,
-                        formatearFecha(alerta.fecha_hora)
-                    ].join(" "));
-
-                    if (!contenido.includes(busqueda)) {
+                    if (
+                        filtroEstado &&
+                        alerta.estado !== filtroEstado
+                    ) {
                         return false;
                     }
-                }
 
-                return true;
-            });
+                    if (
+                        filtroAula &&
+                        alerta.aula_id !== filtroAula
+                    ) {
+                        return false;
+                    }
+
+                    if (
+                        filtroVariable &&
+                        alerta.variable !== filtroVariable
+                    ) {
+                        return false;
+                    }
+
+                    const fecha = fechaLocal(
+                        alerta.fecha_hora
+                    );
+
+                    if (inicio && fecha < inicio) {
+                        return false;
+                    }
+
+                    if (fin && fecha > fin) {
+                        return false;
+                    }
+
+                    if (busqueda) {
+                        const contenido = normalizarTexto([
+                            alerta.aula,
+                            alerta.variable,
+                            nombresVariables[alerta.variable] || "",
+                            alerta.valor ?? "",
+                            alerta.unidad,
+                            alerta.descripcion,
+                            alerta.estado,
+                            alerta.tipo,
+                            formatearFecha(alerta.fecha_hora)
+                        ].join(" "));
+
+                        if (!contenido.includes(busqueda)) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                }
+            );
 
             const paginas = Math.max(
                 1,
-                Math.ceil(estado.filtradas.length / POR_PAGINA)
+                Math.ceil(
+                    estado.filtradas.length / POR_PAGINA
+                )
             );
 
-            estado.pagina = Math.min(
-                estado.pagina,
-                paginas
+            estado.pagina = Math.max(
+                1,
+                Math.min(estado.pagina, paginas)
             );
 
             actualizarIndicadores();
@@ -637,18 +668,13 @@
                 `${estado.filtradas.length} alertas`
             );
 
-            const totalActivas = estado.alertas.filter(
-                alerta => alerta.estado === "activa"
-            ).length;
-
-            escribir(
-                "notification-count",
-                totalActivas > 99 ? "99+" : totalActivas
-            );
+            // El contador de la barra superior puede
+            // ser compartido con layout.js.
+            // No lo sobrescribimos desde este módulo.
         }
 
         // ====================================================
-        // 9. TABLA DE ALERTAS
+        // 9. CREACIÓN SEGURA DE CELDAS
         // ====================================================
 
         function celda(texto, clase = "") {
@@ -665,21 +691,16 @@
 
         function celdaVariable(alerta) {
             const td = document.createElement("td");
-
-            const contenedor =
-                document.createElement("span");
+            const contenedor = document.createElement("span");
+            const punto = document.createElement("span");
+            const texto = document.createElement("span");
 
             contenedor.className = "alerts-variable";
-
-            const punto = document.createElement("span");
-
             punto.className = "alerts-variable-dot";
 
             if (alerta.variable === "humedad") {
                 punto.classList.add("humidity");
             }
-
-            const texto = document.createElement("span");
 
             texto.textContent =
                 nombresVariables[alerta.variable] ||
@@ -694,24 +715,18 @@
 
         function celdaEstado(alerta) {
             const td = document.createElement("td");
-
-            const etiqueta =
-                document.createElement("span");
+            const etiqueta = document.createElement("span");
+            const punto = document.createElement("span");
+            const texto = document.createElement("span");
 
             etiqueta.className = "alerts-status";
+            punto.className = "alerts-status-dot";
 
             if (alerta.estado === "activa") {
                 etiqueta.classList.add("active");
-
             } else if (alerta.estado === "atendida") {
                 etiqueta.classList.add("attended");
             }
-
-            const punto = document.createElement("span");
-
-            punto.className = "alerts-status-dot";
-
-            const texto = document.createElement("span");
 
             texto.textContent =
                 alerta.estado === "activa"
@@ -736,7 +751,6 @@
                 texto.textContent = "Sin acciones";
 
                 td.appendChild(texto);
-
                 return td;
             }
 
@@ -751,30 +765,36 @@
                     ? "Guardando..."
                     : "Marcar atendida";
 
-            boton.disabled = estado.guardando !== null;
+            boton.disabled =
+                estado.guardando !== null ||
+                estado.cargando;
 
             boton.addEventListener("click", () => {
                 marcarAtendida(alerta.id);
             });
 
             td.appendChild(boton);
-
             return td;
         }
+
+        // ====================================================
+        // 10. TABLA DE ALERTAS
+        // ====================================================
 
         function mostrarTabla() {
             const cuerpo = $("tabla-cuerpo");
             const tabla = $("tabla-alertas");
             const vacio = $("alerts-empty");
 
-            if (!cuerpo || !tabla || !vacio) return;
+            if (!cuerpo || !tabla || !vacio) {
+                return;
+            }
 
             cuerpo.replaceChildren();
 
             if (estado.filtradas.length === 0) {
                 tabla.hidden = true;
                 vacio.hidden = false;
-
                 return;
             }
 
@@ -789,10 +809,15 @@
                 inicio + POR_PAGINA
             );
 
+            const fragmento =
+                document.createDocumentFragment();
+
             for (const alerta of registros) {
                 const fila = document.createElement("tr");
 
-                fila.appendChild(celdaVariable(alerta));
+                fila.appendChild(
+                    celdaVariable(alerta)
+                );
 
                 fila.appendChild(
                     celda(
@@ -803,7 +828,9 @@
                     )
                 );
 
-                fila.appendChild(celda(alerta.aula));
+                fila.appendChild(
+                    celda(alerta.aula)
+                );
 
                 fila.appendChild(
                     celda(
@@ -819,19 +846,31 @@
                     )
                 );
 
-                fila.appendChild(celdaEstado(alerta));
-                fila.appendChild(celdaAccion(alerta));
+                fila.appendChild(
+                    celdaEstado(alerta)
+                );
 
-                cuerpo.appendChild(fila);
+                fila.appendChild(
+                    celdaAccion(alerta)
+                );
+
+                fragmento.appendChild(fila);
             }
+
+            cuerpo.appendChild(fragmento);
         }
 
         // ====================================================
-        // 10. MARCAR ALERTA COMO ATENDIDA
+        // 11. MARCAR ALERTA COMO ATENDIDA
         // ====================================================
 
         async function marcarAtendida(id) {
-            if (estado.guardando !== null) return;
+            if (
+                estado.guardando !== null ||
+                estado.cargando
+            ) {
+                return;
+            }
 
             const alerta = estado.alertas.find(
                 item => item.id === id
@@ -842,14 +881,15 @@
                     "La alerta no está activa.",
                     true
                 );
-
                 return;
             }
 
             estado.guardando = id;
-
+            actualizarBotonConsulta();
             mostrarTabla();
             mensaje("");
+
+            let cambioAceptado = false;
 
             try {
                 await peticion(
@@ -862,15 +902,19 @@
                     }
                 );
 
+                cambioAceptado = true;
+
+                // Se vuelve a consultar PostgreSQL para
+                // comprobar que el estado fue actualizado.
                 const actualizado = await cargarAlertas();
 
                 if (!actualizado) {
                     mensaje(
-                        "El servidor respondió al cambio, pero no se pudo " +
-                        "verificar. Recarga la página para comprobarlo.",
+                        "El servidor aceptó el cambio, pero no fue posible " +
+                        "verificarlo mediante una nueva consulta. " +
+                        "Recarga la página para comprobar su estado.",
                         true
                     );
-
                     return;
                 }
 
@@ -883,31 +927,38 @@
                         "La alerta fue marcada como atendida " +
                         "y el cambio se verificó en PostgreSQL."
                     );
-
                 } else {
                     mensaje(
-                        "El cambio no aparece confirmado en la nueva consulta.",
+                        "El cambio no aparece confirmado " +
+                        "en la nueva consulta del backend.",
                         true
                     );
                 }
 
             } catch (error) {
                 mensaje(
-                    "No se pudo marcar la alerta como atendida: " +
-                    error.message,
+                    cambioAceptado
+                        ? "El servidor aceptó el cambio, pero ocurrió " +
+                          "un error al verificarlo: " + error.message
+                        : "No se pudo marcar la alerta como atendida: " +
+                          error.message,
                     true
                 );
 
-                console.error(error);
+                console.error(
+                    "SMART CLASSROOM - Actualizar alerta:",
+                    error
+                );
 
             } finally {
                 estado.guardando = null;
+                actualizarBotonConsulta();
                 mostrarTabla();
             }
         }
 
         // ====================================================
-        // 11. PAGINACIÓN
+        // 12. PAGINACIÓN
         // ====================================================
 
         function actualizarPaginacion() {
@@ -918,9 +969,15 @@
                 Math.ceil(total / POR_PAGINA)
             );
 
-            const inicio = total === 0
-                ? 0
-                : (estado.pagina - 1) * POR_PAGINA + 1;
+            estado.pagina = Math.max(
+                1,
+                Math.min(estado.pagina, paginas)
+            );
+
+            const inicio =
+                total === 0
+                    ? 0
+                    : (estado.pagina - 1) * POR_PAGINA + 1;
 
             const fin = Math.min(
                 estado.pagina * POR_PAGINA,
@@ -941,7 +998,8 @@
             const siguiente = $("boton-siguiente");
 
             if (anterior) {
-                anterior.disabled = estado.pagina <= 1;
+                anterior.disabled =
+                    estado.pagina <= 1;
             }
 
             if (siguiente) {
@@ -957,7 +1015,7 @@
         }
 
         // ====================================================
-        // 12. EVENTOS
+        // 13. EVENTOS
         // ====================================================
 
         $("form-filtros")?.addEventListener(
@@ -969,7 +1027,6 @@
 
                 mensaje("");
                 estado.pagina = 1;
-
                 aplicarFiltros();
             }
         );
@@ -1003,12 +1060,11 @@
         $("boton-anterior")?.addEventListener(
             "click",
             () => {
-                if (estado.pagina > 1) {
-                    estado.pagina--;
+                if (estado.pagina <= 1) return;
 
-                    mostrarTabla();
-                    actualizarPaginacion();
-                }
+                estado.pagina--;
+                mostrarTabla();
+                actualizarPaginacion();
             }
         );
 
@@ -1022,50 +1078,44 @@
                     )
                 );
 
-                if (estado.pagina < paginas) {
-                    estado.pagina++;
+                if (estado.pagina >= paginas) return;
 
-                    mostrarTabla();
-                    actualizarPaginacion();
-                }
+                estado.pagina++;
+                mostrarTabla();
+                actualizarPaginacion();
             }
         );
 
         // ====================================================
-        // 13. INICIALIZACIÓN
+        // 14. INICIALIZACIÓN
         // ====================================================
 
         async function iniciar() {
-            conexion(false);
             mensaje("");
 
-            try {
-                await cargarAulas();
+            // Las alertas deben poder cargarse incluso
+            // si falla la consulta independiente de aulas.
+            const resultados = await Promise.allSettled([
+                cargarAulas(),
+                cargarAlertas()
+            ]);
 
-            } catch (error) {
-                console.error(
-                    "Error al cargar aulas:",
-                    error
+            const resultadoAulas = resultados[0];
+
+            if (resultadoAulas.status === "rejected") {
+                console.warn(
+                    "SMART CLASSROOM - No se pudieron cargar aulas:",
+                    resultadoAulas.reason
                 );
 
-                mensaje(
-                    "No se pudieron cargar las aulas: " +
-                    error.message,
-                    true
-                );
+                // Conservar las opciones existentes del HTML
+                // para permitir filtrar por las aulas conocidas.
             }
-
-            await cargarAlertas();
 
             iconos();
 
             console.log(
                 "SMART CLASSROOM: Centro de Alertas inicializado."
-            );
-
-            console.log(
-                "SMART CLASSROOM: Backend configurado:",
-                API_URL
             );
         }
 

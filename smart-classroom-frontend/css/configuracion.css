@@ -990,3 +990,61 @@ body.settings-page[data-theme="light"] .settings-table input[type="number"],
 body.settings-page[data-theme="light"] .settings-field input[type="number"] {
     color-scheme: light;
 }
+
+/* ============================================================
+   20. COMPATIBILIDAD CON EL SELECTOR DE AULAS
+   Añadido para configuracion.js.
+   No sustituye estilos originales.
+   ============================================================ */
+
+.settings-aula-selector {
+    margin-bottom: 22px;
+}
+
+.settings-field select {
+    display: block;
+    width: 100%;
+    min-height: 43px;
+    padding: 0 13px;
+
+    color: var(--settings-input-text);
+    background: var(--settings-field);
+    border: 1px solid var(--settings-input-border);
+    border-radius: 10px;
+
+    font: inherit;
+    font-size: 13px;
+    color-scheme: var(--settings-input-scheme);
+    outline: none;
+    cursor: pointer;
+
+    transition:
+        border-color 0.2s ease,
+        background 0.2s ease;
+}
+
+.settings-field select:hover:not(:disabled) {
+    border-color: rgba(244, 185, 66, 0.28);
+}
+
+.settings-field select:focus-visible {
+    border-color: var(--settings-gold);
+    outline: 2px solid rgba(244, 185, 66, 0.35);
+    outline-offset: 2px;
+}
+
+.settings-field select:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.settings-field select option {
+    color: var(--settings-input-text);
+    background: var(--settings-field);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .settings-field select {
+        transition: none;
+    }
+}

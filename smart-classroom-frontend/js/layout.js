@@ -3,83 +3,49 @@
 
 // ============================================================
 // SMART CLASSROOM - LAYOUT GENERAL
-// Universidad de El Salvador
-//
-// FUNCIONALIDADES:
-// - Iconos Lucide.
-// - Tema claro y oscuro.
-// - Navegación lateral.
-// - Contador global de alertas reales.
-// - Sincronización periódica con PostgreSQL.
-//
-// IMPORTANTE:
-// - No modifica datos de Supabase.
-// - No modifica las mediciones.
-// - No modifica el farol animado.
-// - No interfiere con las gráficas.
+// Compatible con PC, tablet y celular
 // ============================================================
 
 (() => {
-
-    // ========================================================
-    // 1. CONFIGURACIÓN GENERAL
-    // ========================================================
-
     const THEME_KEY = "smart-classroom:theme";
-
-    // Actualizar alertas cada 30 segundos.
     const INTERVALO_ALERTAS = 30000;
 
     let intervaloAlertas = null;
     let consultaAlertasEnCurso = false;
 
     // ========================================================
-    // 2. ICONOS LUCIDE
+    // 1. ICONOS
     // ========================================================
 
     function iniciarIconos() {
-
         if (
             window.lucide &&
             typeof window.lucide.createIcons === "function"
         ) {
-
             window.lucide.createIcons({
                 attrs: {
                     "stroke-width": 2,
                     "aria-hidden": "true"
                 }
             });
-
-            console.info(
-                "SMART CLASSROOM: iconos inicializados."
-            );
-
         } else {
-
-            console.error(
-                "SMART CLASSROOM: no se pudo cargar Lucide."
+            console.warn(
+                "SMART CLASSROOM: Lucide no disponible."
             );
         }
     }
 
     // ========================================================
-    // 3. OBTENER TEMA ACTUAL
+    // 2. TEMA CLARO / OSCURO
     // ========================================================
 
     function temaActual() {
-
         return document.documentElement.getAttribute(
             "data-theme"
         ) || "dark";
     }
 
-    // ========================================================
-    // 4. APLICAR TEMA
-    // ========================================================
-
     function aplicarTema(tema) {
-
         const temaSeguro =
             tema === "light" ? "light" : "dark";
 
@@ -93,153 +59,256 @@
             temaSeguro
         );
 
-        localStorage.setItem(
-            THEME_KEY,
-            temaSeguro
-        );
+        try {
+            localStorage.setItem(
+                THEME_KEY,
+                temaSeguro
+            );
+        } catch (error) {
+            console.warn(
+                "No se pudo guardar el tema.",
+                error
+            );
+        }
 
         const boton =
             document.getElementById("theme-toggle");
 
-        if (boton) {
+        if (!boton) return;
 
-            boton.setAttribute(
-                "aria-label",
-                temaSeguro === "dark"
-                    ? "Activar tema claro"
-                    : "Activar tema oscuro"
+        boton.setAttribute(
+            "aria-label",
+            temaSeguro === "dark"
+                ? "Activar tema claro"
+                : "Activar tema oscuro"
+        );
+
+        boton.setAttribute(
+            "aria-pressed",
+            String(temaSeguro === "light")
+        );
+
+        const icono = boton.querySelector(
+            "[data-lucide], svg"
+        );
+
+        if (icono) {
+            const nuevo = document.createElement("i");
+
+            nuevo.setAttribute(
+                "data-lucide",
+                temaSeguro === "dark" ? "moon" : "sun"
             );
 
-            boton.setAttribute(
-                "aria-pressed",
-                String(temaSeguro === "light")
-            );
-
-            const icono = boton.querySelector(
-                "[data-lucide], svg"
-            );
-
-            if (icono) {
-
-                const nombre =
-                    temaSeguro === "dark"
-                        ? "moon"
-                        : "sun";
-
-                const nuevo =
-                    document.createElement("i");
-
-                nuevo.setAttribute(
-                    "data-lucide",
-                    nombre
-                );
-
-                icono.replaceWith(nuevo);
-
-                iniciarIconos();
-            }
+            icono.replaceWith(nuevo);
+            iniciarIconos();
         }
     }
-
-    // ========================================================
-    // 5. INICIAR TEMA
-    // ========================================================
 
     function iniciarTema() {
+        let temaGuardado = "dark";
 
-        const temaGuardado =
-            localStorage.getItem(THEME_KEY);
+        try {
+            temaGuardado =
+                localStorage.getItem(THEME_KEY) || "dark";
+        } catch (error) {
+            console.warn(
+                "No se pudo leer el tema guardado.",
+                error
+            );
+        }
 
-        aplicarTema(
-            temaGuardado || "dark"
-        );
+        aplicarTema(temaGuardado);
 
         const boton =
             document.getElementById("theme-toggle");
 
-        if (!boton) {
-            return;
-        }
+        if (!boton) return;
 
-        boton.addEventListener(
-            "click",
-            () => {
+        boton.addEventListener("click", () => {
+            const siguiente =
+                temaActual() === "dark"
+                    ? "light"
+                    : "dark";
 
-                const siguiente =
-                    temaActual() === "dark"
-                        ? "light"
-                        : "dark";
-
-                aplicarTema(siguiente);
-            }
-        );
+            aplicarTema(siguiente);
+        });
     }
 
     // ========================================================
-    // 6. MENÚ LATERAL
+    // 3. MENÚ RESPONSIVE
     // ========================================================
 
     function iniciarMenu() {
-
         const boton =
             document.getElementById("menu-toggle");
 
         const sidebar =
             document.getElementById("sidebar");
 
-        if (!boton || !sidebar) {
-            return;
-        }
+        if (!boton || !sidebar) return;
 
-        boton.addEventListener(
-            "click",
-            () => {
+        const mediaMovil =
+            window.matchMedia("(max-width: 900px)");
 
-                const abierto =
-                    sidebar.classList.toggle("is-open");
+        // Fondo oscuro para tablet y celular.
+        const fondo = document.createElement("button");
 
-                document.body.classList.toggle(
-                    "sidebar-open",
-                    abierto
-                );
+        fondo.type = "button";
+        fondo.className = "mobile-sidebar-backdrop";
+        fondo.hidden = true;
+        fondo.tabIndex = -1;
 
-                boton.setAttribute(
-                    "aria-expanded",
-                    String(abierto)
-                );
-            }
+        fondo.setAttribute(
+            "aria-label",
+            "Cerrar menú"
         );
 
+        // Los estilos se incorporan aquí para mantener
+        // compatibilidad con el dashboard.css existente.
+        Object.assign(fondo.style, {
+            position: "fixed",
+            inset: "0",
+            width: "100%",
+            height: "100%",
+            padding: "0",
+            margin: "0",
+            border: "0",
+            borderRadius: "0",
+            background: "rgba(0, 0, 0, 0.58)",
+            backdropFilter: "blur(3px)",
+            WebkitBackdropFilter: "blur(3px)",
+            zIndex: "90",
+            cursor: "pointer"
+        });
+
+        document.body.appendChild(fondo);
+
+        boton.setAttribute(
+            "aria-controls",
+            "sidebar"
+        );
+
+        let menuAbierto = false;
+        let overflowAnterior = "";
+
+        function establecerMenu(abierto) {
+            const mostrar =
+                Boolean(abierto && mediaMovil.matches);
+
+            if (mostrar && !menuAbierto) {
+                overflowAnterior =
+                    document.body.style.overflow;
+            }
+
+            // Mantener compatibilidad con ambas clases.
+            sidebar.classList.toggle(
+                "open",
+                mostrar
+            );
+
+            sidebar.classList.toggle(
+                "is-open",
+                mostrar
+            );
+
+            document.body.classList.toggle(
+                "sidebar-open",
+                mostrar
+            );
+
+            boton.setAttribute(
+                "aria-expanded",
+                String(mostrar)
+            );
+
+            fondo.hidden = !mostrar;
+
+            // Evitar desplazamiento del contenido
+            // mientras el menú móvil está abierto.
+            if (mostrar) {
+                document.body.style.overflow = "hidden";
+            } else if (menuAbierto) {
+                document.body.style.overflow =
+                    overflowAnterior;
+            }
+
+            menuAbierto = mostrar;
+
+            // Impedir que los elementos del menú oculto
+            // reciban el foco del teclado.
+            if (mostrar) {
+                sidebar.removeAttribute("inert");
+            } else if (mediaMovil.matches) {
+                sidebar.setAttribute("inert", "");
+            } else {
+                sidebar.removeAttribute("inert");
+            }
+        }
+
+        // Abrir y cerrar desde el botón hamburguesa.
+        boton.addEventListener("click", () => {
+            establecerMenu(!menuAbierto);
+        });
+
+        // Cerrar al tocar el fondo oscuro.
+        fondo.addEventListener("click", () => {
+            establecerMenu(false);
+            boton.focus();
+        });
+
+        // Cerrar con Escape.
         document.addEventListener(
             "keydown",
             (evento) => {
-
-                if (evento.key !== "Escape") {
-                    return;
+                if (
+                    evento.key === "Escape" &&
+                    menuAbierto
+                ) {
+                    establecerMenu(false);
+                    boton.focus();
                 }
-
-                sidebar.classList.remove(
-                    "is-open"
-                );
-
-                document.body.classList.remove(
-                    "sidebar-open"
-                );
-
-                boton.setAttribute(
-                    "aria-expanded",
-                    "false"
-                );
             }
         );
+
+        // Cerrar después de seleccionar una sección.
+        sidebar.querySelectorAll(
+            "a[href]"
+        ).forEach((enlace) => {
+            enlace.addEventListener(
+                "click",
+                () => establecerMenu(false)
+            );
+        });
+
+        // Al cambiar entre móvil y escritorio,
+        // restaurar el estado correcto del menú.
+        function sincronizarPantalla() {
+            establecerMenu(false);
+        }
+
+        if (
+            typeof mediaMovil.addEventListener ===
+            "function"
+        ) {
+            mediaMovil.addEventListener(
+                "change",
+                sincronizarPantalla
+            );
+        } else {
+            mediaMovil.addListener(
+                sincronizarPantalla
+            );
+        }
+
+        establecerMenu(false);
     }
 
     // ========================================================
-    // 7. NORMALIZAR ESTADO DE ALERTAS
+    // 4. ALERTAS
     // ========================================================
 
     function normalizarEstado(estado) {
-
         const texto = String(
             estado ?? ""
         ).trim().toLowerCase();
@@ -264,100 +333,65 @@
         return texto;
     }
 
-    // ========================================================
-    // 8. ACTUALIZAR CAMPANITA
-    // ========================================================
-
     function actualizarCampanita(totalActivas) {
-
         const contador =
             document.getElementById(
                 "notification-count"
             );
 
-        if (!contador) {
-            return;
-        }
+        if (!contador) return;
 
         const cantidad = Math.max(
             0,
             Number(totalActivas) || 0
         );
 
-        // Mostrar máximo 99+.
         contador.textContent =
             cantidad > 99
                 ? "99+"
                 : String(cantidad);
 
-        // Accesibilidad.
         contador.setAttribute(
             "aria-label",
             `${cantidad} alertas activas`
         );
 
-        // Guardar cantidad como atributo.
         contador.dataset.count =
             String(cantidad);
 
-        console.info(
-            `SMART CLASSROOM: ${cantidad} alertas activas.`
-        );
+        contador.removeAttribute("title");
     }
 
-    // ========================================================
-    // 9. OBTENER ALERTAS DESDE EL BACKEND
-    // ========================================================
-
     async function consultarAlertas() {
-
-        // Evitar solicitudes simultáneas.
-        if (consultaAlertasEnCurso) {
-            return;
-        }
-
-        // No consultar mientras la pestaña esté oculta.
-        if (document.hidden) {
-            return;
-        }
+        if (consultaAlertasEnCurso) return;
+        if (document.hidden) return;
 
         const contador =
             document.getElementById(
                 "notification-count"
             );
 
-        // Si la página no tiene campanita,
-        // no es necesario consultar.
-        if (!contador) {
-            return;
-        }
+        if (!contador) return;
 
-        const API =
-            window.SmartClassroomAPI;
+        const API = window.SmartClassroomAPI;
 
         if (
             !API ||
             typeof API.get !== "function"
         ) {
-
             console.warn(
                 "SMART CLASSROOM: cliente API no disponible."
             );
-
             return;
         }
 
         consultaAlertasEnCurso = true;
 
         try {
-
-            // Consultar alertas reales.
             const respuesta = await API.get(
                 "/api/alertas"
             );
 
-            // Admitir los formatos de respuesta
-            // utilizados en el frontend.
             const registros =
                 Array.isArray(respuesta)
                     ? respuesta
@@ -370,13 +404,11 @@
                                 : null;
 
             if (!registros) {
-
                 throw new Error(
                     "La API no devolvió una lista de alertas."
                 );
             }
 
-            // Contar únicamente las activas.
             const totalActivas =
                 registros.filter(
                     alerta =>
@@ -385,126 +417,80 @@
                         ) === "activa"
                 ).length;
 
-            actualizarCampanita(
-                totalActivas
-            );
+            actualizarCampanita(totalActivas);
 
         } catch (error) {
-
             console.error(
-                "SMART CLASSROOM: error al consultar alertas:",
+                "Error al consultar alertas:",
                 error
             );
 
-            // No colocar 0 cuando falla la conexión:
-            // podría ocultar alertas reales.
             contador.setAttribute(
                 "title",
-                "No se pudo actualizar el contador de alertas."
+                "No se pudo actualizar el contador."
             );
 
         } finally {
-
             consultaAlertasEnCurso = false;
         }
     }
 
-    // ========================================================
-    // 10. INICIAR SINCRONIZACIÓN DE ALERTAS
-    // ========================================================
-
     function iniciarAlertas() {
-
         const contador =
             document.getElementById(
                 "notification-count"
             );
 
-        if (!contador) {
-            return;
-        }
+        if (!contador) return;
 
-        // Primera consulta al abrir la página.
         consultarAlertas();
 
-        // Evitar duplicar temporizadores.
         if (intervaloAlertas !== null) {
-
-            clearInterval(
-                intervaloAlertas
-            );
+            clearInterval(intervaloAlertas);
         }
 
         intervaloAlertas = setInterval(
-            () => {
-
-                consultarAlertas();
-
-            },
+            consultarAlertas,
             INTERVALO_ALERTAS
         );
 
-        // Actualizar al regresar a la pestaña.
         document.addEventListener(
             "visibilitychange",
             () => {
-
                 if (!document.hidden) {
                     consultarAlertas();
                 }
             }
         );
 
-        // Actualizar al volver a enfocar la ventana.
         window.addEventListener(
             "focus",
-            () => {
-
-                consultarAlertas();
-            }
-        );
-
-        console.info(
-            "SMART CLASSROOM: sincronización de alertas iniciada."
+            consultarAlertas
         );
     }
 
     // ========================================================
-    // 11. INICIALIZACIÓN GENERAL
+    // 5. INICIALIZACIÓN
     // ========================================================
 
     function iniciar() {
-
         iniciarIconos();
-
         iniciarTema();
-
         iniciarMenu();
-
         iniciarAlertas();
 
         console.info(
-            "SMART CLASSROOM: layout inicializado correctamente."
+            "SMART CLASSROOM: layout inicializado."
         );
     }
 
-    // ========================================================
-    // 12. INICIAR AL CARGAR EL DOCUMENTO
-    // ========================================================
-
     if (document.readyState === "loading") {
-
         document.addEventListener(
             "DOMContentLoaded",
             iniciar,
-            {
-                once: true
-            }
+            { once: true }
         );
-
     } else {
-
         iniciar();
     }
-
 })();

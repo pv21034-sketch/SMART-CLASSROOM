@@ -1,76 +1,58 @@
+
 /* ==========================================================
    SMART CLASSROOM — DASHBOARD
    Universidad de El Salvador
-   Dirección visual: grafito cálido + paneles de vidrio + ámbar.
-   Elemento distintivo: el farol de la barra lateral (ui-enhance.js).
+   Diseño responsive completo
    ========================================================== */
 
-/* ==============================
-   1. VARIABLES DE DISEÑO
-============================== */
-
+/* VARIABLES */
 :root {
     color-scheme: dark;
-
     --bg: #0c0d10;
-
-    --glass: rgba(255, 255, 255, 0.05);
-    --glass-strong: rgba(255, 255, 255, 0.085);
-    --glass-border: rgba(255, 255, 255, 0.1);
-    --line: rgba(255, 255, 255, 0.07);
-
+    --glass: rgba(255,255,255,.05);
+    --glass-strong: rgba(255,255,255,.085);
+    --glass-border: rgba(255,255,255,.1);
+    --line: rgba(255,255,255,.07);
     --amber: #f2b84b;
     --amber-soft: #ffd98a;
     --amber-deep: #c68a1e;
     --accent-text: #f2b84b;
     --on-amber: #1a1408;
-
     --text: #f4f1ea;
     --text-2: #b9bcc6;
     --text-3: #8b909c;
-
     --blue: #7cc4ea;
     --green: #7fd1a2;
     --coral: #f2876b;
     --red: #ef7b7e;
-
-    --bar-bg: rgba(12, 13, 16, 0.62);
-    --sidebar-bg: rgba(14, 15, 19, 0.66);
+    --bar-bg: rgba(12,13,16,.62);
+    --sidebar-bg: rgba(14,15,19,.66);
     --sidebar-bg-solid: #101114;
-    --track: rgba(255, 255, 255, 0.09);
-    --control-bg: rgba(255, 255, 255, 0.06);
+    --track: rgba(255,255,255,.09);
+    --control-bg: rgba(255,255,255,.06);
     --option-bg: #16181d;
-
     --shadow-card:
-        inset 0 1px 0 rgba(255, 255, 255, 0.06),
-        0 22px 50px -26px rgba(0, 0, 0, 0.7);
-
-    --ambient-a: rgba(242, 184, 75, 0.16);
-    --ambient-b: rgba(124, 196, 234, 0.1);
-    --ambient-c: rgba(127, 209, 162, 0.07);
-
+        inset 0 1px 0 rgba(255,255,255,.06),
+        0 22px 50px -26px rgba(0,0,0,.7);
+    --ambient-a: rgba(242,184,75,.16);
+    --ambient-b: rgba(124,196,234,.1);
+    --ambient-c: rgba(127,209,162,.07);
     --chart-text: #8b909c;
-    --chart-grid: rgba(255, 255, 255, 0.07);
-    --tooltip-bg: rgba(20, 22, 27, 0.94);
+    --chart-grid: rgba(255,255,255,.07);
+    --tooltip-bg: rgba(20,22,27,.94);
     --tooltip-text: #f4f1ea;
-    --tooltip-border: rgba(255, 255, 255, 0.12);
-
+    --tooltip-border: rgba(255,255,255,.12);
     --sidebar-width: 272px;
     --topbar-height: 72px;
-
     --r-sm: 10px;
     --r-md: 14px;
     --r-lg: 20px;
-
-    --font:
-        "Outfit", "Segoe UI", system-ui, -apple-system,
-        "Helvetica Neue", Arial, sans-serif;
-
-    --ease: cubic-bezier(0.22, 0.9, 0.28, 1);
+    --font: "Outfit","Segoe UI",system-ui,Arial,sans-serif;
+    --ease: cubic-bezier(.22,.9,.28,1);
     --transition: 220ms ease;
 }
 
-/* Tema claro (se activa con los mecanismos más comunes de layout.js) */
+/* TEMA CLARO */
 html[data-theme="light"],
 html.light,
 html.light-theme,
@@ -80,55 +62,42 @@ body.light,
 body.light-theme,
 body.theme-light {
     color-scheme: light;
-
     --bg: #f3efe7;
-
-    --glass: rgba(255, 255, 255, 0.62);
-    --glass-strong: rgba(255, 255, 255, 0.85);
-    --glass-border: rgba(60, 44, 10, 0.12);
-    --line: rgba(60, 44, 10, 0.09);
-
+    --glass: rgba(255,255,255,.62);
+    --glass-strong: rgba(255,255,255,.85);
+    --glass-border: rgba(60,44,10,.12);
+    --line: rgba(60,44,10,.09);
     --amber: #e0a02c;
     --amber-soft: #b87a0a;
     --amber-deep: #8f5c00;
     --accent-text: #8f5c00;
-    --on-amber: #1a1408;
-
     --text: #1d1a14;
     --text-2: #4d4a43;
     --text-3: #6f6b62;
-
     --blue: #1f7fae;
     --green: #2c8a5b;
     --coral: #c4552f;
     --red: #c43d41;
-
-    --bar-bg: rgba(243, 239, 231, 0.7);
-    --sidebar-bg: rgba(255, 255, 255, 0.55);
+    --bar-bg: rgba(243,239,231,.7);
+    --sidebar-bg: rgba(255,255,255,.55);
     --sidebar-bg-solid: #fbf8f2;
-    --track: rgba(60, 44, 10, 0.1);
-    --control-bg: rgba(255, 255, 255, 0.7);
-    --option-bg: #ffffff;
-
+    --track: rgba(60,44,10,.1);
+    --control-bg: rgba(255,255,255,.7);
+    --option-bg: #fff;
     --shadow-card:
-        inset 0 1px 0 rgba(255, 255, 255, 0.8),
-        0 18px 40px -26px rgba(60, 44, 10, 0.35);
-
-    --ambient-a: rgba(242, 184, 75, 0.28);
-    --ambient-b: rgba(124, 196, 234, 0.2);
-    --ambient-c: rgba(127, 209, 162, 0.14);
-
+        inset 0 1px 0 rgba(255,255,255,.8),
+        0 18px 40px -26px rgba(60,44,10,.35);
+    --ambient-a: rgba(242,184,75,.28);
+    --ambient-b: rgba(124,196,234,.2);
+    --ambient-c: rgba(127,209,162,.14);
     --chart-text: #6f6b62;
-    --chart-grid: rgba(60, 44, 10, 0.09);
-    --tooltip-bg: rgba(255, 255, 255, 0.96);
+    --chart-grid: rgba(60,44,10,.09);
+    --tooltip-bg: rgba(255,255,255,.96);
     --tooltip-text: #1d1a14;
-    --tooltip-border: rgba(60, 44, 10, 0.14);
+    --tooltip-border: rgba(60,44,10,.14);
 }
 
-/* ==============================
-   2. REINICIO Y BASE
-============================== */
-
+/* REINICIO */
 *,
 *::before,
 *::after {
@@ -137,16 +106,19 @@ body.theme-light {
 
 html {
     scroll-behavior: smooth;
+    width: 100%;
+    overflow-x: clip;
 }
 
 body.dashboard-page {
     margin: 0;
+    width: 100%;
+    min-width: 0;
     min-height: 100vh;
+    overflow-x: clip;
     background: var(--bg);
     color: var(--text);
-    font-family: var(--font);
-    font-size: 14px;
-    line-height: 1.5;
+    font: 14px/1.5 var(--font);
     -webkit-font-smoothing: antialiased;
 }
 
@@ -187,65 +159,52 @@ body.dashboard-page {
     white-space: nowrap;
 }
 
-/* Fondo ambiental: da algo que desenfocar a los paneles de vidrio */
+/* FONDO AMBIENTAL */
 .ambient {
     position: fixed;
     inset: 0;
     z-index: 0;
     pointer-events: none;
     background:
-        radial-gradient(
-            700px 520px at 6% 4%,
-            var(--ambient-a),
-            transparent 70%
-        ),
-        radial-gradient(
-            760px 600px at 96% 92%,
-            var(--ambient-b),
-            transparent 70%
-        ),
-        radial-gradient(
-            520px 420px at 70% 8%,
-            var(--ambient-c),
-            transparent 70%
-        );
+        radial-gradient(700px 520px at 6% 4%,
+            var(--ambient-a), transparent 70%),
+        radial-gradient(760px 600px at 96% 92%,
+            var(--ambient-b), transparent 70%),
+        radial-gradient(520px 420px at 70% 8%,
+            var(--ambient-c), transparent 70%);
 }
 
-/* ==============================
-   3. ESTRUCTURA GENERAL
-============================== */
-
+/* ESTRUCTURA */
 .app-shell {
     position: relative;
     z-index: 1;
+    min-width: 0;
     min-height: 100vh;
 }
 
 .main-wrapper {
-    min-height: 100vh;
-    margin-left: var(--sidebar-width);
     display: flex;
     flex-direction: column;
+    min-width: 0;
+    min-height: 100vh;
+    margin-left: var(--sidebar-width);
     transition: margin-left var(--transition);
 }
 
-/* ==============================
-   4. SIDEBAR
-============================== */
-
+/* MENÚ LATERAL */
 .sidebar {
     position: fixed;
     inset: 0 auto 0 0;
     z-index: 100;
-    width: var(--sidebar-width);
     display: flex;
     flex-direction: column;
+    width: var(--sidebar-width);
     padding: 26px 16px 20px;
+    overflow-y: auto;
     background: var(--sidebar-bg);
     border-right: 1px solid var(--glass-border);
     -webkit-backdrop-filter: blur(22px) saturate(140%);
     backdrop-filter: blur(22px) saturate(140%);
-    overflow-y: auto;
 }
 
 .sidebar-header {
@@ -256,15 +215,16 @@ body.dashboard-page {
 }
 
 .brand-icon {
-    width: 44px;
-    height: 44px;
     display: grid;
     place-items: center;
     flex-shrink: 0;
+    width: 44px;
+    height: 44px;
     border-radius: 14px;
-    background: linear-gradient(135deg, var(--amber-soft), var(--amber-deep));
+    background: linear-gradient(135deg,
+        var(--amber-soft),var(--amber-deep));
     color: var(--on-amber);
-    box-shadow: 0 8px 26px -6px rgba(242, 184, 75, 0.45);
+    box-shadow: 0 8px 26px -6px rgba(242,184,75,.45);
 }
 
 .brand-icon svg {
@@ -281,7 +241,7 @@ body.dashboard-page {
 .brand-text strong {
     font-size: 14px;
     font-weight: 650;
-    letter-spacing: 0.02em;
+    letter-spacing: .02em;
     white-space: nowrap;
 }
 
@@ -290,8 +250,7 @@ body.dashboard-page {
     font-size: 11px;
 }
 
-/* --- Navegación con farol --- */
-
+/* NAVEGACIÓN */
 .sidebar-nav {
     position: relative;
     display: flex;
@@ -299,7 +258,6 @@ body.dashboard-page {
     gap: 6px;
 }
 
-/* La cuerda de la que cuelga el farol */
 .sidebar-nav::before {
     content: "";
     position: absolute;
@@ -327,26 +285,23 @@ body.dashboard-page {
     border-radius: var(--r-sm);
     color: var(--text-3);
     font-weight: 500;
-    transition: color 400ms ease, text-shadow 400ms ease;
+    transition: color 400ms ease,text-shadow 400ms ease;
 }
 
 .nav-link svg {
     width: 19px;
     height: 19px;
-    transition: color 400ms ease;
 }
 
 .nav-link:hover {
     color: var(--text-2);
 }
 
-/* Sin JS, el enlace activo se distingue por sí mismo */
 .nav-link.active,
 .nav-link[aria-current="page"] {
     color: var(--text);
 }
 
-/* Con el farol activo, solo se ilumina el enlace al que apunta */
 .sidebar-nav.lantern-on .nav-link.active:not(.is-lit),
 .sidebar-nav.lantern-on .nav-link[aria-current="page"]:not(.is-lit) {
     color: var(--text-3);
@@ -354,7 +309,7 @@ body.dashboard-page {
 
 .sidebar-nav.lantern-on .nav-link.is-lit {
     color: var(--amber-soft);
-    text-shadow: 0 0 16px rgba(242, 184, 75, 0.4);
+    text-shadow: 0 0 16px rgba(242,184,75,.4);
 }
 
 [data-theme="light"] .sidebar-nav.lantern-on .nav-link.is-lit,
@@ -364,8 +319,7 @@ body.dashboard-page {
     text-shadow: none;
 }
 
-/* El farol */
-
+/* FAROL ANIMADO */
 .lantern {
     position: absolute;
     left: 12px;
@@ -374,7 +328,7 @@ body.dashboard-page {
     width: 30px;
     height: 46px;
     pointer-events: none;
-    transform: translateY(var(--lantern-y, 0px));
+    transform: translateY(var(--lantern-y,0px));
     transition: transform 680ms var(--ease);
 }
 
@@ -390,11 +344,9 @@ body.dashboard-page {
     height: 170px;
     margin: -85px 0 0 -85px;
     border-radius: 50%;
-    background: radial-gradient(
-        circle,
-        rgba(242, 184, 75, 0.2),
-        rgba(242, 184, 75, 0) 66%
-    );
+    background: radial-gradient(circle,
+        rgba(242,184,75,.2),
+        rgba(242,184,75,0) 66%);
 }
 
 .lantern-swing {
@@ -414,7 +366,7 @@ body.dashboard-page {
     width: 16px;
     height: 7px;
     border-radius: 8px 8px 2px 2px;
-    background: linear-gradient(#6a573a, #2d2417);
+    background: linear-gradient(#6a573a,#2d2417);
 }
 
 .lantern-cap::before {
@@ -434,18 +386,18 @@ body.dashboard-page {
     left: 4px;
     width: 22px;
     height: 27px;
-    border: 1.5px solid rgba(110, 86, 48, 0.95);
+    border: 1.5px solid rgba(110,86,48,.95);
     border-radius: 6px 6px 9px 9px;
     background: radial-gradient(
         ellipse at 50% 62%,
         #fff4c9 0%,
         #ffd27a 38%,
         #f2a93b 72%,
-        rgba(242, 169, 59, 0.4) 100%
+        rgba(242,169,59,.4) 100%
     );
     box-shadow:
-        0 0 18px 4px rgba(242, 184, 75, 0.5),
-        inset 0 0 6px rgba(255, 255, 255, 0.5);
+        0 0 18px 4px rgba(242,184,75,.5),
+        inset 0 0 6px rgba(255,255,255,.5);
     animation: lantern-flicker 3.4s infinite;
 }
 
@@ -456,8 +408,8 @@ body.dashboard-page {
     top: 0;
     bottom: 0;
     width: 1.5px;
-    margin-left: -0.75px;
-    background: rgba(90, 70, 40, 0.7);
+    margin-left: -.75px;
+    background: rgba(90,70,40,.7);
 }
 
 .lantern-base {
@@ -467,26 +419,25 @@ body.dashboard-page {
     width: 16px;
     height: 6px;
     border-radius: 2px 2px 6px 6px;
-    background: linear-gradient(#4f3f27, #241c10);
+    background: linear-gradient(#4f3f27,#241c10);
 }
 
 @keyframes lantern-swing {
-    0%   { transform: rotate(calc(var(--dir, 1) * -7deg)); }
-    25%  { transform: rotate(calc(var(--dir, 1) * 8deg)); }
-    50%  { transform: rotate(calc(var(--dir, 1) * -4deg)); }
-    75%  { transform: rotate(calc(var(--dir, 1) * 2deg)); }
-    100% { transform: rotate(0deg); }
+    0% { transform: rotate(calc(var(--dir,1) * -7deg)); }
+    25% { transform: rotate(calc(var(--dir,1) * 8deg)); }
+    50% { transform: rotate(calc(var(--dir,1) * -4deg)); }
+    75% { transform: rotate(calc(var(--dir,1) * 2deg)); }
+    100% { transform: rotate(0); }
 }
 
 @keyframes lantern-flicker {
-    0%, 100% { opacity: 1; }
-    42%      { opacity: 0.93; }
-    46%      { opacity: 0.84; }
-    50%      { opacity: 0.97; }
+    0%,100% { opacity: 1; }
+    42% { opacity: .93; }
+    46% { opacity: .84; }
+    50% { opacity: .97; }
 }
 
-/* --- Pie de la barra lateral --- */
-
+/* PIE DEL MENÚ */
 .sidebar-footer {
     margin-top: auto;
     padding: 24px 10px 0;
@@ -512,7 +463,7 @@ body.dashboard-page {
 .status-dot.online,
 .status-dot.connected {
     background: var(--green);
-    box-shadow: 0 0 12px rgba(127, 209, 162, 0.5);
+    box-shadow: 0 0 12px rgba(127,209,162,.5);
 }
 
 .status-dot.offline,
@@ -532,19 +483,16 @@ body.dashboard-page {
     font-size: 10px;
 }
 
-/* ==============================
-   5. BARRA SUPERIOR
-============================== */
-
+/* BARRA SUPERIOR */
 .topbar {
     position: sticky;
     top: 0;
     z-index: 50;
-    min-height: var(--topbar-height);
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
+    min-height: var(--topbar-height);
     padding: 0 34px;
     background: var(--bar-bg);
     border-bottom: 1px solid var(--glass-border);
@@ -557,16 +505,19 @@ body.dashboard-page {
     display: flex;
     align-items: center;
     gap: 14px;
+    min-width: 0;
 }
 
 .breadcrumb {
     display: flex;
     align-items: center;
     gap: 10px;
+    min-width: 0;
     font-size: 13px;
 }
 
-.breadcrumb span {
+.breadcrumb span,
+.breadcrumb svg {
     color: var(--text-3);
 }
 
@@ -578,15 +529,16 @@ body.dashboard-page {
 .breadcrumb svg {
     width: 14px;
     height: 14px;
-    color: var(--text-3);
 }
 
 .icon-button {
     position: relative;
-    width: 40px;
-    height: 40px;
     display: inline-grid;
     place-items: center;
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    padding: 0;
     border: 1px solid var(--glass-border);
     border-radius: 12px;
     background: var(--control-bg);
@@ -625,24 +577,24 @@ body.dashboard-page {
 .connection-indicator.online,
 .connection-indicator.connected {
     color: var(--green);
-    border-color: rgba(127, 209, 162, 0.3);
+    border-color: rgba(127,209,162,.3);
 }
 
 .connection-indicator.offline,
 .connection-indicator.disconnected,
 .connection-indicator.error {
     color: var(--red);
-    border-color: rgba(239, 123, 126, 0.3);
+    border-color: rgba(239,123,126,.3);
 }
 
 .notification-count {
     position: absolute;
     top: -6px;
     right: -6px;
-    min-width: 19px;
-    height: 19px;
     display: grid;
     place-items: center;
+    min-width: 19px;
+    height: 19px;
     padding: 0 4px;
     border-radius: 20px;
     background: var(--amber);
@@ -652,13 +604,14 @@ body.dashboard-page {
 }
 
 .user-avatar {
-    width: 40px;
-    height: 40px;
     display: grid;
     place-items: center;
-    border: 1px solid rgba(242, 184, 75, 0.35);
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border: 1px solid rgba(242,184,75,.35);
     border-radius: 50%;
-    background: rgba(242, 184, 75, 0.12);
+    background: rgba(242,184,75,.12);
     color: var(--amber);
 }
 
@@ -667,16 +620,14 @@ body.dashboard-page {
     height: 18px;
 }
 
-/* ==============================
-   6. CONTENIDO
-============================== */
-
+/* CONTENIDO */
 .dashboard-content {
+    flex: 1;
     width: 100%;
     max-width: 1600px;
+    min-width: 0;
     margin: 0 auto;
     padding: 34px;
-    flex: 1;
 }
 
 .welcome-section {
@@ -687,11 +638,15 @@ body.dashboard-page {
     margin-bottom: 24px;
 }
 
+.welcome-text {
+    min-width: 0;
+}
+
 .welcome-text h1 {
     margin: 0;
-    font-size: clamp(30px, 3.2vw, 44px);
+    font-size: clamp(30px,3.2vw,44px);
     font-weight: 600;
-    letter-spacing: -0.035em;
+    letter-spacing: -.035em;
     line-height: 1.08;
 }
 
@@ -706,12 +661,13 @@ body.dashboard-page {
     display: flex;
     align-items: center;
     gap: 10px;
+    max-width: 100%;
     padding: 6px 6px 6px 16px;
     border: 1px solid var(--glass-border);
     border-radius: var(--r-md);
     background: var(--glass);
-    -webkit-backdrop-filter: blur(18px) saturate(140%);
-    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
 }
 
 .dashboard-actions label {
@@ -727,17 +683,14 @@ body.dashboard-page {
     border: 1px solid var(--glass-border);
     border-radius: 10px;
     background-color: var(--control-bg);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238b909c' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
     color: var(--text);
     outline: none;
-    appearance: none;
-    -webkit-appearance: none;
+    appearance: auto;
 }
 
 .aula-select {
     min-width: 168px;
+    max-width: 100%;
 }
 
 .aula-select option,
@@ -758,12 +711,18 @@ body.dashboard-page {
     background: var(--amber);
     color: var(--on-amber);
     font-weight: 650;
-    transition: background var(--transition), box-shadow var(--transition);
+    white-space: nowrap;
+    transition: background var(--transition),box-shadow var(--transition);
 }
 
 .refresh-button:hover {
     background: var(--amber-soft);
-    box-shadow: 0 8px 24px -8px rgba(242, 184, 75, 0.6);
+    box-shadow: 0 8px 24px -8px rgba(242,184,75,.6);
+}
+
+.refresh-button:disabled {
+    cursor: wait;
+    opacity: .7;
 }
 
 .refresh-button svg {
@@ -782,6 +741,7 @@ body.dashboard-page {
     background: var(--glass);
     color: var(--text-2);
     font-size: 13px;
+    overflow-wrap: anywhere;
 }
 
 .data-notice::before {
@@ -791,18 +751,16 @@ body.dashboard-page {
     flex-shrink: 0;
     border-radius: 50%;
     background: var(--amber);
-    box-shadow: 0 0 10px rgba(242, 184, 75, 0.6);
+    box-shadow: 0 0 10px rgba(242,184,75,.6);
 }
 
-/* ==============================
-   7. TÍTULOS DE SECCIÓN
-============================== */
-
+/* TÍTULOS */
 .section-heading {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 20px;
+    min-width: 0;
     margin-bottom: 18px;
 }
 
@@ -810,12 +768,13 @@ body.dashboard-page {
     margin: 0;
     font-size: 20px;
     font-weight: 600;
-    letter-spacing: -0.025em;
+    letter-spacing: -.025em;
 }
 
 .last-update {
     color: var(--text-3);
     font-size: 12px;
+    overflow-wrap: anywhere;
 }
 
 .metrics-section,
@@ -823,10 +782,7 @@ body.dashboard-page {
     margin-bottom: 36px;
 }
 
-/* ==============================
-   8. PANELES DE VIDRIO (base común)
-============================== */
-
+/* PANELES */
 .metric-card,
 .chart-card,
 .detail-card {
@@ -839,45 +795,45 @@ body.dashboard-page {
     backdrop-filter: blur(20px) saturate(140%);
 }
 
-/* ==============================
-   9. TARJETAS AMBIENTALES
-============================== */
-
+/* TARJETAS */
 .metrics-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr 1.5fr 1fr;
+    grid-template-columns:
+        minmax(0,1fr)
+        minmax(0,1fr)
+        minmax(0,1.5fr)
+        minmax(0,1fr);
     gap: 16px;
 }
 
 .metric-card {
     position: relative;
-    min-height: 210px;
-    padding: 22px;
     display: flex;
     flex-direction: column;
+    min-height: 210px;
+    padding: 22px;
     overflow: hidden;
-    /* Cada tarjeta se tiñe con su propio color (currentColor) */
     background-image: radial-gradient(
         120% 90% at 0% 0%,
-        rgba(255, 255, 255, 0.05),
+        rgba(255,255,255,.05),
         transparent 60%
     );
 }
 
-@supports (background: color-mix(in srgb, red 10%, transparent)) {
+@supports (background: color-mix(in srgb,red 10%,transparent)) {
     .metric-card {
         background-image: radial-gradient(
             120% 90% at 0% 0%,
-            color-mix(in srgb, currentColor 16%, transparent),
+            color-mix(in srgb,currentColor 16%,transparent),
             transparent 58%
         );
     }
 }
 
 .temperature-card { color: var(--amber); }
-.humidity-card    { color: var(--blue); }
-.comfort-card     { color: var(--green); }
-.alerts-card      { color: var(--coral); }
+.humidity-card { color: var(--blue); }
+.comfort-card { color: var(--green); }
+.alerts-card { color: var(--coral); }
 
 .metric-header {
     display: flex;
@@ -886,17 +842,18 @@ body.dashboard-page {
 }
 
 .metric-icon {
-    width: 40px;
-    height: 40px;
     display: grid;
     place-items: center;
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255,255,255,.08);
 }
 
-@supports (background: color-mix(in srgb, red 10%, transparent)) {
+@supports (background: color-mix(in srgb,red 10%,transparent)) {
     .metric-icon {
-        background: color-mix(in srgb, currentColor 18%, transparent);
+        background: color-mix(in srgb,currentColor 18%,transparent);
     }
 }
 
@@ -920,16 +877,15 @@ body.dashboard-page {
     margin-top: auto;
     padding-top: 22px;
     color: var(--text);
-    font-size: clamp(36px, 3.2vw, 52px);
+    font-size: clamp(36px,3.2vw,52px);
     font-weight: 500;
-    letter-spacing: -0.045em;
+    letter-spacing: -.045em;
     line-height: 1;
     font-variant-numeric: tabular-nums;
 }
 
-/* El índice de confort es la lectura que resume el aula: pesa más */
 .comfort-card .metric-value {
-    font-size: clamp(48px, 4.6vw, 72px);
+    font-size: clamp(48px,4.6vw,72px);
 }
 
 .metric-unit {
@@ -944,6 +900,7 @@ body.dashboard-page {
     margin: 12px 0 16px;
     color: var(--text-2);
     font-size: 13px;
+    overflow-wrap: anywhere;
 }
 
 .metric-progress {
@@ -979,13 +936,11 @@ body.dashboard-page {
     height: 15px;
 }
 
-/* ==============================
-   10. SELECTOR DE PERÍODO (pastillas)
-============================== */
-
+/* SELECTOR DE PERÍODO GENERADO POR ui-enhance.js */
 .segmented {
     position: relative;
     display: inline-flex;
+    max-width: 100%;
     padding: 4px;
     border: 1px solid var(--glass-border);
     border-radius: 999px;
@@ -1000,10 +955,8 @@ body.dashboard-page {
     width: 0;
     border-radius: 999px;
     background: var(--amber);
-    box-shadow: 0 6px 18px -6px rgba(242, 184, 75, 0.6);
-    transition:
-        transform 340ms var(--ease),
-        width 340ms var(--ease);
+    box-shadow: 0 6px 18px -6px rgba(242,184,75,.6);
+    transition: transform 340ms var(--ease),width 340ms var(--ease);
 }
 
 .segmented button {
@@ -1027,13 +980,10 @@ body.dashboard-page {
     font-weight: 650;
 }
 
-/* ==============================
-   11. GRÁFICAS
-============================== */
-
+/* GRÁFICAS */
 .charts-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2,minmax(0,1fr));
     gap: 16px;
 }
 
@@ -1045,6 +995,7 @@ body.dashboard-page {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
+    gap: 12px;
     margin-bottom: 22px;
 }
 
@@ -1052,7 +1003,7 @@ body.dashboard-page {
     margin: 0;
     font-size: 17px;
     font-weight: 600;
-    letter-spacing: -0.01em;
+    letter-spacing: -.01em;
 }
 
 .chart-header p {
@@ -1070,6 +1021,8 @@ body.dashboard-page {
 .chart-container {
     position: relative;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     height: 280px;
 }
 
@@ -1078,13 +1031,10 @@ body.dashboard-page {
     height: 100% !important;
 }
 
-/* ==============================
-   12. INFORMACIÓN INFERIOR
-============================== */
-
+/* INFORMACIÓN INFERIOR */
 .details-section {
     display: grid;
-    grid-template-columns: 1fr 1.5fr;
+    grid-template-columns: minmax(0,1fr) minmax(0,1.5fr);
     gap: 16px;
 }
 
@@ -1104,7 +1054,7 @@ body.dashboard-page {
     margin: 0;
     font-size: 17px;
     font-weight: 600;
-    letter-spacing: -0.01em;
+    letter-spacing: -.01em;
 }
 
 .detail-header > svg {
@@ -1130,12 +1080,13 @@ body.dashboard-page {
 }
 
 .classroom-status-icon {
-    width: 54px;
-    height: 54px;
     display: grid;
     place-items: center;
+    flex-shrink: 0;
+    width: 54px;
+    height: 54px;
     border-radius: 16px;
-    background: rgba(242, 184, 75, 0.12);
+    background: rgba(242,184,75,.12);
     color: var(--amber);
 }
 
@@ -1157,10 +1108,10 @@ body.dashboard-page {
     font-size: 13px;
 }
 
-/* Últimas mediciones: estilos genéricos para el marcado que genere el JS */
-
+/* ÚLTIMAS MEDICIONES */
 .recent-measurements {
     min-height: 70px;
+    min-width: 0;
     font-variant-numeric: tabular-nums;
 }
 
@@ -1196,6 +1147,7 @@ body.dashboard-page {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    min-width: 0;
     padding: 12px 0;
     border-top: 1px solid var(--line);
     color: var(--text-2);
@@ -1204,6 +1156,11 @@ body.dashboard-page {
 .recent-measurements li:first-child,
 .recent-measurements > :first-child {
     border-top: 0;
+}
+
+.recent-measurement strong,
+.recent-measurement span {
+    overflow-wrap: anywhere;
 }
 
 .empty-state {
@@ -1216,10 +1173,7 @@ body.dashboard-page {
     text-align: center;
 }
 
-/* ==============================
-   13. PIE DE PÁGINA
-============================== */
-
+/* PIE DE PÁGINA */
 .dashboard-footer {
     display: flex;
     justify-content: space-between;
@@ -1230,13 +1184,12 @@ body.dashboard-page {
     font-size: 12px;
 }
 
-/* ==============================
-   14. TABLETS Y LAPTOPS
-============================== */
-
+/* ==========================================================
+   RESPONSIVE — LAPTOP
+   ========================================================== */
 @media (max-width: 1250px) {
     .metrics-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(2,minmax(0,1fr));
     }
 
     .dashboard-content {
@@ -1246,21 +1199,35 @@ body.dashboard-page {
     .topbar {
         padding: 0 26px;
     }
+
+    .welcome-section {
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
 }
 
+/* ==========================================================
+   RESPONSIVE — TABLET
+   ========================================================== */
 @media (max-width: 900px) {
     .main-wrapper {
         margin-left: 0;
+        width: 100%;
     }
 
     .sidebar {
+        width: min(300px,85vw);
+        max-width: 100%;
+        height: 100dvh;
         background: var(--sidebar-bg-solid);
-        transform: translateX(-100%);
-        transition: transform var(--transition);
-        box-shadow: 20px 0 50px rgba(0, 0, 0, 0.3);
+        transform: translateX(-105%);
+        transition: transform 260ms ease;
+        box-shadow: 20px 0 50px rgba(0,0,0,.3);
+        overscroll-behavior: contain;
     }
 
-    .sidebar.open {
+    .sidebar.open,
+    .sidebar.is-open {
         transform: translateX(0);
     }
 
@@ -1269,28 +1236,56 @@ body.dashboard-page {
     }
 
     .welcome-section {
-        align-items: flex-start;
         flex-direction: column;
+        align-items: stretch;
+        gap: 20px;
+    }
+
+    .dashboard-actions {
+        width: fit-content;
+        max-width: 100%;
     }
 
     .details-section {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0,1fr);
+    }
+
+    .chart-container {
+        height: 250px;
+    }
+
+    .metric-value {
+        font-size: clamp(34px,5vw,48px);
+    }
+
+    .comfort-card .metric-value {
+        font-size: clamp(44px,7vw,64px);
     }
 }
 
-/* ==============================
-   15. TELÉFONOS
-============================== */
-
+/* ==========================================================
+   RESPONSIVE — CELULAR
+   ========================================================== */
 @media (max-width: 640px) {
     .topbar {
         min-height: 64px;
-        padding: 0 16px;
+        padding: 0 14px;
+        gap: 8px;
     }
 
     .topbar-left,
     .topbar-right {
-        gap: 9px;
+        gap: 8px;
+    }
+
+    .icon-button,
+    .user-avatar {
+        width: 38px;
+        height: 38px;
+    }
+
+    .breadcrumb {
+        font-size: 12px;
     }
 
     .breadcrumb span,
@@ -1299,51 +1294,217 @@ body.dashboard-page {
         display: none;
     }
 
+    .breadcrumb strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
     .dashboard-content {
-        padding: 22px 15px;
+        padding: 22px 14px;
+    }
+
+    .welcome-section {
+        margin-bottom: 20px;
+    }
+
+    .welcome-text h1 {
+        font-size: clamp(27px,7vw,36px);
+        line-height: 1.15;
+    }
+
+    .welcome-text p {
+        font-size: 13px;
+        line-height: 1.6;
     }
 
     .dashboard-actions {
+        display: grid;
+        grid-template-columns: minmax(0,1fr) auto;
         width: 100%;
-        flex-wrap: wrap;
+        gap: 10px;
         padding: 12px;
     }
 
     .dashboard-actions label {
+        grid-column: 1 / -1;
         width: 100%;
+        white-space: normal;
     }
 
     .aula-select {
-        flex: 1;
+        width: 100%;
         min-width: 0;
     }
 
-    .metrics-grid,
-    .charts-grid {
-        grid-template-columns: 1fr;
+    .refresh-button {
+        min-width: 44px;
+        padding: 0 12px;
     }
 
-    .metric-card {
-        min-height: 190px;
+    .data-notice {
+        padding: 12px;
+        font-size: 12px;
     }
 
     .section-heading {
-        align-items: flex-start;
         flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .section-heading h2 {
+        font-size: 18px;
+    }
+
+    .last-update {
+        font-size: 11px;
+    }
+
+    .metrics-grid,
+    .charts-grid,
+    .details-section {
+        grid-template-columns: minmax(0,1fr);
+        gap: 14px;
+    }
+
+    .metric-card {
+        min-height: 185px;
+        padding: 20px;
+    }
+
+    .metric-value {
+        font-size: clamp(38px,10vw,50px);
+    }
+
+    .comfort-card .metric-value {
+        font-size: clamp(48px,12vw,65px);
+    }
+
+    .metric-description {
+        font-size: 12px;
+    }
+
+    .chart-card,
+    .detail-card {
+        padding: 18px;
     }
 
     .chart-container {
-        height: 230px;
+        height: 240px;
+    }
+
+    .chart-header {
+        margin-bottom: 16px;
+    }
+
+    .chart-header h3,
+    .detail-header h2 {
+        font-size: 16px;
+    }
+
+    .recent-measurement {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .recent-measurement strong {
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+    .classroom-status {
+        align-items: flex-start;
     }
 
     .dashboard-footer {
         flex-direction: column;
-        padding: 20px 15px;
+        align-items: flex-start;
+        gap: 6px;
+        padding: 20px 14px;
+        font-size: 11px;
     }
 }
 
-/* Sin soporte de desenfoque: paneles un poco más opacos */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+/* ==========================================================
+   RESPONSIVE — CELULAR PEQUEÑO
+   ========================================================== */
+@media (max-width: 380px) {
+    .topbar {
+        padding: 0 10px;
+        gap: 5px;
+    }
+
+    .topbar-left,
+    .topbar-right {
+        gap: 5px;
+    }
+
+    .icon-button,
+    .user-avatar {
+        width: 34px;
+        height: 34px;
+    }
+
+    .breadcrumb {
+        font-size: 11px;
+    }
+
+    .dashboard-content {
+        padding: 18px 10px;
+    }
+
+    .dashboard-actions {
+        grid-template-columns: minmax(0,1fr);
+    }
+
+    .dashboard-actions label {
+        grid-column: 1;
+    }
+
+    .refresh-button {
+        width: 100%;
+    }
+
+    .metric-card {
+        padding: 17px;
+    }
+
+    .chart-card,
+    .detail-card {
+        padding: 15px;
+    }
+
+    .chart-container {
+        height: 215px;
+    }
+
+    .segmented button {
+        padding: 7px 12px;
+    }
+}
+
+/* ORIENTACIÓN HORIZONTAL */
+@media (max-width: 900px) and (orientation: landscape) {
+    .sidebar {
+        height: 100dvh;
+    }
+
+    .sidebar-header {
+        padding-bottom: 16px;
+    }
+
+    .sidebar-footer {
+        padding-top: 16px;
+    }
+}
+
+/* SIN BACKDROP FILTER */
+@supports not (
+    (backdrop-filter: blur(1px)) or
+    (-webkit-backdrop-filter: blur(1px))
+) {
     .metric-card,
     .chart-card,
     .detail-card,
@@ -1353,17 +1514,14 @@ body.dashboard-page {
     }
 }
 
-/* ==============================
-   16. ACCESIBILIDAD
-============================== */
-
+/* ACCESIBILIDAD */
 @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
     *::after {
-        animation-duration: 0.01ms !important;
+        animation-duration: .01ms !important;
         animation-iteration-count: 1 !important;
         scroll-behavior: auto !important;
-        transition-duration: 0.01ms !important;
+        transition-duration: .01ms !important;
     }
 }

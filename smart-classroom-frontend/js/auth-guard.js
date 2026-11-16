@@ -60,12 +60,17 @@
     };
 
     // Agregar botón de cierre de sesión.
-    document.addEventListener("DOMContentLoaded", () => {
+    function agregarBotonCerrarSesion() {
         const contenedor = document.querySelector(
             ".topbar .user-avatar"
         );
 
         if (!contenedor) return;
+
+        // Evitar duplicar el botón.
+        if (document.getElementById("logout-button")) {
+            return;
+        }
 
         const boton = document.createElement("button");
 
@@ -78,8 +83,8 @@
         );
 
         boton.style.cssText = `
-            margin-left: 12px;
-            padding: 9px 14px;
+            margin-left: 8px;
+            padding: 9px 12px;
             border: 1px solid rgba(255,255,255,.15);
             border-radius: 10px;
             background: #252630;
@@ -87,9 +92,21 @@
             font: inherit;
             font-size: 13px;
             cursor: pointer;
+            max-width: 100%;
+            white-space: normal;
+            flex-shrink: 0;
         `;
 
         boton.addEventListener("click", cerrarSesion);
         contenedor.insertAdjacentElement("afterend", boton);
-    });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener(
+            "DOMContentLoaded",
+            agregarBotonCerrarSesion
+        );
+    } else {
+        agregarBotonCerrarSesion();
+    }
 })();

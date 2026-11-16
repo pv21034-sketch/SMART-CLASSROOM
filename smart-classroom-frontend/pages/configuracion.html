@@ -1,47 +1,62 @@
 
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <meta name="description"
           content="SMART CLASSROOM - Configuración ambiental y termodinámica">
 
     <title>Configuración | SMART CLASSROOM</title>
 
-    <!-- Fuentes -->
+    <!-- FUENTES -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet">
+    <link rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossorigin>
 
-    <!-- Estilos compartidos -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- ESTILOS -->
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/dashboard.css">
-
-    <!-- Estilos propios -->
     <link rel="stylesheet" href="../css/configuracion.css">
 
-    <!-- Iconos -->
-    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"
-            defer></script>
+    <!-- ICONOS -->
+    <script
+        src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"
+        defer>
+    </script>
 
-    <!-- Scripts -->
+    <!-- SCRIPTS COMPARTIDOS -->
     <script src="../js/ui-enhance.js" defer></script>
+    <script src="../js/api.js" defer></script>
+    <script src="../js/auth-guard.js" defer></script>
     <script src="../js/layout.js" defer></script>
+
+    <!-- SCRIPT DEL MÓDULO -->
     <script src="../js/configuracion.js" defer></script>
 </head>
 
 <body class="dashboard-page settings-page">
 
+    <!-- FONDO AMBIENTAL -->
     <div class="ambient" aria-hidden="true"></div>
 
     <div class="app-shell">
 
-        <!-- SIDEBAR -->
+        <!-- ==========================================
+             MENÚ LATERAL
+        ========================================== -->
+
         <aside class="sidebar" id="sidebar">
 
             <div class="sidebar-header">
+
                 <div class="brand-icon">
                     <i data-lucide="graduation-cap"></i>
                 </div>
@@ -50,6 +65,7 @@
                     <strong>SMART CLASSROOM</strong>
                     <span>Environmental Intelligence</span>
                 </div>
+
             </div>
 
             <nav class="sidebar-nav"
@@ -86,36 +102,49 @@
                     <i data-lucide="settings-2"></i>
                     <span>Configuración</span>
                 </a>
+
             </nav>
 
             <div class="sidebar-footer">
+
                 <div class="system-status">
                     <span class="status-dot"
                           id="sidebar-status-dot"></span>
+
                     <span id="sidebar-status-text">
-                        Modo demostración
+                        Verificando conexión...
                     </span>
                 </div>
 
                 <p>Universidad de El Salvador</p>
                 <small>SMART CLASSROOM © 2026</small>
+
             </div>
 
         </aside>
 
+        <!-- ==========================================
+             CONTENIDO PRINCIPAL
+        ========================================== -->
+
         <div class="main-wrapper">
 
-            <!-- TOPBAR -->
+            <!-- BARRA SUPERIOR -->
+
             <header class="topbar">
 
                 <div class="topbar-left">
-                    <button class="icon-button menu-toggle"
-                            id="menu-toggle"
-                            type="button"
-                            aria-label="Abrir o cerrar menú"
-                            aria-controls="sidebar"
-                            aria-expanded="false">
+
+                    <button
+                        class="icon-button menu-toggle"
+                        id="menu-toggle"
+                        type="button"
+                        aria-label="Abrir o cerrar menú"
+                        aria-controls="sidebar"
+                        aria-expanded="false">
+
                         <i data-lucide="menu"></i>
+
                     </button>
 
                     <div class="breadcrumb">
@@ -123,44 +152,63 @@
                         <i data-lucide="chevron-right"></i>
                         <strong>Configuración</strong>
                     </div>
+
                 </div>
 
                 <div class="topbar-right">
-                    <span class="connection-indicator"
-                          id="connection-status">
-                        Datos de demostración
+
+                    <span
+                        class="connection-indicator"
+                        id="connection-status"
+                        role="status"
+                        aria-live="polite">
+                        Verificando conexión...
                     </span>
 
-                    <button class="icon-button"
-                            id="theme-toggle"
-                            type="button"
-                            aria-label="Cambiar tema">
+                    <button
+                        class="icon-button"
+                        id="theme-toggle"
+                        type="button"
+                        aria-label="Cambiar tema">
+
                         <i data-lucide="moon"></i>
+
                     </button>
 
                     <a href="alertas.html"
                        class="icon-button notification-button"
                        aria-label="Ver alertas">
+
                         <i data-lucide="bell"></i>
+
                         <span class="notification-count"
                               id="notification-count">0</span>
+
                     </a>
 
                     <div class="user-avatar"
                          aria-label="Usuario del sistema">
                         <i data-lucide="user-round"></i>
                     </div>
+
                 </div>
 
             </header>
 
-            <!-- CONTENIDO -->
-            <main class="dashboard-content settings-content"
-                  id="main-content">
+            <!-- ==========================================
+                 CONFIGURACIÓN
+            ========================================== -->
+
+            <main
+                class="dashboard-content settings-content"
+                id="main-content">
 
                 <!-- ENCABEZADO -->
+
                 <section class="welcome-section settings-welcome">
+
                     <div class="welcome-text">
+
                         <span class="eyebrow">
                             ADMINISTRACIÓN Y ANÁLISIS AMBIENTAL
                         </span>
@@ -173,62 +221,90 @@
                             cálculos termodinámicos a partir de
                             temperatura y humedad relativa.
                         </p>
+
                     </div>
+
                 </section>
 
-                <div class="settings-notice">
+                <!-- AVISO -->
+
+                <div class="settings-notice"
+                     role="note">
+
                     <i data-lucide="info"></i>
+
                     <span>
-                        Modo demostración. Los rangos se guardan
-                        únicamente en este navegador. Los cálculos
-                        utilizan valores introducidos manualmente
-                        y no representan mediciones en tiempo real.
+                        Este módulo incluye funciones de demostración.
+                        Los rangos se guardan únicamente en este
+                        navegador y no modifican los límites del backend.
+                        Los cálculos utilizan valores introducidos
+                        manualmente y no representan mediciones
+                        en tiempo real.
                     </span>
+
                 </div>
 
-                <!-- RESUMEN -->
+                <!-- ======================================
+                     RESUMEN DEL SISTEMA
+                ====================================== -->
+
                 <section class="settings-summary"
                          aria-label="Resumen del sistema">
 
                     <article class="settings-stat">
+
                         <div class="settings-stat-top">
                             <span>Aulas</span>
                             <i data-lucide="school"></i>
                         </div>
+
                         <strong id="settings-total-aulas">0</strong>
-                        <small>Registros de demostración</small>
+                        <small>Registros mostrados</small>
+
                     </article>
 
                     <article class="settings-stat">
+
                         <div class="settings-stat-top">
                             <span>Dispositivos</span>
                             <i data-lucide="cpu"></i>
                         </div>
+
                         <strong id="settings-total-dispositivos">0</strong>
                         <small>ESP32 con DHT22</small>
+
                     </article>
 
                     <article class="settings-stat">
+
                         <div class="settings-stat-top">
                             <span>Variables analizadas</span>
                             <i data-lucide="activity"></i>
                         </div>
+
                         <strong id="settings-total-variables">6</strong>
                         <small>2 medidas y 4 calculadas</small>
+
                     </article>
 
                     <article class="settings-stat">
+
                         <div class="settings-stat-top">
                             <span>Usuarios</span>
                             <i data-lucide="users"></i>
                         </div>
+
                         <strong id="settings-total-usuarios">0</strong>
-                        <small>Registros de demostración</small>
+                        <small>Registros mostrados</small>
+
                     </article>
 
                 </section>
 
-                <!-- NAVEGACIÓN INTERNA -->
+                <!-- ======================================
+                     NAVEGACIÓN INTERNA
+                ====================================== -->
+
                 <nav class="settings-tabs"
                      aria-label="Secciones de configuración">
 
@@ -261,32 +337,42 @@
                         <i data-lucide="server-cog"></i>
                         Sistema
                     </a>
+
                 </nav>
 
                 <!-- ======================================
                      1. RANGOS AMBIENTALES
-                     ====================================== -->
+                ====================================== -->
+
                 <section id="seccion-rangos"
-                         class="settings-panel">
+                         class="settings-panel"
+                         aria-labelledby="titulo-rangos">
 
                     <div class="settings-panel-heading">
+
                         <div class="settings-heading-left">
+
                             <div class="settings-section-icon">
                                 <i data-lucide="sliders-horizontal"></i>
                             </div>
 
                             <div>
-                                <h2>Rangos ambientales</h2>
+                                <h2 id="titulo-rangos">
+                                    Rangos ambientales
+                                </h2>
+
                                 <p>
                                     Límites configurables para las
                                     variables medidas por el DHT22.
                                 </p>
                             </div>
+
                         </div>
 
                         <span class="settings-demo-tag">
                             DEMOSTRACIÓN
                         </span>
+
                     </div>
 
                     <p id="mensaje-rangos"
@@ -297,7 +383,11 @@
 
                     <form id="form-rangos" novalidate>
 
-                        <div class="settings-table-scroll">
+                        <div class="settings-table-scroll"
+                             role="region"
+                             aria-label="Tabla de rangos ambientales"
+                             tabindex="0">
+
                             <table id="tabla-rangos"
                                    class="settings-table">
 
@@ -311,7 +401,9 @@
                                 </thead>
 
                                 <tbody>
+
                                     <tr>
+
                                         <th scope="row">
                                             <span class="settings-variable">
                                                 <i data-lucide="thermometer"></i>
@@ -320,27 +412,31 @@
                                         </th>
 
                                         <td>
-                                            <input type="number"
-                                                   step="any"
-                                                   id="rango-temperatura-min"
-                                                   name="temperaturaMin"
-                                                   aria-label="Temperatura mínima"
-                                                   required>
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                id="rango-temperatura-min"
+                                                name="temperaturaMin"
+                                                aria-label="Temperatura mínima en grados Celsius"
+                                                required>
                                         </td>
 
                                         <td>
-                                            <input type="number"
-                                                   step="any"
-                                                   id="rango-temperatura-max"
-                                                   name="temperaturaMax"
-                                                   aria-label="Temperatura máxima"
-                                                   required>
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                id="rango-temperatura-max"
+                                                name="temperaturaMax"
+                                                aria-label="Temperatura máxima en grados Celsius"
+                                                required>
                                         </td>
 
                                         <td id="unidad-temperatura">°C</td>
+
                                     </tr>
 
                                     <tr>
+
                                         <th scope="row">
                                             <span class="settings-variable">
                                                 <i data-lucide="droplets"></i>
@@ -349,34 +445,41 @@
                                         </th>
 
                                         <td>
-                                            <input type="number"
-                                                   step="any"
-                                                   min="0"
-                                                   max="100"
-                                                   id="rango-humedad-min"
-                                                   name="humedadMin"
-                                                   aria-label="Humedad mínima"
-                                                   required>
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                min="0"
+                                                max="100"
+                                                id="rango-humedad-min"
+                                                name="humedadMin"
+                                                aria-label="Humedad relativa mínima en porcentaje"
+                                                required>
                                         </td>
 
                                         <td>
-                                            <input type="number"
-                                                   step="any"
-                                                   min="0"
-                                                   max="100"
-                                                   id="rango-humedad-max"
-                                                   name="humedadMax"
-                                                   aria-label="Humedad máxima"
-                                                   required>
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                min="0"
+                                                max="100"
+                                                id="rango-humedad-max"
+                                                name="humedadMax"
+                                                aria-label="Humedad relativa máxima en porcentaje"
+                                                required>
                                         </td>
 
                                         <td id="unidad-humedad">%</td>
+
                                     </tr>
+
                                 </tbody>
+
                             </table>
+
                         </div>
 
                         <div class="settings-form-footer">
+
                             <p>
                                 <i data-lucide="shield-check"></i>
                                 Los valores deben ser numéricos,
@@ -385,20 +488,29 @@
                             </p>
 
                             <div class="settings-actions">
-                                <button type="button"
-                                        id="boton-restablecer-rangos"
-                                        class="settings-button settings-button-secondary">
+
+                                <button
+                                    type="button"
+                                    id="boton-restablecer-rangos"
+                                    class="settings-button settings-button-secondary">
+
                                     <i data-lucide="rotate-ccw"></i>
                                     Restablecer
+
                                 </button>
 
-                                <button type="submit"
-                                        id="boton-guardar-rangos"
-                                        class="settings-button settings-button-primary">
+                                <button
+                                    type="submit"
+                                    id="boton-guardar-rangos"
+                                    class="settings-button settings-button-primary">
+
                                     <i data-lucide="save"></i>
                                     Guardar rangos
+
                                 </button>
+
                             </div>
+
                         </div>
 
                     </form>
@@ -406,34 +518,45 @@
                     <p class="settings-helper">
                         Los valores iniciales son ilustrativos,
                         no límites normativos. En esta versión,
-                        los cambios no afectan al módulo Alertas.
+                        los cambios no afectan al módulo Alertas
+                        ni se guardan en PostgreSQL.
                     </p>
+
                 </section>
 
                 <!-- ======================================
-                     2. FÓRMULAS TERMODINÁMICAS
-                     ====================================== -->
+                     2. CALCULADORA TERMODINÁMICA
+                ====================================== -->
+
                 <section id="seccion-formulas"
-                         class="settings-panel">
+                         class="settings-panel"
+                         aria-labelledby="titulo-formulas">
 
                     <div class="settings-panel-heading">
+
                         <div class="settings-heading-left">
+
                             <div class="settings-section-icon">
                                 <i data-lucide="calculator"></i>
                             </div>
 
                             <div>
-                                <h2>Calculadora termodinámica</h2>
+                                <h2 id="titulo-formulas">
+                                    Calculadora termodinámica
+                                </h2>
+
                                 <p>
                                     Obtén cuatro variables derivadas
                                     mediante ecuaciones físicas.
                                 </p>
                             </div>
+
                         </div>
 
                         <span class="settings-demo-tag">
                             CÁLCULO LOCAL
                         </span>
+
                     </div>
 
                     <div class="settings-calculator-intro">
@@ -449,50 +572,70 @@
                         <div class="settings-calculator-grid">
 
                             <div class="settings-field">
+
                                 <label for="calc-temperatura">
                                     Temperatura actual (°C)
                                 </label>
-                                <input type="number"
-                                       id="calc-temperatura"
-                                       value="28"
-                                       step="any"
-                                       required>
+
+                                <input
+                                    type="number"
+                                    id="calc-temperatura"
+                                    name="temperaturaActual"
+                                    value="28"
+                                    step="any"
+                                    required>
+
                             </div>
 
                             <div class="settings-field">
+
                                 <label for="calc-humedad">
                                     Humedad relativa (%)
                                 </label>
-                                <input type="number"
-                                       id="calc-humedad"
-                                       value="65"
-                                       min="0"
-                                       max="100"
-                                       step="any"
-                                       required>
+
+                                <input
+                                    type="number"
+                                    id="calc-humedad"
+                                    name="humedadRelativa"
+                                    value="65"
+                                    min="0"
+                                    max="100"
+                                    step="any"
+                                    required>
+
                             </div>
 
                             <div class="settings-field">
+
                                 <label for="calc-temperatura-anterior">
                                     Temperatura anterior (°C)
                                 </label>
-                                <input type="number"
-                                       id="calc-temperatura-anterior"
-                                       value="27.5"
-                                       step="any"
-                                       required>
+
+                                <input
+                                    type="number"
+                                    id="calc-temperatura-anterior"
+                                    name="temperaturaAnterior"
+                                    value="27.5"
+                                    step="any"
+                                    required>
+
                             </div>
 
                             <div class="settings-field">
+
                                 <label for="calc-intervalo">
                                     Intervalo transcurrido (min)
                                 </label>
-                                <input type="number"
-                                       id="calc-intervalo"
-                                       value="10"
-                                       min="0.000001"
-                                       step="any"
-                                       required>
+
+                                <input
+                                    type="number"
+                                    id="calc-intervalo"
+                                    name="intervaloMinutos"
+                                    value="10"
+                                    min="0.000001"
+                                    step="any"
+                                    required>
+
                             </div>
 
                         </div>
@@ -504,127 +647,183 @@
                            hidden></p>
 
                         <div class="settings-calculator-actions">
-                            <button type="submit"
-                                    id="boton-calcular"
-                                    class="settings-button settings-button-primary">
+
+                            <button
+                                type="submit"
+                                id="boton-calcular"
+                                class="settings-button settings-button-primary">
+
                                 <i data-lucide="calculator"></i>
                                 Calcular variables
+
                             </button>
+
                         </div>
 
                     </form>
 
                     <!-- RESULTADOS -->
+
                     <div class="settings-results"
+                         role="group"
                          aria-label="Resultados termodinámicos">
 
                         <article class="settings-result-card">
+
                             <div class="settings-result-heading">
                                 <i data-lucide="cloud-fog"></i>
                                 <span>Punto de rocío</span>
                             </div>
+
                             <strong id="resultado-rocio">—</strong>
-                            <small>°C · Ecuación de Magnus</small>
+
+                            <small>
+                                °C · Ecuación de Magnus
+                            </small>
+
                         </article>
 
                         <article class="settings-result-card">
+
                             <div class="settings-result-heading">
                                 <i data-lucide="droplets"></i>
                                 <span>Humedad absoluta</span>
                             </div>
+
                             <strong id="resultado-humedad-absoluta">—</strong>
-                            <small>g/m³ · Vapor por volumen</small>
+
+                            <small>
+                                g/m³ · Vapor por volumen
+                            </small>
+
                         </article>
 
                         <article class="settings-result-card">
+
                             <div class="settings-result-heading">
                                 <i data-lucide="gauge"></i>
                                 <span>Presión de vapor</span>
                             </div>
+
                             <strong id="resultado-presion-vapor">—</strong>
-                            <small>hPa · Presión parcial del vapor</small>
+
+                            <small>
+                                hPa · Presión parcial del vapor
+                            </small>
+
                         </article>
 
                         <article class="settings-result-card">
+
                             <div class="settings-result-heading">
                                 <i data-lucide="trending-up"></i>
                                 <span>Tasa de cambio térmico</span>
                             </div>
+
                             <strong id="resultado-tasa-termica">—</strong>
-                            <small>°C/min · Variación temporal</small>
+
+                            <small>
+                                °C/min · Variación temporal
+                            </small>
+
                         </article>
 
                     </div>
 
                     <!-- ECUACIONES -->
+
                     <div class="settings-equations-heading">
+
                         <h3>Ecuaciones utilizadas</h3>
+
                         <p>
                             Aproximaciones psicrométricas para
                             condiciones ambientales habituales.
                         </p>
+
                     </div>
 
                     <div class="settings-equations">
 
                         <article class="settings-equation">
+
                             <h4>Presión de saturación</h4>
+
                             <code>
                                 es(T) = 6.112 · exp(17.67T / (T + 243.5))
                             </code>
+
                             <p>
                                 T en °C. Resultado en hPa.
                             </p>
+
                         </article>
 
                         <article class="settings-equation">
+
                             <h4>Presión de vapor real</h4>
+
                             <code>
                                 e = (HR / 100) · es(T)
                             </code>
+
                             <p>
                                 HR es la humedad relativa en porcentaje.
                             </p>
+
                         </article>
 
                         <article class="settings-equation">
+
                             <h4>Punto de rocío</h4>
+
                             <code>
                                 γ = ln(HR / 100) + 17.62T / (243.12 + T)
                             </code>
+
                             <code>
                                 Td = 243.12γ / (17.62 - γ)
                             </code>
+
                             <p>
                                 Aproximación de Magnus. Td en °C.
                             </p>
+
                         </article>
 
                         <article class="settings-equation">
+
                             <h4>Humedad absoluta</h4>
+
                             <code>
                                 HA = 216.7 · e / (T + 273.15)
                             </code>
+
                             <p>
                                 e en hPa y HA en g/m³.
                             </p>
+
                         </article>
 
                         <article class="settings-equation">
+
                             <h4>Tasa de cambio térmico</h4>
+
                             <code>
                                 dT/dt ≈ (Tactual - Tanterior) / Δt
                             </code>
+
                             <p>
                                 Δt en minutos. Resultado en °C/min.
                             </p>
+
                         </article>
 
                     </div>
 
                     <p class="settings-helper">
-                        Para humedad relativa igual a 0 %, el
-                        punto de rocío no tiene un valor finito
+                        Para humedad relativa igual a 0 %,
+                        el punto de rocío no tiene un valor finito
                         en esta aproximación. El sistema mostrará
                         “No definido”.
                     </p>
@@ -633,80 +832,122 @@
 
                 <!-- ======================================
                      3. AULAS
-                     ====================================== -->
+                ====================================== -->
+
                 <section id="seccion-aulas"
-                         class="settings-panel">
+                         class="settings-panel"
+                         aria-labelledby="titulo-aulas">
 
                     <div class="settings-panel-heading">
+
                         <div class="settings-heading-left">
+
                             <div class="settings-section-icon">
                                 <i data-lucide="school"></i>
                             </div>
+
                             <div>
-                                <h2>Aulas registradas</h2>
+
+                                <h2 id="titulo-aulas">
+                                    Aulas registradas
+                                </h2>
+
                                 <p>
                                     Espacios utilizados en la
                                     demostración del sistema.
                                 </p>
+
                             </div>
+
                         </div>
 
                         <span class="settings-count"
-                              id="settings-aulas-count">0 aulas</span>
+                              id="settings-aulas-count">
+                            0 aulas
+                        </span>
+
                     </div>
 
                     <p id="mensaje-aulas"
                        class="settings-message"
                        role="status"
+                       aria-live="polite"
                        hidden></p>
 
-                    <div class="settings-table-scroll">
+                    <div class="settings-table-scroll"
+                         role="region"
+                         aria-label="Tabla de aulas"
+                         tabindex="0">
+
                         <table id="tabla-aulas"
                                class="settings-table">
+
                             <thead>
                                 <tr>
                                     <th scope="col">Aula</th>
                                 </tr>
                             </thead>
+
                             <tbody id="cuerpo-aulas"></tbody>
+
                         </table>
+
                     </div>
+
                 </section>
 
                 <!-- ======================================
                      4. DISPOSITIVOS
-                     ====================================== -->
+                ====================================== -->
+
                 <section id="seccion-dispositivos"
-                         class="settings-panel">
+                         class="settings-panel"
+                         aria-labelledby="titulo-dispositivos">
 
                     <div class="settings-panel-heading">
+
                         <div class="settings-heading-left">
+
                             <div class="settings-section-icon">
                                 <i data-lucide="cpu"></i>
                             </div>
+
                             <div>
-                                <h2>Dispositivos y sensores</h2>
+
+                                <h2 id="titulo-dispositivos">
+                                    Dispositivos y sensores
+                                </h2>
+
                                 <p>
                                     Unidades ESP32 y sensores DHT22
                                     representados en la demostración.
                                 </p>
+
                             </div>
+
                         </div>
 
                         <span class="settings-count"
                               id="settings-dispositivos-count">
                             0 dispositivos
                         </span>
+
                     </div>
 
                     <p id="mensaje-dispositivos"
                        class="settings-message"
                        role="status"
+                       aria-live="polite"
                        hidden></p>
 
-                    <div class="settings-table-scroll">
+                    <div class="settings-table-scroll"
+                         role="region"
+                         aria-label="Tabla de dispositivos"
+                         tabindex="0">
+
                         <table id="tabla-dispositivos"
                                class="settings-table">
+
                             <thead>
                                 <tr>
                                     <th scope="col">Dispositivo</th>
@@ -715,45 +956,67 @@
                                     <th scope="col">Estado</th>
                                 </tr>
                             </thead>
+
                             <tbody id="cuerpo-dispositivos"></tbody>
+
                         </table>
+
                     </div>
+
                 </section>
 
                 <!-- ======================================
                      5. USUARIOS
-                     ====================================== -->
+                ====================================== -->
+
                 <section id="seccion-usuarios"
-                         class="settings-panel">
+                         class="settings-panel"
+                         aria-labelledby="titulo-usuarios">
 
                     <div class="settings-panel-heading">
+
                         <div class="settings-heading-left">
+
                             <div class="settings-section-icon">
                                 <i data-lucide="users"></i>
                             </div>
+
                             <div>
-                                <h2>Usuarios del sistema</h2>
+
+                                <h2 id="titulo-usuarios">
+                                    Usuarios del sistema
+                                </h2>
+
                                 <p>
                                     Cuentas ficticias para demostrar
                                     roles y permisos.
                                 </p>
+
                             </div>
+
                         </div>
 
                         <span class="settings-count"
                               id="settings-usuarios-count">
                             0 usuarios
                         </span>
+
                     </div>
 
                     <p id="mensaje-usuarios"
                        class="settings-message"
                        role="status"
+                       aria-live="polite"
                        hidden></p>
 
-                    <div class="settings-table-scroll">
+                    <div class="settings-table-scroll"
+                         role="region"
+                         aria-label="Tabla de usuarios"
+                         tabindex="0">
+
                         <table id="tabla-usuarios"
                                class="settings-table">
+
                             <thead>
                                 <tr>
                                     <th scope="col">Nombre</th>
@@ -761,63 +1024,94 @@
                                     <th scope="col">Rol</th>
                                 </tr>
                             </thead>
+
                             <tbody id="cuerpo-usuarios"></tbody>
+
                         </table>
+
                     </div>
+
                 </section>
 
                 <!-- ======================================
-                     6. SISTEMA
-                     ====================================== -->
+                     6. INFORMACIÓN DEL SISTEMA
+                ====================================== -->
+
                 <section id="seccion-sistema"
-                         class="settings-panel">
+                         class="settings-panel"
+                         aria-labelledby="titulo-sistema">
 
                     <div class="settings-panel-heading">
+
                         <div class="settings-heading-left">
+
                             <div class="settings-section-icon">
                                 <i data-lucide="server-cog"></i>
                             </div>
+
                             <div>
-                                <h2>Información del sistema</h2>
+
+                                <h2 id="titulo-sistema">
+                                    Información del sistema
+                                </h2>
+
                                 <p>
                                     Tecnologías y estado de integración
                                     de SMART CLASSROOM.
                                 </p>
+
                             </div>
+
                         </div>
 
                         <span class="settings-demo-tag">
                             DEMOSTRACIÓN
                         </span>
+
                     </div>
 
                     <p id="mensaje-sistema"
                        class="settings-message"
                        role="status"
+                       aria-live="polite"
                        hidden></p>
 
-                    <div class="settings-table-scroll">
+                    <div class="settings-table-scroll"
+                         role="region"
+                         aria-label="Tabla de información del sistema"
+                         tabindex="0">
+
                         <table id="tabla-sistema"
                                class="settings-table">
+
                             <thead>
                                 <tr>
                                     <th scope="col">Parámetro</th>
                                     <th scope="col">Valor</th>
                                 </tr>
                             </thead>
+
                             <tbody id="cuerpo-sistema"></tbody>
+
                         </table>
+
                     </div>
+
                 </section>
 
             </main>
 
+            <!-- PIE DE PÁGINA -->
+
             <footer class="dashboard-footer">
+
                 <span>SMART CLASSROOM © 2026</span>
                 <span>Universidad de El Salvador</span>
+
             </footer>
 
         </div>
+
     </div>
 
 </body>

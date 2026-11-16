@@ -1,6 +1,11 @@
 
 /* ============================================
    SMART CLASSROOM — HISTORIAL
+   Universidad de El Salvador
+   ============================================ */
+
+/* ============================================
+   1. VARIABLES — TEMA OSCURO
    ============================================ */
 
 .history-page {
@@ -20,14 +25,14 @@
 
     --history-control: #22262e;
     --history-control-text: #f2f1ee;
-    --history-control-border: rgba(255,255,255,0.13);
+    --history-control-border: rgba(255, 255, 255, 0.13);
 
     --history-secondary-bg: #252932;
     --history-secondary-hover: #303540;
     --history-secondary-text: #d5d8df;
 
-    --history-row-hover: rgba(255,255,255,0.035);
-    --history-row-border: rgba(255,255,255,0.055);
+    --history-row-hover: rgba(255, 255, 255, 0.035);
+    --history-row-border: rgba(255, 255, 255, 0.055);
 
     --history-success: #83cda4;
     --history-warning: #e5c68e;
@@ -39,21 +44,27 @@
 }
 
 /* ============================================
-   CONTENIDO
+   2. CONTENIDO
    ============================================ */
 
 .history-content {
     position: relative;
     z-index: 1;
+    min-width: 0;
 }
 
 .history-welcome {
     margin-bottom: 26px;
 }
 
+.history-welcome .welcome-text {
+    min-width: 0;
+}
+
 .history-welcome h1 {
     font-size: clamp(30px, 3vw, 42px);
     letter-spacing: -0.04em;
+    overflow-wrap: break-word;
 }
 
 .history-welcome p {
@@ -62,7 +73,7 @@
 }
 
 /* ============================================
-   INDICADORES
+   3. INDICADORES
    ============================================ */
 
 .history-summary {
@@ -78,6 +89,10 @@
     background: var(--history-surface);
     border: 1px solid var(--history-border);
     border-radius: 20px;
+
+    transition:
+        background-color 0.25s ease,
+        border-color 0.25s ease;
 }
 
 .history-stat-top {
@@ -85,8 +100,14 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+
     color: var(--history-label);
     font-size: 12px;
+}
+
+.history-stat-top span {
+    min-width: 0;
+    overflow-wrap: break-word;
 }
 
 .history-stat-top svg {
@@ -99,28 +120,38 @@
 .history-stat strong {
     display: block;
     margin: 20px 0 9px;
+
     color: var(--history-text);
     font-size: clamp(22px, 2.3vw, 32px);
     font-weight: 700;
     letter-spacing: -0.03em;
     font-variant-numeric: tabular-nums;
+
+    overflow-wrap: anywhere;
 }
 
 .history-stat small {
     color: var(--history-subtle);
     font-size: 11px;
+    line-height: 1.5;
 }
 
 /* ============================================
-   PANELES
+   4. PANELES
    ============================================ */
 
 .history-panel {
+    min-width: 0;
     margin-bottom: 22px;
     padding: 24px;
+
     background: var(--history-surface);
     border: 1px solid var(--history-border);
     border-radius: 20px;
+
+    transition:
+        background-color 0.25s ease,
+        border-color 0.25s ease;
 }
 
 .history-panel-heading {
@@ -128,34 +159,43 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
+    min-width: 0;
 }
 
 .history-panel-heading h2 {
     margin: 0;
     color: var(--history-heading);
     font-size: 17px;
+    overflow-wrap: break-word;
 }
 
 .history-demo-tag {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
+    flex-shrink: 0;
+
     padding: 7px 11px;
+
     color: var(--history-gold);
     background: rgba(244, 185, 66, 0.09);
     border: 1px solid rgba(244, 185, 66, 0.2);
     border-radius: 30px;
+
     font-size: 11px;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .history-demo-tag svg {
     width: 14px;
     height: 14px;
+    flex-shrink: 0;
 }
 
 /* ============================================
-   FILTROS
+   5. FILTROS
    ============================================ */
 
 .history-filters {
@@ -171,6 +211,7 @@
     flex-direction: column;
     gap: 8px;
     min-width: 0;
+
     color: var(--history-label);
     font-size: 12px;
     font-weight: 600;
@@ -182,14 +223,26 @@
     min-width: 0;
     min-height: 44px;
     padding: 0 13px;
+
     color: var(--history-control-text);
     background: var(--history-control);
     border: 1px solid var(--history-control-border);
     border-radius: 11px;
+
     font-family: inherit;
     font-size: 13px;
     outline: none;
+
     color-scheme: var(--history-input-scheme);
+}
+
+.history-field select {
+    cursor: pointer;
+}
+
+.history-field select option {
+    color: var(--history-control-text);
+    background: var(--history-control);
 }
 
 .history-field select:focus-visible,
@@ -205,10 +258,11 @@
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
+    min-width: 0;
 }
 
 /* ============================================
-   BOTONES
+   6. BOTONES
    ============================================ */
 
 .history-button {
@@ -216,17 +270,22 @@
     justify-content: center;
     align-items: center;
     gap: 8px;
+
     min-height: 44px;
     padding: 0 17px;
+
     border-radius: 11px;
     cursor: pointer;
+
     font: inherit;
     font-size: 13px;
     font-weight: 600;
     white-space: nowrap;
+
     transition:
-        background 0.2s ease,
+        background-color 0.2s ease,
         border-color 0.2s ease,
+        color 0.2s ease,
         opacity 0.2s ease;
 }
 
@@ -242,8 +301,9 @@
     border: 1px solid var(--history-gold);
 }
 
-.history-button-primary:hover {
+.history-button-primary:hover:not(:disabled) {
     background: #ffd077;
+    border-color: #ffd077;
 }
 
 .history-button-secondary,
@@ -253,7 +313,7 @@
     border: 1px solid var(--history-control-border);
 }
 
-.history-button-secondary:hover,
+.history-button-secondary:hover:not(:disabled),
 .history-page-button:hover:not(:disabled) {
     background: var(--history-secondary-hover);
 }
@@ -264,37 +324,46 @@
 }
 
 /* ============================================
-   AVISOS
+   7. AVISOS
    ============================================ */
 
 .history-notice {
     margin-bottom: 20px;
     padding: 12px 16px;
+
     color: var(--history-warning);
     background: rgba(244, 185, 66, 0.06);
     border: 1px solid rgba(244, 185, 66, 0.17);
     border-radius: 12px;
+
     font-size: 12px;
     line-height: 1.6;
+    overflow-wrap: anywhere;
 }
 
 .history-message {
     margin: 0 0 20px;
     padding: 13px 16px;
+
     color: var(--history-warning);
     background: rgba(220, 120, 70, 0.09);
     border: 1px solid rgba(220, 120, 70, 0.2);
     border-radius: 12px;
+
     font-size: 13px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
 }
 
 .history-message[hidden],
-.history-empty[hidden] {
+.history-empty[hidden],
+.history-table[hidden],
+.history-pagination[hidden] {
     display: none !important;
 }
 
 /* ============================================
-   TABLA
+   8. TABLA
    ============================================ */
 
 .history-table-panel {
@@ -307,22 +376,31 @@
     justify-content: space-between;
     align-items: center;
     gap: 20px;
+
     padding: 24px 24px 18px;
+}
+
+.history-table-heading > div {
+    min-width: 0;
 }
 
 .history-table-heading h2 {
     margin: 8px 0;
     color: var(--history-text);
     font-size: 19px;
+    overflow-wrap: break-word;
 }
 
 .history-table-heading p {
     margin: 0;
     color: var(--history-muted);
     font-size: 12px;
+    line-height: 1.6;
 }
 
 .history-export {
+    flex-shrink: 0;
+
     color: var(--history-gold);
     background: rgba(244, 185, 66, 0.1);
     border: 1px solid rgba(244, 185, 66, 0.3);
@@ -332,13 +410,16 @@
     background: rgba(244, 185, 66, 0.19);
 }
 
-/* BÚSQUEDA */
+/* ============================================
+   9. BÚSQUEDA
+   ============================================ */
 
 .history-search-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
+
     padding: 0 24px 22px;
 }
 
@@ -350,14 +431,17 @@
 .history-search-input {
     position: relative;
     width: min(100%, 340px);
+    min-width: 0;
 }
 
 .history-search-input svg {
     position: absolute;
     top: 50%;
     left: 13px;
+
     width: 17px;
     height: 17px;
+
     color: var(--history-subtle);
     transform: translateY(-50%);
     pointer-events: none;
@@ -365,12 +449,15 @@
 
 .history-search-input input {
     width: 100%;
+    min-width: 0;
     min-height: 43px;
     padding: 0 13px 0 40px;
+
     color: var(--history-control-text);
     background: var(--history-control);
     border: 1px solid var(--history-control-border);
     border-radius: 11px;
+
     font: inherit;
     font-size: 12px;
     outline: none;
@@ -378,13 +465,18 @@
 
 .history-search-input input::placeholder {
     color: var(--history-subtle);
+    opacity: 1;
 }
 
-/* TABLA DE DATOS */
+/* ============================================
+   10. TABLA DE DATOS
+   ============================================ */
 
 .history-table-scroll {
     width: 100%;
+    max-width: 100%;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .history-table {
@@ -400,6 +492,7 @@
 
 .history-table th {
     padding: 16px 19px;
+
     color: var(--history-muted);
     font-size: 11px;
     font-weight: 600;
@@ -410,6 +503,7 @@
 
 .history-table td {
     padding: 17px 19px;
+
     color: var(--history-body);
     font-size: 12px;
     border-top: 1px solid var(--history-row-border);
@@ -417,23 +511,31 @@
 }
 
 .history-table tbody tr {
-    transition: background 0.2s ease;
+    transition: background-color 0.2s ease;
 }
 
 .history-table tbody tr:hover {
     background: var(--history-row-hover);
 }
 
-.history-date {
+.history-table td.history-date {
     color: var(--history-muted);
     font-variant-numeric: tabular-nums;
 }
 
-.history-value {
+.history-table td.history-classroom {
+    font-weight: 600;
+}
+
+.history-table td.history-value {
     color: var(--history-heading);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
 }
+
+/* ============================================
+   11. INDICADORES DE VARIABLE
+   ============================================ */
 
 .history-variable {
     display: inline-flex;
@@ -453,17 +555,35 @@
     background: var(--history-blue);
 }
 
+/* ============================================
+   12. ESTADOS
+   ============================================ */
+
 .history-status {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+
     padding: 6px 10px;
     border-radius: 20px;
+
+    color: var(--history-success);
+    background: rgba(131, 205, 164, 0.1);
+
     font-size: 11px;
     font-weight: 600;
 }
 
-.history-status.normal {
+.history-status-dot {
+    width: 7px;
+    height: 7px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.history-status.normal,
+.history-status.attended {
     color: var(--history-success);
     background: rgba(131, 205, 164, 0.1);
 }
@@ -473,7 +593,9 @@
     background: rgba(240, 181, 126, 0.1);
 }
 
-/* SIN RESULTADOS */
+/* ============================================
+   13. SIN RESULTADOS
+   ============================================ */
 
 .history-empty {
     padding: 45px 20px;
@@ -489,6 +611,7 @@
 .history-empty strong {
     display: block;
     margin-top: 12px;
+
     color: var(--history-text);
     font-size: 17px;
 }
@@ -496,10 +619,11 @@
 .history-empty p {
     color: var(--history-muted);
     font-size: 13px;
+    line-height: 1.6;
 }
 
 /* ============================================
-   PAGINACIÓN
+   14. PAGINACIÓN
    ============================================ */
 
 .history-pagination {
@@ -507,6 +631,7 @@
     justify-content: space-between;
     align-items: center;
     gap: 20px;
+
     padding: 18px 24px;
     border-top: 1px solid var(--history-border);
 }
@@ -514,6 +639,7 @@
 #history-page-summary {
     color: var(--history-muted);
     font-size: 12px;
+    line-height: 1.5;
 }
 
 .history-pagination-controls {
@@ -529,7 +655,7 @@
 }
 
 /* ============================================
-   RESPONSIVE
+   15. RESPONSIVE — ESCRITORIO
    ============================================ */
 
 @media (max-width: 1300px) {
@@ -538,11 +664,19 @@
     }
 }
 
+/* ============================================
+   16. RESPONSIVE — TABLET
+   ============================================ */
+
 @media (max-width: 1050px) {
     .history-filters {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
+
+/* ============================================
+   17. RESPONSIVE — CELULAR
+   ============================================ */
 
 @media (max-width: 700px) {
     .history-panel {
@@ -584,7 +718,19 @@
     .history-pagination {
         padding: 18px 19px;
     }
+
+    .history-welcome h1 {
+        font-size: clamp(27px, 7vw, 34px);
+    }
+
+    .history-export {
+        width: 100%;
+    }
 }
+
+/* ============================================
+   18. RESPONSIVE — CELULAR PEQUEÑO
+   ============================================ */
 
 @media (max-width: 480px) {
     .history-summary {
@@ -603,18 +749,77 @@
     .history-filter-actions .history-button {
         flex: 1;
     }
+
+    .history-stat {
+        padding: 19px;
+    }
+
+    .history-stat strong {
+        font-size: 27px;
+    }
+
+    .history-pagination-controls {
+        gap: 8px;
+    }
+
+    .history-page-button {
+        padding: 0 10px;
+        font-size: 12px;
+    }
 }
+
+/* ============================================
+   19. RESPONSIVE — PANTALLAS MUY PEQUEÑAS
+   ============================================ */
+
+@media (max-width: 360px) {
+    .history-panel {
+        padding: 14px;
+    }
+
+    .history-table-panel {
+        padding: 0;
+    }
+
+    .history-stat {
+        padding: 16px;
+    }
+
+    .history-table-heading {
+        padding: 15px;
+    }
+
+    .history-search-row {
+        padding: 0 15px 15px;
+    }
+
+    .history-pagination {
+        padding: 15px;
+    }
+
+    .history-page-number {
+        width: 100%;
+        text-align: center;
+        order: -1;
+    }
+}
+
+/* ============================================
+   20. ACCESIBILIDAD
+   ============================================ */
 
 @media (prefers-reduced-motion: reduce) {
     .history-button,
+    .history-panel,
+    .history-stat,
     .history-table tbody tr {
         transition: none;
     }
 }
 
 /* ============================================
-   TEMA CLARO — SMART CLASSROOM
-   Activado por layout.js mediante data-theme.
+   21. TEMA CLARO — SMART CLASSROOM
+   Activado por layout.js mediante data-theme
    ============================================ */
 
 html[data-theme="light"] .history-page,
@@ -624,7 +829,7 @@ body.history-page[data-theme="light"] {
     --history-green: #168258;
     --history-red: #bb433b;
 
-    --history-border: rgba(75,65,45,0.13);
+    --history-border: rgba(75, 65, 45, 0.13);
     --history-surface: #ffffff;
     --history-field: #f8f6f2;
 
@@ -637,14 +842,14 @@ body.history-page[data-theme="light"] {
 
     --history-control: #f8f6f2;
     --history-control-text: #242321;
-    --history-control-border: rgba(75,65,45,0.17);
+    --history-control-border: rgba(75, 65, 45, 0.17);
 
     --history-secondary-bg: #f0ece5;
     --history-secondary-hover: #e7e0d5;
     --history-secondary-text: #4a4338;
 
-    --history-row-hover: rgba(75,65,45,0.045);
-    --history-row-border: rgba(75,65,45,0.10);
+    --history-row-hover: rgba(75, 65, 45, 0.045);
+    --history-row-border: rgba(75, 65, 45, 0.10);
 
     --history-success: #167447;
     --history-warning: #80520b;
@@ -655,14 +860,24 @@ body.history-page[data-theme="light"] {
     --history-input-scheme: light;
 }
 
-/* Contraste del botón primario en tema claro */
+/* ============================================
+   22. CONTRASTE EN TEMA CLARO
+   ============================================ */
 
 html[data-theme="light"] .history-button-primary,
 body.history-page[data-theme="light"] .history-button-primary {
     color: #ffffff;
 }
 
-/* Indicadores legibles en tema claro */
+html[data-theme="light"] .history-button-primary:hover:not(:disabled),
+body.history-page[data-theme="light"] .history-button-primary:hover:not(:disabled) {
+    color: #1a1710;
+}
+
+html[data-theme="light"] .history-status,
+body.history-page[data-theme="light"] .history-status {
+    color: #167447;
+}
 
 html[data-theme="light"] .history-status.normal,
 html[data-theme="light"] .history-status.attended,
@@ -671,4 +886,9 @@ body.history-page[data-theme="light"] .history-status.normal,
 body.history-page[data-theme="light"] .history-status.attended,
 body.history-page[data-theme="light"] .history-device-status.ready {
     color: #167447;
+}
+
+html[data-theme="light"] .history-status.alert,
+body.history-page[data-theme="light"] .history-status.alert {
+    color: #80520b;
 }

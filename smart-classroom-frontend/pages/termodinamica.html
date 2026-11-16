@@ -45,6 +45,7 @@
     <!-- JAVASCRIPT -->
     <script src="../js/ui-enhance.js" defer></script>
     <script src="../js/api.js" defer></script>
+    <script src="../js/auth-guard.js" defer></script>
     <script src="../js/layout.js" defer></script>
     <script src="../js/termodinamica.js" defer></script>
 
@@ -498,6 +499,7 @@
 
                     <div class="charts-grid">
 
+                        <!-- GRÁFICA PUNTO DE ROCÍO -->
                         <article class="chart-card">
 
                             <div class="chart-header">
@@ -519,6 +521,7 @@
 
                         </article>
 
+                        <!-- GRÁFICA HUMEDAD ABSOLUTA -->
                         <article class="chart-card">
 
                             <div class="chart-header">
@@ -540,6 +543,7 @@
 
                         </article>
 
+                        <!-- GRÁFICA PRESIÓN DE VAPOR -->
                         <article class="chart-card">
 
                             <div class="chart-header">
@@ -561,6 +565,7 @@
 
                         </article>
 
+                        <!-- GRÁFICA VARIACIÓN TÉRMICA -->
                         <article class="chart-card">
 
                             <div class="chart-header">
@@ -608,6 +613,7 @@
 
                     <div class="thermo-explanation-grid">
 
+                        <!-- PUNTO DE ROCÍO -->
                         <article class="detail-card">
 
                             <div class="detail-header">
@@ -628,6 +634,7 @@
 
                         </article>
 
+                        <!-- HUMEDAD ABSOLUTA -->
                         <article class="detail-card">
 
                             <div class="detail-header">
@@ -647,6 +654,7 @@
 
                         </article>
 
+                        <!-- PRESIÓN DE VAPOR -->
                         <article class="detail-card">
 
                             <div class="detail-header">
@@ -667,6 +675,7 @@
 
                         </article>
 
+                        <!-- VARIACIÓN TÉRMICA -->
                         <article class="detail-card">
 
                             <div class="detail-header">
@@ -708,12 +717,18 @@
                         <p>
                             Las propiedades termodinámicas son
                             estimaciones derivadas de las mediciones
-                            del sensor DHT22.
+                            de temperatura y humedad relativa
+                            registradas por el sensor DHT22.
                         </p>
 
+                        <!-- DESCRIPCIÓN CORREGIDA -->
                         <p>
-                            Los cálculos se realizan en el backend
-                            desarrollado con Rust, utilizando
+                            Las mediciones se consultan mediante
+                            el backend desarrollado en Rust,
+                            que permite acceder a los registros
+                            almacenados en PostgreSQL/Supabase.
+                            El módulo de termodinámica realiza
+                            los cálculos en JavaScript, utilizando
                             la aproximación de Magnus y la ecuación
                             de estado del gas ideal.
                         </p>
@@ -723,6 +738,7 @@
                             <span>ESP32</span>
                             <span>DHT22</span>
                             <span>Rust</span>
+                            <span>JavaScript</span>
                             <span>Magnus</span>
                             <span>Gas ideal</span>
 

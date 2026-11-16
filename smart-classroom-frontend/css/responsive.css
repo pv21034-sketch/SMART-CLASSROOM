@@ -1,0 +1,345 @@
+
+/* ============================================================
+   SMART CLASSROOM - RESPONSIVE
+   PC + TABLET + CELULAR
+   ============================================================ */
+
+/* Ajustes generales */
+.dashboard-page .app-shell,
+.dashboard-page .main-wrapper,
+.dashboard-page .dashboard-content {
+    min-width: 0;
+}
+
+.dashboard-page .metric-card,
+.dashboard-page .chart-card,
+.dashboard-page .detail-card,
+.dashboard-page .graphs-chart-card,
+.dashboard-page .graphs-panel,
+.dashboard-page .history-panel,
+.dashboard-page .alerts-panel,
+.dashboard-page .settings-panel {
+    min-width: 0;
+}
+
+.dashboard-page .chart-container,
+.dashboard-page .graphs-canvas-wrap {
+    position: relative;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.dashboard-page canvas {
+    max-width: 100%;
+}
+
+/* Fondo del menú móvil */
+.mobile-sidebar-backdrop {
+    display: none;
+}
+
+.mobile-sidebar-backdrop[hidden] {
+    display: none !important;
+}
+
+/* ============================================================
+   TABLET Y CELULAR
+   ============================================================ */
+
+@media (max-width: 900px) {
+
+    .dashboard-page .main-wrapper {
+        margin-left: 0;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .dashboard-page .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 110;
+
+        width: min(300px, 86vw);
+        max-width: 100%;
+
+        background: var(
+            --sidebar-bg-solid,
+            #101114
+        );
+
+        transform: translateX(-105%);
+        visibility: hidden;
+
+        transition:
+            transform 0.25s ease,
+            visibility 0.25s ease;
+
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    .dashboard-page .sidebar.open,
+    .dashboard-page .sidebar.is-open {
+        transform: translateX(0);
+        visibility: visible;
+    }
+
+    .dashboard-page .menu-toggle {
+        display: inline-grid;
+        place-items: center;
+    }
+
+    .mobile-sidebar-backdrop:not([hidden]) {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+
+        width: 100%;
+        height: 100%;
+
+        border: 0;
+        background: rgba(0, 0, 0, 0.6);
+        cursor: pointer;
+    }
+
+    body.dashboard-page.sidebar-open {
+        overflow: hidden;
+    }
+
+    .dashboard-page .welcome-section {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .dashboard-page .dashboard-actions {
+        max-width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .dashboard-page .details-section,
+    .dashboard-page .graphs-charts,
+    .dashboard-page .thermo-explanation-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .dashboard-page .history-table-scroll,
+    .dashboard-page .alerts-table-scroll,
+    .dashboard-page .settings-table-scroll {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .dashboard-page .history-table,
+    .dashboard-page .alerts-table {
+        min-width: 650px;
+    }
+
+    .dashboard-page .settings-tabs {
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* ============================================================
+   CELULARES
+   ============================================================ */
+
+@media (max-width: 640px) {
+
+    .dashboard-page .topbar {
+        min-height: 64px;
+        padding-inline: 12px;
+        gap: 8px;
+    }
+
+    .dashboard-page .topbar-left,
+    .dashboard-page .topbar-right {
+        min-width: 0;
+        gap: 7px;
+    }
+
+    .dashboard-page .breadcrumb {
+        min-width: 0;
+    }
+
+    .dashboard-page .breadcrumb strong {
+        display: block;
+        max-width: 34vw;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .dashboard-page .connection-indicator {
+        display: none;
+    }
+
+    .dashboard-page .icon-button {
+        flex-shrink: 0;
+        min-width: 40px;
+        min-height: 40px;
+    }
+
+    .dashboard-page .dashboard-content {
+        padding: 20px 14px;
+        min-width: 0;
+    }
+
+    .dashboard-page .welcome-text {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .dashboard-page .welcome-text h1 {
+        font-size: clamp(1.55rem, 6vw, 2rem);
+        overflow-wrap: anywhere;
+    }
+
+    .dashboard-page .welcome-text p {
+        max-width: 100%;
+        overflow-wrap: break-word;
+    }
+
+    .dashboard-page .dashboard-actions {
+        width: 100%;
+        max-width: 100%;
+        padding: 12px;
+        flex-wrap: wrap;
+    }
+
+    .dashboard-page .dashboard-actions label {
+        width: 100%;
+    }
+
+    .dashboard-page .aula-select {
+        flex: 1 1 150px;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .dashboard-page .metrics-grid,
+    .dashboard-page .charts-grid,
+    .dashboard-page .thermo-grid,
+    .dashboard-page .graphs-summary,
+    .dashboard-page .history-summary,
+    .dashboard-page .alerts-summary,
+    .dashboard-page .settings-summary,
+    .dashboard-page .settings-results,
+    .dashboard-page .settings-calculator-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .dashboard-page .metric-card,
+    .dashboard-page .chart-card,
+    .dashboard-page .detail-card,
+    .dashboard-page .graphs-chart-card,
+    .dashboard-page .graphs-stat,
+    .dashboard-page .history-stat,
+    .dashboard-page .alerts-stat,
+    .dashboard-page .settings-stat {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .dashboard-page .chart-container,
+    .dashboard-page .graphs-canvas-wrap {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        height: 230px;
+    }
+
+    .dashboard-page .section-heading {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .dashboard-page .graphs-filters,
+    .dashboard-page .history-filters,
+    .dashboard-page .alerts-filters {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .dashboard-page .graphs-field,
+    .dashboard-page .history-field,
+    .dashboard-page .alerts-field,
+    .dashboard-page .settings-field {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .dashboard-page input,
+    .dashboard-page select,
+    .dashboard-page textarea {
+        max-width: 100%;
+        min-width: 0;
+        font-size: 16px;
+    }
+
+    .dashboard-page .history-filter-actions,
+    .dashboard-page .alerts-filter-actions,
+    .dashboard-page .settings-actions {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .dashboard-page .history-pagination,
+    .dashboard-page .alerts-pagination {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .dashboard-page .history-pagination-controls,
+    .dashboard-page .alerts-pagination-controls {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .dashboard-page .dashboard-footer {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 8px;
+        padding: 20px 14px;
+    }
+}
+
+/* ============================================================
+   CELULARES PEQUEÑOS
+   ============================================================ */
+
+@media (max-width: 380px) {
+
+    .dashboard-page .topbar {
+        padding-inline: 8px;
+    }
+
+    .dashboard-page .dashboard-content {
+        padding-inline: 10px;
+    }
+
+    .dashboard-page .breadcrumb strong {
+        max-width: 28vw;
+    }
+
+    .dashboard-page .user-avatar {
+        display: none;
+    }
+}
+
+/* Accesibilidad */
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-page .sidebar {
+        transition: none;
+    }
+}

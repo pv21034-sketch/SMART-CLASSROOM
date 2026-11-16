@@ -17,6 +17,7 @@
 //
 // No genera datos ficticios.
 // No modifica registros en PostgreSQL.
+// Compatible con PC, tablet y celular.
 // ============================================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -81,7 +82,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let cargando = false;
     let generacion = 0;
-    let controladorActual = null;
+    let actualizacionPendiente = false;
 
     // ========================================================
     // 1. UTILIDADES
@@ -100,7 +101,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function fechaValida(valor) {
-        if (valor === null || valor === undefined || valor === "") {
+        if (
+            valor === null ||
+            valor === undefined ||
+            valor === ""
+        ) {
             return null;
         }
 
@@ -648,6 +653,10 @@ document.addEventListener("DOMContentLoaded", () => {
             return null;
         }
 
+        const esMovil = window.matchMedia(
+            "(max-width: 640px)"
+        ).matches;
+
         return new Chart(contexto, {
             type: "line",
 
@@ -662,7 +671,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     backgroundColor: color,
 
                     borderWidth: 2,
-                    pointRadius: 2,
+                    pointRadius: esMovil ? 0 : 2,
                     pointHoverRadius: 5,
 
                     tension: 0.25,
@@ -708,8 +717,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 scales: {
                     x: {
                         ticks: {
-                            maxTicksLimit: 7,
-                            color: "#9ca3af"
+                            maxTicksLimit: esMovil ? 4 : 7,
+                            color: "#9ca3af",
+                            maxRotation: 0,
+                            autoSkip: true
                         },
 
                         grid: {
@@ -720,7 +731,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     y: {
                         ticks: {
-                            color: "#9ca3af"
+                            color: "#9ca3af",
+                            maxTicksLimit: esMovil ? 5 : 8
                         },
 
                         grid: {
@@ -870,6 +882,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function actualizarDatos() {
 
+        // Si ya hay una solicitud en curso, esperar a que
+        // termine y luego cargar la selección más reciente.
+        if (cargando) {
+            actualizacionPendiente = true;
+            return;
+        }
+
         const solicitudActual = ++generacion;
 
         if (!API || typeof API.get !== "function") {
@@ -886,6 +905,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!aulaId) {
             mostrarAviso("Selecciona un aula.");
+            limpiarTarjetas();
+            actualizarGraficas([]);
             return;
         }
 
@@ -906,10 +927,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 periodo
             );
 
-            // Si el usuario cambió de aula o período
-            // mientras se consultaba, ignorar resultados
-            // de solicitudes anteriores.
-            if (solicitudActual !== generacion) {
+            // No mostrar datos de un aula o período anterior
+            // si la selección cambió durante la consulta.
+            if (
+                solicitudActual !== generacion ||
+                actualizacionPendiente ||
+                elementos.aula?.value !== aulaId ||
+                (elementos.periodo?.value || "hoy") !== periodo
+            ) {
                 return;
             }
 
@@ -953,7 +978,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         } catch (error) {
 
-            if (solicitudActual !== generacion) {
+            if (
+                solicitudActual !== generacion ||
+                actualizacionPendiente ||
+                elementos.aula?.value !== aulaId ||
+                (elementos.periodo?.value || "hoy") !== periodo
+            ) {
                 return;
             }
 
@@ -971,12 +1001,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
         } finally {
 
-            if (solicitudActual === generacion) {
-                cargando = false;
+            cargando = false;
 
-                if (elementos.actualizar) {
-                    elementos.actualizar.disabled = false;
-                }
+            if (elementos.actualizar) {
+                elementos.actualizar.disabled = false;
+            }
+
+            if (actualizacionPendiente) {
+                actualizacionPendiente = false;
+                actualizarDatos();
             }
         }
     }
@@ -1003,6 +1036,39 @@ document.addEventListener("DOMContentLoaded", () => {
         actualizarDatos
     );
 
+    // Ajustar gráficas cuando cambia el tamaño de pantalla.
+    let temporizadorResize;
+
+    window.addEventListener("resize", () => {
+
+        clearTimeout(temporizadorResize);
+
+        temporizadorResize = setTimeout(() => {
+
+            const esMovil = window.matchMedia(
+                "(max-width: 640px)"
+            ).matches;
+
+            Object.values(graficas).forEach(grafica => {
+
+                if (!grafica) return;
+
+                grafica.data.datasets[0].pointRadius =
+                    esMovil ? 0 : 2;
+
+                grafica.options.scales.x.ticks.maxTicksLimit =
+                    esMovil ? 4 : 7;
+
+                grafica.options.scales.y.ticks.maxTicksLimit =
+                    esMovil ? 5 : 8;
+
+                grafica.resize();
+                grafica.update("none");
+            });
+
+        }, 150);
+    });
+
     if (window.lucide) {
         window.lucide.createIcons();
     }
@@ -1010,9 +1076,21 @@ document.addEventListener("DOMContentLoaded", () => {
     actualizarDatos();
 
     // Actualización automática cada 60 segundos.
-    setInterval(
-        actualizarDatos,
-        INTERVALO_ACTUALIZACION
+    // No consultar mientras la pestaña esté oculta.
+    setInterval(() => {
+        if (!document.hidden) {
+            actualizarDatos();
+        }
+    }, INTERVALO_ACTUALIZACION);
+
+    // Actualizar al regresar a la pestaña.
+    document.addEventListener(
+        "visibilitychange",
+        () => {
+            if (!document.hidden) {
+                actualizarDatos();
+            }
+        }
     );
 
     console.log(

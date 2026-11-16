@@ -1,27 +1,35 @@
+
 /* ==========================================================
    SMART CLASSROOM
-   Mejoras visuales del dashboard (no toca tu lógica de datos)
+   Mejoras visuales del dashboard
 
-   1. Estilo global de Chart.js (debe cargarse ANTES de dashboard.js)
-   2. Farol de la barra lateral
+   1. Estilo global de Chart.js
+   2. Farol animado de la barra lateral
    3. Selector de período en pastillas
+
+   No modifica la lógica de datos del backend.
+   Compatible con PC, tablet y celular.
    ========================================================== */
 
 (() => {
     "use strict";
 
-    const prefersReducedMotion = window.matchMedia(
+    const motionQuery = window.matchMedia(
         "(prefers-reduced-motion: reduce)"
-    ).matches;
+    );
+
+    const prefersReducedMotion = () =>
+        motionQuery.matches;
 
     /* ======================================
        1. CHART.JS — ESTILO GLOBAL
-       Los colores salen de las variables CSS,
-       así que respetan el tema claro/oscuro.
-    ====================================== */
+       ====================================== */
 
     const cssVar = (name, fallback) => {
-        const value = getComputedStyle(document.body)
+        const element = document.body ||
+            document.documentElement;
+
+        const value = getComputedStyle(element)
             .getPropertyValue(name)
             .trim();
 
@@ -29,16 +37,26 @@
     };
 
     const applyChartDefaults = () => {
-        if (!window.Chart) return;
+        const ChartJS = window.Chart;
 
-        const defaults = Chart.defaults;
+        if (!ChartJS?.defaults) {
+            return;
+        }
+
+        const defaults = ChartJS.defaults;
 
         defaults.font.family = cssVar(
             "--font",
             "Outfit, system-ui, sans-serif"
         );
+
         defaults.font.size = 12;
-        defaults.color = cssVar("--chart-text", "#8b909c");
+
+        defaults.color = cssVar(
+            "--chart-text",
+            "#8b909c"
+        );
+
         defaults.borderColor = cssVar(
             "--chart-grid",
             "rgba(255,255,255,0.07)"
@@ -49,6 +67,7 @@
 
         defaults.elements.line.tension = 0.38;
         defaults.elements.line.borderWidth = 2.5;
+
         defaults.elements.point.radius = 0;
         defaults.elements.point.hoverRadius = 5;
         defaults.elements.point.hitRadius = 14;
@@ -57,16 +76,27 @@
         defaults.plugins.legend.labels.boxWidth = 8;
 
         const tooltip = defaults.plugins.tooltip;
+
         tooltip.backgroundColor = cssVar(
             "--tooltip-bg",
             "rgba(20,22,27,0.94)"
         );
-        tooltip.titleColor = cssVar("--tooltip-text", "#f4f1ea");
-        tooltip.bodyColor = cssVar("--tooltip-text", "#f4f1ea");
+
+        tooltip.titleColor = cssVar(
+            "--tooltip-text",
+            "#f4f1ea"
+        );
+
+        tooltip.bodyColor = cssVar(
+            "--tooltip-text",
+            "#f4f1ea"
+        );
+
         tooltip.borderColor = cssVar(
             "--tooltip-border",
             "rgba(255,255,255,0.12)"
         );
+
         tooltip.borderWidth = 1;
         tooltip.padding = 12;
         tooltip.cornerRadius = 10;
@@ -74,59 +104,119 @@
     };
 
     const refreshCharts = () => {
+        const ChartJS = window.Chart;
+
+        if (!ChartJS) {
+            return;
+        }
+
         try {
             applyChartDefaults();
 
-            Object.values(Chart.instances || {}).forEach((chart) => {
+            Object.values(
+                ChartJS.instances || {}
+            ).forEach((chart) => {
+                if (!chart) {
+                    return;
+                }
+
+                // Las gráficas de dashboard.js pueden
+                // definir sus propios colores de ejes.
+                // Se respetan esas configuraciones.
                 chart.update("none");
             });
+
         } catch (error) {
-            console.warn("No se pudo actualizar el tema de las gráficas", error);
+            console.warn(
+                "No se pudo actualizar el tema de las gráficas:",
+                error
+            );
         }
     };
 
-    try {
-        applyChartDefaults();
-    } catch (error) {
-        console.warn("No se pudo aplicar el estilo de Chart.js", error);
-    }
+    const initChartStyles = () => {
+        try {
+            applyChartDefaults();
+        } catch (error) {
+            console.warn(
+                "No se pudo aplicar el estilo de Chart.js:",
+                error
+            );
+        }
 
-    // Si layout.js cambia el tema, las gráficas se repintan solas
-    const themeObserver = new MutationObserver(refreshCharts);
+        if (typeof MutationObserver !== "undefined") {
+            let refreshPending = false;
 
-    [document.documentElement, document.body].forEach((element) => {
-        themeObserver.observe(element, {
-            attributes: true,
-            attributeFilter: ["class", "data-theme"]
-        });
-    });
+            const themeObserver = new MutationObserver(() => {
+                if (refreshPending) {
+                    return;
+                }
+
+                refreshPending = true;
+
+                requestAnimationFrame(() => {
+                    refreshPending = false;
+                    refreshCharts();
+                });
+            });
+
+            [
+                document.documentElement,
+                document.body
+            ].filter(Boolean).forEach((element) => {
+                themeObserver.observe(element, {
+                    attributes: true,
+                    attributeFilter: [
+                        "class",
+                        "data-theme"
+                    ]
+                });
+            });
+        }
+    };
 
     /* ======================================
        2. FAROL DE LA BARRA LATERAL
-       - Sigue al enlace sobre el que pasas el mouse o el foco.
-       - Al salir, vuelve al enlace de la página actual.
-       - Al cambiar de página, parte desde donde estaba
-         en la página anterior y se desliza hasta su sitio.
-    ====================================== */
+       ====================================== */
 
     const LANTERN_HEIGHT = 46;
-    const STORAGE_KEY = "smart-classroom:lantern-index";
+    const STORAGE_KEY =
+        "smart-classroom:lantern-index";
 
     const initLantern = () => {
-        const nav = document.querySelector(".sidebar-nav");
-        if (!nav) return;
+        const nav = document.querySelector(
+            ".sidebar-nav"
+        );
 
-        const links = Array.from(nav.querySelectorAll(".nav-link"));
-        if (!links.length) return;
+        if (!nav) {
+            return;
+        }
+
+        // Evitar crear dos faroles.
+        if (nav.querySelector(".lantern")) {
+            return;
+        }
+
+        const links = Array.from(
+            nav.querySelectorAll(".nav-link")
+        );
+
+        if (!links.length) {
+            return;
+        }
 
         const active =
             nav.querySelector(".nav-link.active") ||
-            nav.querySelector('.nav-link[aria-current="page"]') ||
+            nav.querySelector(
+                '.nav-link[aria-current="page"]'
+            ) ||
             links[0];
 
         const lantern = document.createElement("div");
+
         lantern.className = "lantern";
         lantern.setAttribute("aria-hidden", "true");
+
         lantern.innerHTML = `
             <span class="lantern-halo"></span>
             <span class="lantern-swing">
@@ -139,212 +229,484 @@
         nav.prepend(lantern);
         nav.classList.add("lantern-on");
 
-        const swing = lantern.querySelector(".lantern-swing");
+        const swing = lantern.querySelector(
+            ".lantern-swing"
+        );
 
         let current = null;
         let lastY = 0;
 
         const targetY = (link) =>
-            link.offsetTop + link.offsetHeight / 2 - LANTERN_HEIGHT / 2;
+            link.offsetTop +
+            link.offsetHeight / 2 -
+            LANTERN_HEIGHT / 2;
 
         const light = (link) => {
             links.forEach((item) => {
-                item.classList.toggle("is-lit", item === link);
+                item.classList.toggle(
+                    "is-lit",
+                    item === link
+                );
             });
         };
 
         const startSwing = (direction) => {
-            if (prefersReducedMotion) return;
+            if (prefersReducedMotion()) {
+                return;
+            }
 
             swing.classList.remove("swing");
-            void swing.offsetWidth; // reinicia la animación
-            swing.style.setProperty("--dir", direction);
+
+            // Reiniciar la animación.
+            void swing.offsetWidth;
+
+            swing.style.setProperty(
+                "--dir",
+                direction
+            );
+
             swing.classList.add("swing");
         };
 
         const moveTo = (link, animate = true) => {
-            if (!link || (animate && link === current)) return;
+            if (!link) {
+                return;
+            }
+
+            if (animate && link === current) {
+                return;
+            }
 
             const y = targetY(link);
             const direction = y >= lastY ? 1 : -1;
 
-            lantern.classList.toggle("no-anim", !animate);
-            lantern.style.setProperty("--lantern-y", `${y}px`);
+            const shouldAnimate =
+                animate && !prefersReducedMotion();
 
-            if (animate) startSwing(direction);
+            lantern.classList.toggle(
+                "no-anim",
+                !shouldAnimate
+            );
+
+            lantern.style.setProperty(
+                "--lantern-y",
+                `${y}px`
+            );
+
+            if (shouldAnimate) {
+                startSwing(direction);
+            }
 
             lastY = y;
             current = link;
+
             light(link);
 
-            if (!animate) {
+            if (!shouldAnimate) {
                 void lantern.offsetWidth;
-                lantern.classList.remove("no-anim");
+
+                lantern.classList.remove(
+                    "no-anim"
+                );
             }
         };
 
-        swing.addEventListener("animationend", () => {
-            swing.classList.remove("swing");
-        });
+        swing.addEventListener(
+            "animationend",
+            () => {
+                swing.classList.remove(
+                    "swing"
+                );
+            }
+        );
 
-        /* --- Posición inicial: continuidad entre páginas --- */
+        /* CONTINUIDAD ENTRE PÁGINAS */
 
         let startLink = active;
 
         try {
-            const stored = Number(sessionStorage.getItem(STORAGE_KEY));
+            const storedValue =
+                sessionStorage.getItem(STORAGE_KEY);
 
-            if (Number.isInteger(stored) && links[stored]) {
-                startLink = links[stored];
+            if (storedValue !== null) {
+                const stored = Number(storedValue);
+
+                if (
+                    Number.isInteger(stored) &&
+                    stored >= 0 &&
+                    links[stored]
+                ) {
+                    startLink = links[stored];
+                }
             }
+
         } catch (error) {
-            /* sessionStorage no disponible: se usa el enlace activo */
+            // Se utiliza el enlace activo.
         }
 
         moveTo(startLink, false);
 
         if (startLink !== active) {
-            window.setTimeout(() => moveTo(active, true), 160);
+            window.setTimeout(
+                () => moveTo(active, true),
+                160
+            );
         }
 
         try {
-            sessionStorage.setItem(STORAGE_KEY, String(links.indexOf(active)));
+            sessionStorage.setItem(
+                STORAGE_KEY,
+                String(links.indexOf(active))
+            );
         } catch (error) {
-            /* nada que hacer */
+            // El farol sigue funcionando.
         }
 
-        /* --- Interacción --- */
+        /* INTERACCIÓN CON EL MENÚ */
 
         links.forEach((link) => {
-            link.addEventListener("pointerenter", (event) => {
-                if (event.pointerType === "mouse") moveTo(link);
-            });
+            link.addEventListener(
+                "pointerenter",
+                (event) => {
+                    if (
+                        event.pointerType === "mouse" ||
+                        event.pointerType === "pen"
+                    ) {
+                        moveTo(link);
+                    }
+                }
+            );
 
-            link.addEventListener("focus", () => moveTo(link));
+            link.addEventListener(
+                "focus",
+                () => moveTo(link)
+            );
+
+            // En pantallas táctiles, iluminar
+            // el enlace seleccionado.
+            link.addEventListener(
+                "pointerdown",
+                (event) => {
+                    if (event.pointerType === "touch") {
+                        moveTo(link);
+                    }
+                }
+            );
         });
 
-        nav.addEventListener("pointerleave", () => moveTo(active));
+        nav.addEventListener(
+            "pointerleave",
+            () => moveTo(active)
+        );
 
-        nav.addEventListener("focusout", (event) => {
-            if (!nav.contains(event.relatedTarget)) moveTo(active);
-        });
+        nav.addEventListener(
+            "focusout",
+            (event) => {
+                if (
+                    !nav.contains(
+                        event.relatedTarget
+                    )
+                ) {
+                    moveTo(active);
+                }
+            }
+        );
 
-        /* --- Reajuste si cambia el layout --- */
+        /* REAJUSTE RESPONSIVE */
 
-        const reposition = () => moveTo(current || active, false);
+        const reposition = () => {
+            moveTo(
+                current || active,
+                false
+            );
+        };
 
-        window.addEventListener("resize", reposition);
-        window.addEventListener("load", reposition);
+        window.addEventListener(
+            "resize",
+            reposition
+        );
 
-        if (document.fonts && document.fonts.ready) {
-            document.fonts.ready.then(reposition);
+        window.addEventListener(
+            "load",
+            reposition
+        );
+
+        if (
+            document.fonts &&
+            document.fonts.ready
+        ) {
+            document.fonts.ready.then(
+                reposition
+            );
+        }
+
+        if (typeof ResizeObserver !== "undefined") {
+            const resizeObserver =
+                new ResizeObserver(reposition);
+
+            resizeObserver.observe(nav);
         }
     };
 
     /* ======================================
        3. SELECTOR DE PERÍODO EN PASTILLAS
-       El <select id="periodo-select"> se conserva (oculto):
-       al pulsar una pastilla se cambia su valor y se dispara
-       el evento "change", así tu dashboard.js sigue igual.
-    ====================================== */
+       ====================================== */
 
     const initPeriodSwitch = () => {
-        const select = document.getElementById("periodo-select");
-        if (!select) return;
+        const select = document.getElementById(
+            "periodo-select"
+        );
+
+        if (!select) {
+            return;
+        }
+
+        // No duplicar el selector visual.
+        if (
+            select.nextElementSibling?.classList
+                .contains("segmented")
+        ) {
+            return;
+        }
+
+        const options = Array.from(
+            select.options
+        );
+
+        if (!options.length) {
+            return;
+        }
 
         const group = document.createElement("div");
+
         group.className = "segmented";
-        group.setAttribute("role", "radiogroup");
+        group.setAttribute(
+            "role",
+            "radiogroup"
+        );
+
         group.setAttribute(
             "aria-label",
-            select.getAttribute("aria-label") || "Seleccionar período"
+            select.getAttribute("aria-label") ||
+            "Seleccionar período"
         );
 
         const thumb = document.createElement("span");
+
         thumb.className = "segmented-thumb";
+        thumb.setAttribute("aria-hidden", "true");
+
         group.append(thumb);
 
-        const buttons = Array.from(select.options).map((option) => {
-            const button = document.createElement("button");
+        const buttons = options.map((option) => {
+            const button =
+                document.createElement("button");
 
             button.type = "button";
             button.setAttribute("role", "radio");
             button.dataset.value = option.value;
-            button.textContent = option.textContent.trim();
+            button.textContent =
+                option.textContent.trim();
 
-            button.addEventListener("click", () => choose(option.value));
+            button.addEventListener(
+                "click",
+                () => choose(option.value)
+            );
 
             group.append(button);
+
             return button;
         });
 
         function choose(value) {
-            if (select.value === value) return;
+            if (select.value === value) {
+                sync();
+                return;
+            }
 
             select.value = value;
-            select.dispatchEvent(new Event("change", { bubbles: true }));
+
+            select.dispatchEvent(
+                new Event("change", {
+                    bubbles: true
+                })
+            );
+
             sync();
         }
 
         function sync() {
             const selected =
-                buttons.find((button) => button.dataset.value === select.value) ||
+                buttons.find(
+                    (button) =>
+                        button.dataset.value ===
+                        select.value
+                ) ||
                 buttons[0];
 
-            buttons.forEach((button) => {
-                const isSelected = button === selected;
+            if (!selected) {
+                return;
+            }
 
-                button.setAttribute("aria-checked", String(isSelected));
-                button.tabIndex = isSelected ? 0 : -1;
+            buttons.forEach((button) => {
+                const isSelected =
+                    button === selected;
+
+                button.setAttribute(
+                    "aria-checked",
+                    String(isSelected)
+                );
+
+                button.tabIndex =
+                    isSelected ? 0 : -1;
             });
 
-            thumb.style.width = `${selected.offsetWidth}px`;
-            thumb.style.transform = `translateX(${selected.offsetLeft}px)`;
+            thumb.style.width =
+                `${selected.offsetWidth}px`;
+
+            thumb.style.transform =
+                `translateX(${selected.offsetLeft}px)`;
         }
 
-        group.addEventListener("keydown", (event) => {
-            const keys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
-            if (!keys.includes(event.key)) return;
+        /* NAVEGACIÓN POR TECLADO */
 
-            event.preventDefault();
+        group.addEventListener(
+            "keydown",
+            (event) => {
+                const keys = [
+                    "ArrowLeft",
+                    "ArrowRight",
+                    "ArrowUp",
+                    "ArrowDown",
+                    "Home",
+                    "End"
+                ];
 
-            const step =
-                event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 1;
-            const index = buttons.findIndex(
-                (button) => button.dataset.value === select.value
-            );
-            const next = buttons[(index + step + buttons.length) % buttons.length];
+                if (!keys.includes(event.key)) {
+                    return;
+                }
 
-            choose(next.dataset.value);
-            next.focus();
-        });
+                event.preventDefault();
 
-        select.classList.add("is-visually-hidden");
-        select.setAttribute("aria-hidden", "true");
+                const currentIndex =
+                    buttons.findIndex(
+                        (button) =>
+                            button.dataset.value ===
+                            select.value
+                    );
+
+                let nextIndex = currentIndex;
+
+                if (event.key === "Home") {
+                    nextIndex = 0;
+
+                } else if (event.key === "End") {
+                    nextIndex =
+                        buttons.length - 1;
+
+                } else {
+                    const step =
+                        event.key === "ArrowLeft" ||
+                        event.key === "ArrowUp"
+                            ? -1
+                            : 1;
+
+                    nextIndex =
+                        (
+                            currentIndex +
+                            step +
+                            buttons.length
+                        ) % buttons.length;
+                }
+
+                const next = buttons[nextIndex];
+
+                if (!next) {
+                    return;
+                }
+
+                choose(next.dataset.value);
+                next.focus();
+            }
+        );
+
+        /* CONSERVAR SELECT ORIGINAL */
+
+        select.classList.add(
+            "is-visually-hidden"
+        );
+
+        select.setAttribute(
+            "aria-hidden",
+            "true"
+        );
+
         select.tabIndex = -1;
+
         select.after(group);
 
-        select.addEventListener("change", sync);
-        window.addEventListener("resize", sync);
+        select.addEventListener(
+            "change",
+            sync
+        );
+
+        /* ADAPTACIÓN RESPONSIVE */
+
+        let syncPending = false;
+
+        const scheduleSync = () => {
+            if (syncPending) {
+                return;
+            }
+
+            syncPending = true;
+
+            requestAnimationFrame(() => {
+                syncPending = false;
+                sync();
+            });
+        };
+
+        window.addEventListener(
+            "resize",
+            scheduleSync
+        );
+
+        if (
+            document.fonts &&
+            document.fonts.ready
+        ) {
+            document.fonts.ready.then(
+                scheduleSync
+            );
+        }
+
+        if (typeof ResizeObserver !== "undefined") {
+            const resizeObserver =
+                new ResizeObserver(scheduleSync);
+
+            resizeObserver.observe(group);
+        }
 
         requestAnimationFrame(sync);
-
-        if (document.fonts && document.fonts.ready) {
-            document.fonts.ready.then(sync);
-        }
     };
 
     /* ======================================
-       INICIO
-    ====================================== */
+       4. INICIALIZACIÓN
+       ====================================== */
 
     const start = () => {
+        initChartStyles();
         initLantern();
         initPeriodSwitch();
     };
 
     if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", start);
+        document.addEventListener(
+            "DOMContentLoaded",
+            start,
+            { once: true }
+        );
     } else {
         start();
     }

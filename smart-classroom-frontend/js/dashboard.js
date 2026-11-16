@@ -1,19 +1,20 @@
 
 "use strict";
 
-// ============================================================
-// SMART CLASSROOM
-// DASHBOARD - INTEGRACIÓN RUST / POSTGRESQL / SUPABASE
-//
-// - Datos reales por aula.
-// - Temperatura y humedad relativa.
-// - Gráficas Chart.js con colores visibles.
-// - Últimos valores, confort y alertas.
-// - Actualización automática.
-// - Compatible con desarrollo local y despliegue.
-//
-// No genera datos ficticios.
-// ============================================================
+/* ============================================================
+   SMART CLASSROOM
+   DASHBOARD — RUST / POSTGRESQL / SUPABASE
+
+   - Mediciones reales por aula
+   - Temperatura y humedad relativa
+   - Gráficas Chart.js
+   - Índice de confort
+   - Alertas activas
+   - Actualización automática
+   - Adaptación a celulares y tablets
+
+   No genera mediciones ficticias.
+   ============================================================ */
 
 (() => {
     const API = window.SmartClassroomAPI;
@@ -37,9 +38,11 @@
     let actualizando = false;
     let actualizacionPendiente = false;
 
-    // ========================================================
-    // UTILIDADES GENERALES
-    // ========================================================
+    let intervaloDashboard = null;
+
+    /* ========================================================
+       1. UTILIDADES
+       ======================================================== */
 
     function texto(id, valor) {
         const elemento = $(id);
@@ -189,10 +192,23 @@
     }
 
     function mostrarConexion(conectado) {
-        texto(
-            "connection-status",
-            conectado ? "Conectado" : "Sin conexión"
-        );
+        const indicador = $("connection-status");
+
+        if (indicador) {
+            indicador.textContent = conectado
+                ? "Conectado"
+                : "Sin conexión";
+
+            indicador.classList.toggle(
+                "connected",
+                conectado
+            );
+
+            indicador.classList.toggle(
+                "disconnected",
+                !conectado
+            );
+        }
 
         texto(
             "sidebar-status-text",
@@ -204,15 +220,25 @@
         const punto = $("sidebar-status-dot");
 
         if (punto) {
+            punto.classList.toggle(
+                "connected",
+                conectado
+            );
+
+            punto.classList.toggle(
+                "disconnected",
+                !conectado
+            );
+
             punto.style.background = conectado
                 ? "#22c55e"
                 : "#ef4444";
         }
     }
 
-    // ========================================================
-    // NORMALIZACIÓN DE MEDICIONES
-    // ========================================================
+    /* ========================================================
+       2. NORMALIZACIÓN DE MEDICIONES
+       ======================================================== */
 
     function normalizarRegistros(respuesta) {
         const registros = lista(
@@ -263,9 +289,9 @@
             );
     }
 
-    // ========================================================
-    // AGRUPAR TEMPERATURA Y HUMEDAD
-    // ========================================================
+    /* ========================================================
+       3. AGRUPAR TEMPERATURA Y HUMEDAD
+       ======================================================== */
 
     function agruparMediciones(registros) {
         const mapa = new Map();
@@ -320,9 +346,9 @@
             );
     }
 
-    // ========================================================
-    // CARGAR AULAS REALES
-    // ========================================================
+    /* ========================================================
+       4. CARGAR AULAS
+       ======================================================== */
 
     function agregarOpcion(selector, nombre, valor) {
         selector.add(new Option(nombre, valor));
@@ -346,6 +372,7 @@
                 respuesta,
                 ["aulas"]
             );
+
         } catch (error) {
             console.error(
                 "Error consultando aulas:",
@@ -377,6 +404,7 @@
                     id,
                     nombre: `Aula ${id.slice(0, 8)}`
                 }));
+
             } catch (error) {
                 console.error(
                     "No se pudieron recuperar las aulas:",
@@ -448,9 +476,9 @@
         }
     }
 
-    // ========================================================
-    // CONSULTAR MEDICIONES POR AULA
-    // ========================================================
+    /* ========================================================
+       5. CONSULTAR MEDICIONES
+       ======================================================== */
 
     async function consultarMediciones(idAulaSeleccionada) {
         if (!idAulaSeleccionada) {
@@ -477,9 +505,9 @@
         );
     }
 
-    // ========================================================
-    // CONSULTAR RESUMEN REAL DEL AULA
-    // ========================================================
+    /* ========================================================
+       6. CONSULTAR RESUMEN DEL AULA
+       ======================================================== */
 
     async function consultarResumenAula(id) {
         if (!id) {
@@ -490,6 +518,7 @@
             return await API.get(
                 `/api/aulas/${encodeURIComponent(id)}/ultima`
             );
+
         } catch (error) {
             console.warn(
                 "No se pudo consultar el resumen del aula:",
@@ -500,9 +529,9 @@
         }
     }
 
-    // ========================================================
-    // INDICADORES PRINCIPALES
-    // ========================================================
+    /* ========================================================
+       7. INDICADORES
+       ======================================================== */
 
     function limpiarIndicadores() {
         texto("temperatura-valor", "—");
@@ -525,23 +554,9 @@
             "Última actualización: —"
         );
 
-        progreso(
-            "temperatura-progress",
-            null,
-            45
-        );
-
-        progreso(
-            "humedad-progress",
-            null,
-            100
-        );
-
-        progreso(
-            "confort-progress",
-            null,
-            100
-        );
+        progreso("temperatura-progress", null, 45);
+        progreso("humedad-progress", null, 100);
+        progreso("confort-progress", null, 100);
     }
 
     function mostrarIndicadores(registros, conjuntos) {
@@ -640,9 +655,9 @@
         );
     }
 
-    // ========================================================
-    // ÍNDICE DE CONFORT
-    // ========================================================
+    /* ========================================================
+       8. ÍNDICE DE CONFORT
+       ======================================================== */
 
     function mostrarConfort(resumen) {
         const confort = resumen?.confort;
@@ -685,9 +700,9 @@
         );
     }
 
-    // ========================================================
-    // ÚLTIMAS MEDICIONES
-    // ========================================================
+    /* ========================================================
+       9. ÚLTIMAS MEDICIONES
+       ======================================================== */
 
     function mostrarRecientes(conjuntos) {
         const contenedor = $("recent-measurements");
@@ -709,9 +724,7 @@
             return;
         }
 
-        for (
-            const conjunto of conjuntos.slice(0, 5)
-        ) {
+        for (const conjunto of conjuntos.slice(0, 5)) {
             const fila = document.createElement("div");
 
             fila.className = "recent-measurement";
@@ -740,9 +753,9 @@
         }
     }
 
-    // ========================================================
-    // FILTROS DE FECHA
-    // ========================================================
+    /* ========================================================
+       10. FILTROS DE FECHA
+       ======================================================== */
 
     function inicioDeHoyElSalvador() {
         const ahora = new Date();
@@ -785,12 +798,15 @@
             inicio = new Date(
                 ahora.getTime() - 7 * 86400000
             );
+
         } else if (periodo === "30d") {
             inicio = new Date(
                 ahora.getTime() - 30 * 86400000
             );
+
         } else if (periodo === "todo") {
             inicio = new Date(0);
+
         } else {
             inicio = inicioDeHoyElSalvador();
         }
@@ -813,9 +829,9 @@
             );
     }
 
-    // ========================================================
-    // GRÁFICAS CHART.JS
-    // ========================================================
+    /* ========================================================
+       11. GRÁFICAS CHART.JS
+       ======================================================== */
 
     function crearGrafica(
         canvasId,
@@ -837,8 +853,8 @@
             : COLOR_HUMEDAD;
 
         const colorRelleno = esTemperatura
-            ? "rgba(245, 185, 66, 0.12)"
-            : "rgba(104, 200, 244, 0.12)";
+            ? "rgba(245,185,66,0.12)"
+            : "rgba(104,200,244,0.12)";
 
         const etiquetas = conjuntos.map(
             (conjunto) =>
@@ -849,6 +865,8 @@
             (conjunto) =>
                 numero(conjunto[campo])
         );
+
+        const esMovil = window.innerWidth <= 640;
 
         return new window.Chart(canvas, {
             type: "line",
@@ -869,9 +887,9 @@
                     pointHoverBackgroundColor: "#ffffff",
                     pointHoverBorderColor: color,
 
-                    borderWidth: 3,
+                    borderWidth: esMovil ? 2 : 3,
 
-                    pointRadius: 2.5,
+                    pointRadius: esMovil ? 1.5 : 2.5,
                     pointHoverRadius: 6,
                     pointHitRadius: 12,
 
@@ -903,11 +921,9 @@
                         backgroundColor: "#20232B",
                         titleColor: "#FFFFFF",
                         bodyColor: "#F1EDE4",
-
                         borderColor: color,
                         borderWidth: 1,
-
-                        padding: 12,
+                        padding: esMovil ? 8 : 12,
                         displayColors: false
                     }
                 },
@@ -916,8 +932,12 @@
                     x: {
                         ticks: {
                             color: "#A6AAB5",
-                            maxTicksLimit: 8,
-                            maxRotation: 0
+                            maxTicksLimit: esMovil ? 4 : 8,
+                            maxRotation: 0,
+                            autoSkip: true,
+                            font: {
+                                size: esMovil ? 10 : 12
+                            }
                         },
 
                         grid: {
@@ -933,7 +953,10 @@
                         beginAtZero: false,
 
                         ticks: {
-                            color: "#A6AAB5"
+                            color: "#A6AAB5",
+                            font: {
+                                size: esMovil ? 10 : 12
+                            }
                         },
 
                         grid: {
@@ -980,14 +1003,84 @@
 
         if (!window.Chart) {
             console.warn(
-                "SMART CLASSROOM: Chart.js no está disponible."
+                "SMART CLASSROOM: Chart.js no disponible."
             );
         }
     }
 
-    // ========================================================
-    // ALERTAS DEL AULA
-    // ========================================================
+    /* ========================================================
+       12. ADAPTACIÓN DE GRÁFICAS A LA PANTALLA
+       ======================================================== */
+
+    function adaptarGrafica(grafica, esMovil) {
+        if (!grafica) {
+            return;
+        }
+
+        const dataset = grafica.data.datasets[0];
+
+        if (dataset) {
+            dataset.borderWidth = esMovil ? 2 : 3;
+            dataset.pointRadius = esMovil ? 1.5 : 2.5;
+        }
+
+        const escalas = grafica.options.scales;
+
+        if (escalas?.x?.ticks) {
+            escalas.x.ticks.maxTicksLimit = esMovil ? 4 : 8;
+            escalas.x.ticks.font.size = esMovil ? 10 : 12;
+        }
+
+        if (escalas?.y?.ticks) {
+            escalas.y.ticks.font.size = esMovil ? 10 : 12;
+        }
+
+        if (grafica.options.plugins?.tooltip) {
+            grafica.options.plugins.tooltip.padding =
+                esMovil ? 8 : 12;
+        }
+
+        grafica.update("none");
+        grafica.resize();
+    }
+
+    function iniciarAdaptacionGraficas() {
+        const mediaMovil = window.matchMedia(
+            "(max-width: 640px)"
+        );
+
+        function sincronizarGraficas() {
+            const esMovil = mediaMovil.matches;
+
+            adaptarGrafica(
+                graficaTemperatura,
+                esMovil
+            );
+
+            adaptarGrafica(
+                graficaHumedad,
+                esMovil
+            );
+        }
+
+        if (
+            typeof mediaMovil.addEventListener ===
+            "function"
+        ) {
+            mediaMovil.addEventListener(
+                "change",
+                sincronizarGraficas
+            );
+        } else {
+            mediaMovil.addListener(
+                sincronizarGraficas
+            );
+        }
+    }
+
+    /* ========================================================
+       13. ALERTAS
+       ======================================================== */
 
     function mostrarAlertasResumen(resumen) {
         const cantidad = numero(
@@ -1002,7 +1095,8 @@
                 "No se pudo consultar el estado de alertas"
             );
 
-            texto("notification-count", "—");
+            // El contador de la campana lo administra
+            // layout.js mediante /api/alertas.
             return;
         }
 
@@ -1015,15 +1109,13 @@
                 : `${cantidad} alertas activas`
         );
 
-        texto(
-            "notification-count",
-            cantidad
-        );
+        // No sobrescribir notification-count:
+        // layout.js es el responsable de actualizarlo.
     }
 
-    // ========================================================
-    // ACTUALIZAR DASHBOARD
-    // ========================================================
+    /* ========================================================
+       14. ACTUALIZACIÓN DEL DASHBOARD
+       ======================================================== */
 
     async function actualizarDashboard() {
         if (actualizando) {
@@ -1048,8 +1140,8 @@
                     consultarResumenAula(idConsultado)
                 ]);
 
-            // Evitar mostrar datos de otra aula si el
-            // usuario cambió el selector durante la carga.
+            // Evitar mostrar datos de otra aula cuando
+            // el usuario cambia la selección rápidamente.
             if (idConsultado !== aulaSeleccionada) {
                 actualizacionPendiente = true;
                 return;
@@ -1073,7 +1165,6 @@
             mostrarAlertasResumen(resumen);
 
             actualizarGraficas();
-
             mostrarConexion(true);
 
             console.info(
@@ -1124,11 +1215,15 @@
         }
     }
 
-    // ========================================================
-    // INICIALIZACIÓN
-    // ========================================================
+    /* ========================================================
+       15. INICIALIZACIÓN
+       ======================================================== */
 
     async function iniciar() {
+        // El menú responsive se administra exclusivamente
+        // desde layout.js para evitar conflictos de estado.
+        iniciarAdaptacionGraficas();
+
         if (
             !API ||
             typeof API.get !== "function"
@@ -1155,7 +1250,6 @@
             "change",
             (evento) => {
                 aulaSeleccionada = evento.target.value;
-
                 actualizarDashboard();
             }
         );
@@ -1168,6 +1262,7 @@
         try {
             await cargarAulas();
             await actualizarDashboard();
+
         } catch (error) {
             console.error(
                 "Error inicializando el Dashboard:",
@@ -1177,9 +1272,29 @@
             mostrarConexion(false);
         }
 
-        window.setInterval(
-            actualizarDashboard,
+        // Actualizar mediciones cada 30 segundos.
+        if (intervaloDashboard !== null) {
+            window.clearInterval(intervaloDashboard);
+        }
+
+        intervaloDashboard = window.setInterval(
+            () => {
+                if (!document.hidden) {
+                    actualizarDashboard();
+                }
+            },
             INTERVALO_ACTUALIZACION
+        );
+
+        // Recuperar datos cuando el usuario
+        // regresa a la pestaña.
+        document.addEventListener(
+            "visibilitychange",
+            () => {
+                if (!document.hidden) {
+                    actualizarDashboard();
+                }
+            }
         );
     }
 
@@ -1192,4 +1307,5 @@
     } else {
         iniciar();
     }
+
 })();

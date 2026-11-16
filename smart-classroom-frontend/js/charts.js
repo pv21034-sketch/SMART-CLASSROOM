@@ -34,6 +34,9 @@
 
         const ZONA_HORARIA = "America/El_Salvador";
         const INTERVALO_ACTUALIZACION = 60000;
+        const TOLERANCIA_PAREJA_MS = 2000;
+        const INTERVALO_MAXIMO_VARIACION_MS = 3600000;
+        const LIMITE_API = 5000;
 
         const AULAS = [
             {
@@ -60,7 +63,8 @@
 
         const graficas = new Map();
 
-        let numeroSolicitud = 0;
+        let cargando = false;
+        let actualizacionPendiente = false;
 
         // ====================================================
         // 2. COMPROBACIONES
@@ -86,7 +90,7 @@
         if (!API || typeof API.get !== "function") {
             aviso.textContent =
                 "Error: no se pudo inicializar el cliente API. " +
-                "Comprueba que api.js se cargue antes de graficas.js.";
+                "Comprueba que api.js se cargue antes de charts.js.";
             return;
         }
 
@@ -153,12 +157,18 @@
             const elemento = document.getElementById(id);
 
             if (elemento) {
-                elemento.textContent = texto;
+                elemento.textContent = String(texto);
             }
         }
 
         function fechaValida(valor) {
-            if (!valor) return null;
+            if (
+                valor === null ||
+                valor === undefined ||
+                valor === ""
+            ) {
+                return null;
+            }
 
             const fecha = new Date(valor);
 
@@ -333,7 +343,7 @@
         async function obtenerMediciones(aulaId, tipoPeriodo) {
             const parametros = new URLSearchParams({
                 aula_id: aulaId,
-                limit: "5000"
+                limit: String(LIMITE_API)
             });
 
             const desde =
@@ -364,7 +374,8 @@
         // ====================================================
 
         function construirLecturas(filas) {
-            const grupos = new Map();
+            const temperaturas = [];
+            const humedades = [];
 
             for (const fila of filas) {
                 const tipo = String(
@@ -381,48 +392,114 @@
                 const fecha =
                     fechaValida(fila.medido_en);
 
-                const valor = Number(fila.valor);
-
                 if (
                     !fecha ||
-                    fila.valor == null ||
-                    !Number.isFinite(valor)
+                    fila.valor === null ||
+                    fila.valor === undefined ||
+                    fila.valor === ""
                 ) {
                     continue;
                 }
 
-                const clave = fecha.toISOString();
+                const valor = Number(fila.valor);
 
-                if (!grupos.has(clave)) {
-                    grupos.set(clave, {
-                        fecha,
-                        temperatura: null,
-                        humedad: null
-                    });
+                if (!Number.isFinite(valor)) {
+                    continue;
                 }
 
-                const grupo = grupos.get(clave);
+                const registro = {
+                    fecha,
+                    valor,
+                    aulaId: fila.aula_id || null,
+                    dispositivoId: fila.dispositivo_id || null
+                };
 
                 if (tipo === "temperatura") {
-                    grupo.temperatura = valor;
-                }
-
-                if (tipo === "humedad") {
-                    grupo.humedad = valor;
+                    temperaturas.push(registro);
+                } else {
+                    humedades.push(registro);
                 }
             }
 
-            const lecturas = [];
+            temperaturas.sort(
+                (a, b) =>
+                    a.fecha.getTime() -
+                    b.fecha.getTime()
+            );
 
-            for (const grupo of grupos.values()) {
-                if (
-                    grupo.temperatura === null ||
-                    grupo.humedad === null
-                ) {
+            humedades.sort(
+                (a, b) =>
+                    a.fecha.getTime() -
+                    b.fecha.getTime()
+            );
+
+            const lecturas = [];
+            const usadas = new Set();
+
+            for (const temperatura of temperaturas) {
+                let mejorIndice = -1;
+                let mejorDiferencia =
+                    TOLERANCIA_PAREJA_MS + 1;
+
+                for (let i = 0; i < humedades.length; i++) {
+                    if (usadas.has(i)) {
+                        continue;
+                    }
+
+                    const humedad = humedades[i];
+
+                    // No combinar mediciones de aulas distintas.
+                    if (
+                        temperatura.aulaId &&
+                        humedad.aulaId &&
+                        temperatura.aulaId !== humedad.aulaId
+                    ) {
+                        continue;
+                    }
+
+                    // No combinar dispositivos distintos.
+                    if (
+                        temperatura.dispositivoId &&
+                        humedad.dispositivoId &&
+                        temperatura.dispositivoId !==
+                        humedad.dispositivoId
+                    ) {
+                        continue;
+                    }
+
+                    const diferencia = Math.abs(
+                        temperatura.fecha.getTime() -
+                        humedad.fecha.getTime()
+                    );
+
+                    if (
+                        diferencia <= TOLERANCIA_PAREJA_MS &&
+                        diferencia < mejorDiferencia
+                    ) {
+                        mejorDiferencia = diferencia;
+                        mejorIndice = i;
+
+                        if (diferencia === 0) {
+                            break;
+                        }
+                    }
+                }
+
+                if (mejorIndice === -1) {
                     continue;
                 }
 
-                lecturas.push(grupo);
+                usadas.add(mejorIndice);
+
+                const humedad = humedades[mejorIndice];
+
+                lecturas.push({
+                    fecha: temperatura.fecha,
+                    temperatura: temperatura.valor,
+                    humedad: humedad.valor,
+                    aulaId: temperatura.aulaId,
+                    dispositivoId: temperatura.dispositivoId
+                });
             }
 
             lecturas.sort(
@@ -498,31 +575,43 @@
                 return null;
             }
 
-            const segundos =
-                (
-                    actual.fecha.getTime() -
-                    anterior.fecha.getTime()
-                ) / 1000;
+            const diferenciaMs =
+                actual.fecha.getTime() -
+                anterior.fecha.getTime();
 
-            if (segundos <= 0) {
+            if (
+                diferenciaMs <= 0 ||
+                diferenciaMs > INTERVALO_MAXIMO_VARIACION_MS
+            ) {
                 return null;
             }
 
             // No calcular entre jornadas diferentes.
-            const fechaActual =
-                fechaLocal(actual.fecha);
-
-            const fechaAnterior =
-                fechaLocal(anterior.fecha);
-
-            if (fechaActual !== fechaAnterior) {
+            if (
+                fechaLocal(actual.fecha) !==
+                fechaLocal(anterior.fecha)
+            ) {
                 return null;
             }
 
-            return (
-                actual.temperatura -
-                anterior.temperatura
-            ) / (segundos / 60);
+            // No combinar dispositivos distintos.
+            if (
+                actual.dispositivoId &&
+                anterior.dispositivoId &&
+                actual.dispositivoId !== anterior.dispositivoId
+            ) {
+                return null;
+            }
+
+            const minutos = diferenciaMs / 60000;
+
+            const resultado =
+                (actual.temperatura -
+                 anterior.temperatura) / minutos;
+
+            return Number.isFinite(resultado)
+                ? resultado
+                : null;
         }
 
         function agregarPropiedades(lecturas) {
@@ -581,15 +670,20 @@
                 return null;
             }
 
-            const suma = validos.reduce(
-                (total, valor) => total + valor,
-                0
-            );
+            let suma = 0;
+            let minimo = Infinity;
+            let maximo = -Infinity;
+
+            for (const valor of validos) {
+                suma += valor;
+                minimo = Math.min(minimo, valor);
+                maximo = Math.max(maximo, valor);
+            }
 
             return {
                 promedio: suma / validos.length,
-                minimo: Math.min(...validos),
-                maximo: Math.max(...validos)
+                minimo,
+                maximo
             };
         }
 
@@ -648,6 +742,10 @@
         // ====================================================
 
         function opcionesGrafica(config) {
+            const esMovil = window.matchMedia(
+                "(max-width: 640px)"
+            ).matches;
+
             return {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -715,7 +813,9 @@
                     x: {
                         ticks: {
                             color: "#aeb4bf",
-                            maxTicksLimit: 9
+                            maxTicksLimit: esMovil ? 4 : 9,
+                            maxRotation: esMovil ? 0 : 45,
+                            autoSkip: true
                         },
 
                         grid: {
@@ -866,8 +966,12 @@
         // ====================================================
 
         async function actualizar() {
-            const solicitudActual =
-                ++numeroSolicitud;
+
+            // Evitar consultas simultáneas.
+            if (cargando) {
+                actualizacionPendiente = true;
+                return;
+            }
 
             const aulaId = aula.value;
             const tipoPeriodo = periodo.value;
@@ -878,6 +982,15 @@
             const nombreAula =
                 aulaSeleccionada?.nombre ||
                 "Aula seleccionada";
+
+            if (!aulaId) {
+                aviso.textContent =
+                    "Selecciona un aula.";
+                limpiarResultados();
+                return;
+            }
+
+            cargando = true;
 
             if (boton) {
                 boton.disabled = true;
@@ -892,8 +1005,14 @@
                     tipoPeriodo
                 );
 
-                // Ignorar respuestas antiguas.
-                if (solicitudActual !== numeroSolicitud) {
+                // Si cambió la selección durante la consulta,
+                // esperar la siguiente actualización.
+                if (
+                    actualizacionPendiente ||
+                    aula.value !== aulaId ||
+                    periodo.value !== tipoPeriodo
+                ) {
+                    actualizacionPendiente = true;
                     return;
                 }
 
@@ -914,19 +1033,23 @@
                     aviso.textContent =
                         `No hay mediciones completas ` +
                         `para ${nombreAula} en el período seleccionado.`;
-
                     return;
                 }
 
                 const ultima =
                     datos[datos.length - 1];
 
+                const advertencia =
+                    filas.length >= LIMITE_API
+                        ? " Se alcanzó el límite de consulta; pueden existir más registros."
+                        : "";
+
                 aviso.textContent =
                     `Datos reales · ${nombreAula} · ` +
                     `${datos.length} mediciones completas · ` +
                     `Última: ${formatearFecha(
                         ultima.fecha
-                    )}.`;
+                    )}.${advertencia}`;
 
                 console.log(
                     "SMART CLASSROOM - Gráficas reales:",
@@ -939,7 +1062,13 @@
                 );
 
             } catch (error) {
-                if (solicitudActual !== numeroSolicitud) {
+
+                if (
+                    actualizacionPendiente ||
+                    aula.value !== aulaId ||
+                    periodo.value !== tipoPeriodo
+                ) {
+                    actualizacionPendiente = true;
                     return;
                 }
 
@@ -955,10 +1084,16 @@
                     error.message;
 
             } finally {
-                if (solicitudActual === numeroSolicitud) {
-                    if (boton) {
-                        boton.disabled = false;
-                    }
+
+                cargando = false;
+
+                if (boton) {
+                    boton.disabled = false;
+                }
+
+                if (actualizacionPendiente) {
+                    actualizacionPendiente = false;
+                    actualizar();
                 }
             }
         }
@@ -985,11 +1120,24 @@
             actualizar
         );
 
+        // Primera consulta.
         actualizar();
 
-        setInterval(
-            actualizar,
-            INTERVALO_ACTUALIZACION
+        // Actualización automática cada 60 segundos.
+        setInterval(() => {
+            if (!document.hidden && !cargando) {
+                actualizar();
+            }
+        }, INTERVALO_ACTUALIZACION);
+
+        // Actualizar al regresar a la pestaña.
+        document.addEventListener(
+            "visibilitychange",
+            () => {
+                if (!document.hidden) {
+                    actualizar();
+                }
+            }
         );
 
         console.log(

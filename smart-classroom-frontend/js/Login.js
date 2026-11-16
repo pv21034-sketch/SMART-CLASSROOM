@@ -3,11 +3,16 @@
 
 // ============================================================
 // SMART CLASSROOM — LOGIN
-// Lámpara + autenticación + animaciones físicas
+// Lámpara + autenticación + animaciones científicas
+// Compatible con PC, tablet y celular
 // Backend Rust desplegado en Render
 // ============================================================
 
 (() => {
+    // ========================================================
+    // 1. CONFIGURACIÓN
+    // ========================================================
+
     const API_BASE = (
         window.SMART_CLASSROOM_CONFIG?.API_URL ||
         "https://smart-classroom-hitb.onrender.com"
@@ -23,15 +28,31 @@
     const heading = document.getElementById("heading");
     const subtitle = document.getElementById("sub");
 
+    const signin = document.querySelector('[data-p="signin"]');
+    const signup = document.querySelector('[data-p="signup"]');
+
+    if (!card || !pull || !signin || !signup) {
+        console.error(
+            "[SMART CLASSROOM] Faltan elementos del login."
+        );
+        return;
+    }
+
     let busy = false;
     let tugging = false;
 
+    const reduceMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+    ).matches;
+
     // ========================================================
-    // 1. LÁMPARA
+    // 2. LÁMPARA INTERACTIVA
     // ========================================================
 
     body.classList.remove("on", "charge", "boom");
+
     card.inert = true;
+
     pull.setAttribute("aria-pressed", "false");
 
     function setLamp(on) {
@@ -39,15 +60,33 @@
 
         body.classList.toggle("on", on);
         card.inert = !on;
+
         pull.setAttribute("aria-pressed", String(on));
 
         if (on) {
+            const focusDelay = reduceMotion ? 0 : 550;
+
             setTimeout(() => {
-                if (body.classList.contains("on")) {
-                    document.getElementById("si-user")
-                        ?.focus({ preventScroll: true });
+                if (!body.classList.contains("on")) return;
+
+                const input = document.getElementById("si-user");
+
+                // Evitar que se abra automáticamente el
+                // teclado virtual al encender la lámpara.
+                const isTouchDevice = window.matchMedia(
+                    "(pointer: coarse)"
+                ).matches;
+
+                if (!isTouchDevice) {
+                    input?.focus({ preventScroll: true });
                 }
-            }, 550);
+            }, focusDelay);
+
+        } else {
+            // Retirar el foco antes de ocultar el formulario.
+            if (card.contains(document.activeElement)) {
+                document.activeElement.blur();
+            }
         }
     }
 
@@ -62,32 +101,31 @@
         setTimeout(() => {
             pull.classList.remove("tug");
             tugging = false;
-        }, 260);
+        }, reduceMotion ? 0 : 260);
     });
 
     // ========================================================
-    // 2. CAMBIAR FORMULARIOS
+    // 3. CAMBIAR FORMULARIOS
     // ========================================================
+
+    const panelTitles = {
+        signin: [
+            "Bienvenido",
+            "Inicia sesión para continuar"
+        ],
+        signup: [
+            "Crear cuenta",
+            "Solicita tu acceso a SMART CLASSROOM"
+        ],
+        forgot: [
+            "Recuperar acceso",
+            "Información para recuperar tu cuenta"
+        ]
+    };
 
     function showPanel(name) {
         if (!body.classList.contains("on") || busy) return;
-
-        const titles = {
-            signin: [
-                "Bienvenido",
-                "Inicia sesión para continuar"
-            ],
-            signup: [
-                "Crear cuenta",
-                "Solicita tu acceso a SMART CLASSROOM"
-            ],
-            forgot: [
-                "Recuperar acceso",
-                "Información para recuperar tu cuenta"
-            ]
-        };
-
-        if (!titles[name]) return;
+        if (!panelTitles[name]) return;
 
         panels.forEach(panel => {
             panel.hidden = panel.dataset.p !== name;
@@ -96,21 +134,44 @@
         document.querySelectorAll(".tabs [data-go]")
             .forEach(button => {
                 const active = button.dataset.go === name;
+
                 button.classList.toggle("on", active);
+
                 button.setAttribute(
                     "aria-selected",
                     String(active)
                 );
             });
 
-        tabs.hidden = name === "forgot";
-        heading.textContent = titles[name][0];
-        subtitle.textContent = titles[name][1];
+        if (tabs) {
+            tabs.hidden = name === "forgot";
+        }
 
-        card.querySelectorAll(".error").forEach(el => {
-            el.textContent = "";
-            el.classList.remove("success");
+        if (heading) {
+            heading.textContent = panelTitles[name][0];
+        }
+
+        if (subtitle) {
+            subtitle.textContent = panelTitles[name][1];
+        }
+
+        card.querySelectorAll(".error").forEach(element => {
+            element.textContent = "";
+            element.classList.remove("success");
         });
+
+        // No abrir el teclado automáticamente en celulares.
+        const isTouchDevice = window.matchMedia(
+            "(pointer: coarse)"
+        ).matches;
+
+        if (!isTouchDevice) {
+            const firstInput = card.querySelector(
+                `[data-p="${name}"] input`
+            );
+
+            firstInput?.focus({ preventScroll: true });
+        }
     }
 
     document.querySelectorAll("[data-go]").forEach(button => {
@@ -121,7 +182,7 @@
     });
 
     // ========================================================
-    // 3. MOSTRAR Y OCULTAR CONTRASEÑAS
+    // 4. MOSTRAR Y OCULTAR CONTRASEÑAS
     // ========================================================
 
     document.querySelectorAll(".eye").forEach(button => {
@@ -134,6 +195,7 @@
             const visible = input.type === "password";
 
             input.type = visible ? "text" : "password";
+
             button.classList.toggle("sh", visible);
 
             button.setAttribute(
@@ -151,22 +213,29 @@
     });
 
     // ========================================================
-    // 4. MENSAJES Y CARGA
+    // 5. MENSAJES DE ERROR Y ÉXITO
     // ========================================================
 
     function message(form, text, success = false) {
-        const el = form.querySelector(".error");
-        if (!el) return;
+        const element = form.querySelector(".error");
 
-        el.textContent = text;
-        el.classList.toggle("success", success);
+        if (!element) return;
 
-        if (text && !success) {
+        element.textContent = text;
+        element.classList.toggle("success", success);
+
+        if (text && !success && !reduceMotion) {
             card.classList.remove("shake");
+
             void card.offsetWidth;
+
             card.classList.add("shake");
         }
     }
+
+    // ========================================================
+    // 6. ESTADO DE CARGA
+    // ========================================================
 
     function loading(form, active) {
         const button = form.querySelector(
@@ -177,10 +246,11 @@
 
         button.disabled = active;
         button.classList.toggle("loading", active);
+        button.setAttribute("aria-busy", String(active));
     }
 
     // ========================================================
-    // 5. COMUNICACIÓN CON EL BACKEND RUST
+    // 7. COMUNICACIÓN CON EL BACKEND RUST
     // ========================================================
 
     async function request(path, payload) {
@@ -205,6 +275,15 @@
                 .catch(() => ({}));
 
             if (!response.ok) {
+                if (response.status === 400) {
+                    throw new Error(
+                        data.mensaje ||
+                        data.message ||
+                        data.error ||
+                        "Los datos enviados no son válidos."
+                    );
+                }
+
                 if (response.status === 401) {
                     throw new Error(
                         "Usuario o contraseña incorrectos."
@@ -220,6 +299,13 @@
                 if (response.status === 429) {
                     throw new Error(
                         "Demasiados intentos. Intenta más tarde."
+                    );
+                }
+
+                if (response.status >= 500) {
+                    throw new Error(
+                        "El servidor no pudo procesar la solicitud. " +
+                        "Intenta nuevamente."
                     );
                 }
 
@@ -256,12 +342,8 @@
     }
 
     // ========================================================
-    // 6. INICIO DE SESIÓN
+    // 8. INICIO DE SESIÓN
     // ========================================================
-
-    const signin = document.querySelector(
-        '[data-p="signin"]'
-    );
 
     signin.addEventListener("submit", async event => {
         event.preventDefault();
@@ -285,6 +367,7 @@
         }
 
         busy = true;
+
         loading(signin, true);
         message(signin, "");
 
@@ -303,6 +386,7 @@
                 );
             }
 
+            // Claves utilizadas por el resto del frontend.
             sessionStorage.setItem(
                 "sc_token",
                 data.token
@@ -325,10 +409,23 @@
                 true
             );
 
+            // Cerrar el teclado virtual antes de la transición.
+            if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+            }
+
+            if (reduceMotion) {
+                window.location.assign("dashboard.html");
+                return;
+            }
+
+            // Primera fase: carga de energía.
             body.classList.add("charge");
 
             setTimeout(() => {
                 body.classList.remove("charge");
+
+                // Segunda fase: destello.
                 body.classList.add("boom");
 
                 setTimeout(() => {
@@ -338,9 +435,6 @@
             }, 550);
 
         } catch (error) {
-            sessionStorage.removeItem("sc_token");
-            sessionStorage.removeItem("sc_user");
-
             message(
                 signin,
                 error.message || "No se pudo iniciar sesión."
@@ -352,15 +446,13 @@
     });
 
     // ========================================================
-    // 7. REGISTRO
+    // 9. REGISTRO
     // ========================================================
-
-    const signup = document.querySelector(
-        '[data-p="signup"]'
-    );
 
     signup.addEventListener("submit", event => {
         event.preventDefault();
+
+        if (busy) return;
 
         const username = document.getElementById(
             "su-user"
@@ -398,6 +490,8 @@
             return;
         }
 
+        // El registro no está implementado en el backend.
+        // No enviamos solicitudes a endpoints inexistentes.
         message(
             signup,
             "El registro aún no está habilitado. " +
@@ -406,7 +500,7 @@
     });
 
     // ========================================================
-    // 8. ESTADO INICIAL
+    // 10. ESTADO INICIAL DE LOS FORMULARIOS
     // ========================================================
 
     panels.forEach(panel => {
@@ -414,50 +508,78 @@
     });
 
     // ========================================================
-    // 9. ANIMACIONES CIENTÍFICAS
+    // 11. ANIMACIONES CIENTÍFICAS
     // Fórmulas, átomos y ondas
     // ========================================================
 
     (function physics() {
         const canvas = document.getElementById("physics");
+
         if (!canvas) return;
 
         const ctx = canvas.getContext("2d");
+
         if (!ctx) return;
 
-        const reduceMotion = window.matchMedia(
-            "(prefers-reduced-motion: reduce)"
-        ).matches;
-
         const formulas = [
-            "E=mc²", "F=ma", "V=IR", "p=mv",
-            "v=d/t", "ΔE", "∇·E=ρ/ε₀",
-            "λ", "ψ", "π", "ħ", "Ω",
-            "Σ", "∞", "θ", "μ", "Φ",
-            "∂", "c", "e⁻", "g=9.8",
-            "Ek=½mv²", "Q=mcΔT"
+            "E=mc²",
+            "F=ma",
+            "V=IR",
+            "p=mv",
+            "v=d/t",
+            "ΔE",
+            "∇·E=ρ/ε₀",
+            "λ",
+            "ψ",
+            "π",
+            "ħ",
+            "Ω",
+            "Σ",
+            "∞",
+            "θ",
+            "μ",
+            "Φ",
+            "∂",
+            "c",
+            "e⁻",
+            "g=9.8",
+            "Ek=½mv²",
+            "Q=mcΔT"
         ];
 
         let width = 0;
         let height = 0;
         let objects = [];
+        let animationId = null;
+        let lastFrame = 0;
 
         const random = (min, max) =>
             min + Math.random() * (max - min);
 
+        // ====================================================
+        // 11.1. ADAPTAR CANVAS A LA PANTALLA
+        // ====================================================
+
         function resize() {
             const dpr = Math.min(
-                window.devicePixelRatio || 1, 2
+                window.devicePixelRatio || 1,
+                2
             );
 
             width = canvas.clientWidth;
             height = canvas.clientHeight;
 
-            canvas.width = width * dpr;
-            canvas.height = height * dpr;
+            if (!width || !height) return;
+
+            canvas.width = Math.round(width * dpr);
+            canvas.height = Math.round(height * dpr);
 
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
+
+        // ====================================================
+        // 11.2. CREAR OBJETOS
+        // ====================================================
 
         function createBase(type) {
             return {
@@ -473,47 +595,86 @@
             };
         }
 
+        // ====================================================
+        // 11.3. DISTRIBUCIÓN RESPONSIVE
+        // ====================================================
+
         function spawn() {
+            if (!width || !height) return;
+
             const area = width * height;
 
+            // Menos objetos en celulares para reducir
+            // consumo de recursos y mantener fluidez.
+            const isMobile = width <= 600;
+
             const textCount = Math.round(
-                Math.min(26, Math.max(10, area / 52000))
+                Math.min(
+                    isMobile ? 10 : 26,
+                    Math.max(
+                        isMobile ? 4 : 10,
+                        area / 52000
+                    )
+                )
             );
 
             const atomCount = Math.round(
-                Math.min(8, Math.max(3, area / 190000))
+                Math.min(
+                    isMobile ? 3 : 8,
+                    Math.max(
+                        isMobile ? 1 : 3,
+                        area / 190000
+                    )
+                )
             );
 
             const waveCount = Math.round(
-                Math.min(7, Math.max(3, area / 220000))
+                Math.min(
+                    isMobile ? 3 : 7,
+                    Math.max(
+                        isMobile ? 1 : 3,
+                        area / 220000
+                    )
+                )
             );
 
             objects = [];
 
+            // Fórmulas matemáticas y físicas.
             for (let i = 0; i < textCount; i++) {
                 const obj = createBase("text");
 
                 obj.text = formulas[
-                    Math.floor(Math.random() * formulas.length)
+                    Math.floor(
+                        Math.random() * formulas.length
+                    )
                 ];
 
-                obj.size = random(14, 26);
+                obj.size = random(
+                    isMobile ? 12 : 14,
+                    isMobile ? 19 : 26
+                );
+
                 objects.push(obj);
             }
 
+            // Átomos.
             for (let i = 0; i < atomCount; i++) {
                 const obj = createBase("atom");
 
                 obj.radius = random(15, 26);
+
                 obj.orbits = Array.from(
                     {
                         length: Math.random() < 0.5 ? 2 : 3
                     },
                     (_, index) => ({
-                        tilt: (Math.PI / 3) * index +
+                        tilt:
+                            (Math.PI / 3) * index +
                             random(0, 0.4),
                         angle: random(0, Math.PI * 2),
-                        speed: random(0.012, 0.026) *
+                        speed:
+                            random(0.012, 0.026) *
                             (Math.random() < 0.5 ? 1 : -1)
                     })
                 );
@@ -521,6 +682,7 @@
                 objects.push(obj);
             }
 
+            // Ondas.
             for (let i = 0; i < waveCount; i++) {
                 const obj = createBase("wave");
 
@@ -532,24 +694,36 @@
             }
         }
 
+        // ====================================================
+        // 11.4. DIBUJAR FÓRMULAS
+        // ====================================================
+
         function drawText(obj, alpha) {
             ctx.font =
                 `600 ${obj.size}px 'Outfit', sans-serif`;
 
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
+
             ctx.shadowColor =
                 `rgba(255,214,120,${alpha})`;
+
             ctx.shadowBlur = 10;
+
             ctx.fillStyle =
                 `rgba(255,230,160,${alpha})`;
 
             ctx.fillText(obj.text, 0, 0);
         }
 
+        // ====================================================
+        // 11.5. DIBUJAR ÁTOMOS
+        // ====================================================
+
         function drawAtom(obj, alpha) {
             ctx.shadowColor =
                 `rgba(255,214,120,${alpha})`;
+
             ctx.shadowBlur = 8;
             ctx.lineWidth = 1;
 
@@ -570,13 +744,17 @@
                     `rgba(255,224,140,${alpha * 0.75})`;
 
                 ctx.beginPath();
+
                 ctx.ellipse(
-                    0, 0,
+                    0,
+                    0,
                     obj.radius,
                     obj.radius * 0.38,
-                    0, 0,
+                    0,
+                    0,
                     Math.PI * 2
                 );
+
                 ctx.stroke();
 
                 const ex =
@@ -587,7 +765,10 @@
                     obj.radius * 0.38;
 
                 ctx.fillStyle =
-                    `rgba(255,244,200,${Math.min(1, alpha + 0.25)})`;
+                    `rgba(255,244,200,${Math.min(
+                        1,
+                        alpha + 0.25
+                    )})`;
 
                 ctx.beginPath();
                 ctx.arc(ex, ey, 2, 0, Math.PI * 2);
@@ -597,12 +778,19 @@
             }
         }
 
+        // ====================================================
+        // 11.6. DIBUJAR ONDAS
+        // ====================================================
+
         function drawWave(obj, alpha, time) {
             ctx.shadowColor =
                 `rgba(255,214,120,${alpha})`;
+
             ctx.shadowBlur = 8;
+
             ctx.strokeStyle =
                 `rgba(255,224,140,${alpha})`;
+
             ctx.lineWidth = 1.6;
             ctx.lineCap = "round";
 
@@ -620,9 +808,13 @@
 
                 const envelope = Math.sin(k * Math.PI);
 
-                const y = Math.sin(
-                    k * Math.PI * 2 * obj.cycles - phase
-                ) * obj.amplitude * envelope;
+                const y =
+                    Math.sin(
+                        k * Math.PI * 2 *
+                        obj.cycles - phase
+                    ) *
+                    obj.amplitude *
+                    envelope;
 
                 if (x === -obj.length / 2) {
                     ctx.moveTo(x, y);
@@ -634,80 +826,137 @@
             ctx.stroke();
         }
 
+        // ====================================================
+        // 11.7. BUCLE DE ANIMACIÓN
+        // ====================================================
+
         function frame(time) {
+            animationId = requestAnimationFrame(frame);
+
+            if (!width || !height) return;
+
+            // Aproximadamente 30 FPS en celulares.
+            const isMobile = width <= 600;
+
+            const interval = isMobile
+                ? 1000 / 30
+                : 1000 / 60;
+
+            if (time - lastFrame < interval) return;
+
+            lastFrame = time;
+
             ctx.clearRect(0, 0, width, height);
 
-            if (body.classList.contains("on")) {
-                for (const obj of objects) {
-                    obj.x += obj.vx +
-                        Math.sin(time / 2400 + obj.phase) * 0.1;
+            if (!body.classList.contains("on")) return;
 
-                    obj.y += obj.vy +
-                        Math.cos(time / 2800 + obj.phase) * 0.1;
+            for (const obj of objects) {
+                obj.x += obj.vx +
+                    Math.sin(
+                        time / 2400 + obj.phase
+                    ) * 0.1;
 
-                    obj.rotation += obj.rotationSpeed;
+                obj.y += obj.vy +
+                    Math.cos(
+                        time / 2800 + obj.phase
+                    ) * 0.1;
 
-                    const margin = 60;
+                obj.rotation += obj.rotationSpeed;
 
-                    if (obj.x < -margin) {
-                        obj.x = width + margin;
-                    }
+                const margin = 60;
 
-                    if (obj.x > width + margin) {
-                        obj.x = -margin;
-                    }
+                if (obj.x < -margin) {
+                    obj.x = width + margin;
+                }
 
-                    if (obj.y < -margin) {
-                        obj.y = height + margin;
-                    }
+                if (obj.x > width + margin) {
+                    obj.x = -margin;
+                }
 
-                    if (obj.y > height + margin) {
-                        obj.y = -margin;
-                    }
+                if (obj.y < -margin) {
+                    obj.y = height + margin;
+                }
 
-                    const alpha = 0.18 + 0.32 * (
-                        0.5 + 0.5 * Math.sin(
+                if (obj.y > height + margin) {
+                    obj.y = -margin;
+                }
+
+                const alpha =
+                    0.18 +
+                    0.32 * (
+                        0.5 +
+                        0.5 * Math.sin(
                             time / 1400 * obj.speed +
                             obj.phase
                         )
                     );
 
-                    ctx.save();
-                    ctx.translate(obj.x, obj.y);
+                ctx.save();
 
-                    ctx.rotate(
-                        obj.type === "atom"
-                            ? obj.rotation * 2
-                            : obj.rotation
-                    );
+                ctx.translate(obj.x, obj.y);
 
-                    if (obj.type === "text") {
-                        drawText(obj, alpha);
-                    } else if (obj.type === "atom") {
-                        drawAtom(obj, alpha);
-                    } else {
-                        drawWave(obj, alpha, time);
-                    }
+                ctx.rotate(
+                    obj.type === "atom"
+                        ? obj.rotation * 2
+                        : obj.rotation
+                );
 
-                    ctx.restore();
+                if (obj.type === "text") {
+                    drawText(obj, alpha);
+                } else if (obj.type === "atom") {
+                    drawAtom(obj, alpha);
+                } else {
+                    drawWave(obj, alpha, time);
                 }
-            }
 
-            if (!reduceMotion) {
-                requestAnimationFrame(frame);
+                ctx.restore();
             }
         }
+
+        // ====================================================
+        // 11.8. REDIMENSIONAR SIN ROMPER EL CANVAS
+        // ====================================================
+
+        let resizeTimer;
+
+        window.addEventListener("resize", () => {
+            clearTimeout(resizeTimer);
+
+            resizeTimer = setTimeout(() => {
+                resize();
+                spawn();
+            }, 150);
+        });
+
+        // Detener la animación cuando la pestaña
+        // no está visible para ahorrar recursos.
+        document.addEventListener(
+            "visibilitychange",
+            () => {
+                if (document.hidden) {
+                    if (animationId !== null) {
+                        cancelAnimationFrame(animationId);
+                        animationId = null;
+                    }
+                } else if (
+                    !reduceMotion &&
+                    animationId === null
+                ) {
+                    lastFrame = 0;
+                    animationId = requestAnimationFrame(frame);
+                }
+            }
+        );
+
+        // ====================================================
+        // 11.9. INICIALIZACIÓN
+        // ====================================================
 
         resize();
         spawn();
 
-        window.addEventListener("resize", () => {
-            resize();
-            spawn();
-        });
-
         if (!reduceMotion) {
-            requestAnimationFrame(frame);
+            animationId = requestAnimationFrame(frame);
         }
     })();
 

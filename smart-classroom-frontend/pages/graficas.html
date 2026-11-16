@@ -4,7 +4,6 @@
 
 <head>
     <meta charset="UTF-8">
-
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0">
 
@@ -57,12 +56,15 @@
 
     <!-- ==========================================
          JAVASCRIPT
-         IMPORTANTE: API ANTES DE CHARTS
+         API Y AUTENTICACIÓN ANTES DE CHARTS
     ========================================== -->
 
     <script src="../js/ui-enhance.js" defer></script>
 
     <script src="../js/api.js" defer></script>
+
+    <!-- PROTECCIÓN DE SESIÓN -->
+    <script src="../js/auth-guard.js" defer></script>
 
     <script src="../js/layout.js" defer></script>
 
@@ -829,14 +831,17 @@
                             desarrollado con Axum y SQLx.
                         </p>
 
+                        <!-- DESCRIPCIÓN CORREGIDA -->
+
                         <p>
                             La temperatura y la humedad relativa
-                            son las variables medidas por el DHT22.
-                            El punto de rocío, la humedad absoluta
-                            y la presión parcial del vapor de agua
-                            se estiman matemáticamente utilizando
-                            las mismas ecuaciones del modelo
-                            termodinámico implementado en Rust.
+                            son las variables medidas directamente
+                            por el sensor DHT22. El punto de rocío,
+                            la humedad absoluta y la presión parcial
+                            del vapor de agua se estiman mediante
+                            ecuaciones termodinámicas, utilizando
+                            la aproximación de Magnus y el modelo
+                            del gas ideal.
                         </p>
 
                         <p>

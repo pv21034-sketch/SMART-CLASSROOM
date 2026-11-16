@@ -23,7 +23,7 @@
 
     --thermo-border: rgba(255, 255, 255, 0.09);
     --thermo-surface: #191c22;
-    --thermo-surface-highlight: rgba(255,255,255,0.035);
+    --thermo-surface-highlight: rgba(255, 255, 255, 0.035);
 
     --thermo-text: #f5f3ef;
     --thermo-label: #c7c9d0;
@@ -31,13 +31,13 @@
     --thermo-secondary: #9da3ae;
     --thermo-footer: #9299a5;
 
-    --thermo-divider: rgba(255,255,255,0.07);
+    --thermo-divider: rgba(255, 255, 255, 0.07);
 
-    --thermo-tag-bg: rgba(255,255,255,0.035);
-    --thermo-tag-border: rgba(255,255,255,0.1);
+    --thermo-tag-bg: rgba(255, 255, 255, 0.035);
+    --thermo-tag-border: rgba(255, 255, 255, 0.1);
     --thermo-tag-text: #d2d5dc;
 
-    --thermo-shadow: rgba(0,0,0,0.25);
+    --thermo-shadow: rgba(0, 0, 0, 0.25);
 }
 
 /* =================================
@@ -52,11 +52,10 @@ body.thermodynamics-page[data-theme="light"] {
     --thermo-green: #168258;
     --thermo-purple: #8051bd;
 
-    --thermo-border: rgba(75,65,45,0.13);
+    --thermo-border: rgba(75, 65, 45, 0.13);
 
     --thermo-surface: #ffffff;
-
-    --thermo-surface-highlight: rgba(255,255,255,0.75);
+    --thermo-surface-highlight: rgba(255, 255, 255, 0.75);
 
     --thermo-text: #242321;
     --thermo-label: #44413c;
@@ -64,13 +63,13 @@ body.thermodynamics-page[data-theme="light"] {
     --thermo-secondary: #77736d;
     --thermo-footer: #77736d;
 
-    --thermo-divider: rgba(75,65,45,0.12);
+    --thermo-divider: rgba(75, 65, 45, 0.12);
 
-    --thermo-tag-bg: rgba(188,120,0,0.06);
-    --thermo-tag-border: rgba(188,120,0,0.16);
+    --thermo-tag-bg: rgba(188, 120, 0, 0.06);
+    --thermo-tag-border: rgba(188, 120, 0, 0.16);
     --thermo-tag-text: #625d55;
 
-    --thermo-shadow: rgba(65,50,20,0.09);
+    --thermo-shadow: rgba(65, 50, 20, 0.09);
 }
 
 /* =================================
@@ -80,6 +79,7 @@ body.thermodynamics-page[data-theme="light"] {
 .thermo-content {
     position: relative;
     z-index: 1;
+    min-width: 0;
 }
 
 .thermo-welcome {
@@ -88,11 +88,13 @@ body.thermodynamics-page[data-theme="light"] {
 
 .thermo-welcome .welcome-text {
     max-width: 650px;
+    min-width: 0;
 }
 
 .thermo-welcome h1 {
     font-size: clamp(30px, 3vw, 42px);
     letter-spacing: -0.04em;
+    overflow-wrap: break-word;
 }
 
 .thermo-welcome p {
@@ -106,6 +108,7 @@ body.thermodynamics-page[data-theme="light"] {
 
 .thermo-section {
     margin-bottom: 38px;
+    min-width: 0;
 }
 
 .thermo-grid {
@@ -158,7 +161,7 @@ body.thermodynamics-page[data-theme="light"] {
 .thermo-card:hover {
     transform: translateY(-5px);
 
-    border-color: rgba(244,185,66,0.35);
+    border-color: rgba(244, 185, 66, 0.35);
 
     box-shadow:
         0 18px 45px var(--thermo-shadow);
@@ -214,6 +217,7 @@ body.thermodynamics-page[data-theme="light"] {
     display: flex;
     align-items: center;
     gap: 12px;
+    min-width: 0;
 }
 
 .thermo-card .metric-icon {
@@ -245,10 +249,14 @@ body.thermodynamics-page[data-theme="light"] {
 }
 
 .thermo-card .metric-label {
+    min-width: 0;
+
     color: var(--thermo-label);
 
     font-size: 12px;
     font-weight: 600;
+
+    overflow-wrap: break-word;
 }
 
 /* =================================
@@ -286,6 +294,8 @@ body.thermodynamics-page[data-theme="light"] {
 
     font-size: 12px;
     line-height: 1.6;
+
+    overflow-wrap: break-word;
 }
 
 /* =================================
@@ -309,9 +319,16 @@ body.thermodynamics-page[data-theme="light"] {
     font-size: 11px;
 }
 
+.thermo-card-footer span {
+    min-width: 0;
+    overflow-wrap: break-word;
+}
+
 .thermo-card-footer svg {
     width: 15px;
     height: 15px;
+
+    flex-shrink: 0;
 
     color: currentColor;
 }
@@ -322,6 +339,7 @@ body.thermodynamics-page[data-theme="light"] {
 
 .thermo-charts {
     margin-bottom: 38px;
+    min-width: 0;
 }
 
 .thermo-charts .charts-grid {
@@ -347,6 +365,8 @@ body.thermodynamics-page[data-theme="light"] {
 
     color: var(--thermo-text);
 
+    overflow: hidden;
+
     transition:
         border-color 0.25s ease,
         transform 0.25s ease,
@@ -354,13 +374,14 @@ body.thermodynamics-page[data-theme="light"] {
 }
 
 .thermo-charts .chart-card:hover {
-    border-color: rgba(244,185,66,0.25);
+    border-color: rgba(244, 185, 66, 0.25);
 }
 
-/* Corregir títulos invisibles */
+/* Títulos visibles en ambos temas */
 
 .thermo-charts .chart-header h3 {
     color: var(--thermo-text);
+    overflow-wrap: break-word;
 }
 
 .thermo-charts .chart-header p {
@@ -369,13 +390,20 @@ body.thermodynamics-page[data-theme="light"] {
 
 .thermo-charts .chart-header > svg {
     color: var(--thermo-gold);
+    flex-shrink: 0;
 }
 
 .thermo-charts .chart-container {
     position: relative;
 
     width: 100%;
+    min-width: 0;
     height: 280px;
+}
+
+.thermo-charts .chart-container canvas {
+    display: block;
+    max-width: 100%;
 }
 
 /* =================================
@@ -384,6 +412,7 @@ body.thermodynamics-page[data-theme="light"] {
 
 .thermo-explanation {
     margin-bottom: 35px;
+    min-width: 0;
 }
 
 .thermo-explanation-grid {
@@ -411,6 +440,7 @@ body.thermodynamics-page[data-theme="light"] {
 .thermo-explanation .detail-header h2,
 .thermo-model-card .detail-header h2 {
     color: var(--thermo-text);
+    overflow-wrap: break-word;
 }
 
 .thermo-explanation .detail-card p {
@@ -424,17 +454,21 @@ body.thermodynamics-page[data-theme="light"] {
     display: inline-flex;
     align-items: center;
 
+    max-width: 100%;
+
     margin-top: 16px;
     padding: 7px 12px;
 
-    border: 1px solid rgba(244,185,66,0.2);
+    border: 1px solid rgba(244, 185, 66, 0.2);
     border-radius: 30px;
 
-    background: rgba(244,185,66,0.07);
+    background: rgba(244, 185, 66, 0.07);
 
     color: var(--thermo-gold);
 
     font-size: 11px;
+
+    overflow-wrap: anywhere;
 }
 
 /* =================================
@@ -443,9 +477,12 @@ body.thermodynamics-page[data-theme="light"] {
 
 .thermo-model-section {
     margin-bottom: 35px;
+    min-width: 0;
 }
 
 .thermo-model-card {
+    min-width: 0;
+
     padding: 28px;
 
     border: 1px solid var(--thermo-border);
@@ -454,7 +491,7 @@ body.thermodynamics-page[data-theme="light"] {
     background:
         linear-gradient(
             120deg,
-            rgba(244,185,66,0.055),
+            rgba(244, 185, 66, 0.055),
             transparent 65%
         ),
         var(--thermo-surface);
@@ -524,7 +561,7 @@ body.thermodynamics-page[data-theme="light"] {
 }
 
 /* =================================
-   14. RESPONSIVE
+   14. RESPONSIVE - ESCRITORIO MEDIANO
 ================================= */
 
 @media (max-width: 1300px) {
@@ -535,14 +572,48 @@ body.thermodynamics-page[data-theme="light"] {
             minmax(0, 1fr)
         );
     }
+
 }
+
+/* =================================
+   15. RESPONSIVE - TABLET
+================================= */
 
 @media (max-width: 900px) {
 
     .thermo-explanation-grid {
         grid-template-columns: 1fr;
     }
+
+    .thermo-charts .chart-card {
+        padding: 20px;
+    }
+
 }
+
+/* =================================
+   16. RESPONSIVE - TABLET PEQUEÑA
+================================= */
+
+@media (max-width: 760px) {
+
+    .thermo-charts .charts-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .thermo-welcome .dashboard-actions {
+        max-width: 100%;
+    }
+
+    .thermo-charts .chart-container {
+        height: 260px;
+    }
+
+}
+
+/* =================================
+   17. RESPONSIVE - CELULAR
+================================= */
 
 @media (max-width: 640px) {
 
@@ -551,25 +622,122 @@ body.thermodynamics-page[data-theme="light"] {
         grid-template-columns: 1fr;
     }
 
-    .thermo-card {
-        min-height: 205px;
+    .thermo-welcome {
+        margin-bottom: 22px;
     }
 
     .thermo-welcome h1 {
-        font-size: 30px;
+        font-size: clamp(26px, 7vw, 30px);
+    }
+
+    .thermo-welcome p {
+        line-height: 1.6;
+    }
+
+    .thermo-welcome .dashboard-actions {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .thermo-welcome .aula-select {
+        max-width: 100%;
+    }
+
+    .thermo-card {
+        min-height: 205px;
+        padding: 20px;
+    }
+
+    .thermo-card .metric-value {
+        margin-top: 22px;
+        font-size: clamp(28px, 8vw, 36px);
+    }
+
+    .thermo-charts .chart-card {
+        padding: 18px;
+        border-radius: 16px;
     }
 
     .thermo-charts .chart-container {
         height: 235px;
     }
 
+    .thermo-explanation .detail-card {
+        padding: 20px;
+    }
+
     .thermo-model-card {
         padding: 20px;
     }
+
+    .thermo-section,
+    .thermo-charts {
+        margin-bottom: 30px;
+    }
+
 }
 
 /* =================================
-   15. ACCESIBILIDAD
+   18. RESPONSIVE - CELULAR PEQUEÑO
+================================= */
+
+@media (max-width: 380px) {
+
+    .thermo-card {
+        padding: 16px;
+    }
+
+    .thermo-card .metric-header {
+        gap: 9px;
+    }
+
+    .thermo-card .metric-icon {
+        width: 40px;
+        height: 40px;
+    }
+
+    .thermo-card .metric-value {
+        font-size: 28px;
+    }
+
+    .thermo-charts .chart-card {
+        padding: 14px;
+    }
+
+    .thermo-charts .chart-container {
+        height: 215px;
+    }
+
+    .thermo-explanation .detail-card,
+    .thermo-model-card {
+        padding: 16px;
+    }
+
+    .model-tags {
+        gap: 7px;
+    }
+
+    .model-tags span {
+        padding: 7px 10px;
+    }
+
+}
+
+/* =================================
+   19. DISPOSITIVOS TÁCTILES
+================================= */
+
+@media (hover: none) {
+
+    .thermo-card:hover {
+        transform: none;
+        box-shadow: none;
+    }
+
+}
+
+/* =================================
+   20. ACCESIBILIDAD
 ================================= */
 
 @media (prefers-reduced-motion: reduce) {
@@ -578,4 +746,13 @@ body.thermodynamics-page[data-theme="light"] {
         animation: none;
         transition: none;
     }
+
+    .thermo-card:hover {
+        transform: none;
+    }
+
+    .thermo-charts .chart-card {
+        transition: none;
+    }
+
 }
