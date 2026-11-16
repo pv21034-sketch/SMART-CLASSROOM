@@ -3,6 +3,7 @@
 
 // ============================================================
 // SMART CLASSROOM - LAYOUT GENERAL
+// Universidad de El Salvador
 // Compatible con PC, tablet y celular
 // ============================================================
 
@@ -40,14 +41,14 @@
     // ========================================================
 
     function temaActual() {
-        return document.documentElement.getAttribute(
-            "data-theme"
-        ) || "dark";
+        return (
+            document.documentElement.getAttribute("data-theme") ||
+            "dark"
+        );
     }
 
     function aplicarTema(tema) {
-        const temaSeguro =
-            tema === "light" ? "light" : "dark";
+        const temaSeguro = tema === "light" ? "light" : "dark";
 
         document.documentElement.setAttribute(
             "data-theme",
@@ -60,10 +61,7 @@
         );
 
         try {
-            localStorage.setItem(
-                THEME_KEY,
-                temaSeguro
-            );
+            localStorage.setItem(THEME_KEY, temaSeguro);
         } catch (error) {
             console.warn(
                 "No se pudo guardar el tema.",
@@ -71,9 +69,7 @@
             );
         }
 
-        const boton =
-            document.getElementById("theme-toggle");
-
+        const boton = document.getElementById("theme-toggle");
         if (!boton) return;
 
         boton.setAttribute(
@@ -88,9 +84,7 @@
             String(temaSeguro === "light")
         );
 
-        const icono = boton.querySelector(
-            "[data-lucide], svg"
-        );
+        const icono = boton.querySelector("[data-lucide], svg");
 
         if (icono) {
             const nuevo = document.createElement("i");
@@ -120,39 +114,47 @@
 
         aplicarTema(temaGuardado);
 
-        const boton =
-            document.getElementById("theme-toggle");
-
+        const boton = document.getElementById("theme-toggle");
         if (!boton) return;
 
         boton.addEventListener("click", () => {
             const siguiente =
-                temaActual() === "dark"
-                    ? "light"
-                    : "dark";
+                temaActual() === "dark" ? "light" : "dark";
 
             aplicarTema(siguiente);
         });
     }
 
     // ========================================================
-    // 3. MENÚ RESPONSIVE
+    // 3. MENÚ RESPONSIVE CORREGIDO
     // ========================================================
 
     function iniciarMenu() {
-        const boton =
-            document.getElementById("menu-toggle");
-
-        const sidebar =
-            document.getElementById("sidebar");
+        const boton = document.getElementById("menu-toggle");
+        const sidebar = document.getElementById("sidebar");
 
         if (!boton || !sidebar) return;
 
-        const mediaMovil =
-            window.matchMedia("(max-width: 900px)");
+        // Evitar inicializaciones duplicadas.
+        if (boton.dataset.menuInicializado === "true") {
+            return;
+        }
 
-        // Fondo oscuro para tablet y celular.
-        const fondo = document.createElement("button");
+        boton.dataset.menuInicializado = "true";
+
+        const mediaMovil = window.matchMedia(
+            "(max-width: 900px)"
+        );
+
+        // Reutilizar el fondo si ya existe.
+        let fondo = document.querySelector(
+            ".mobile-sidebar-backdrop"
+        );
+
+        if (!fondo) {
+            fondo = document.createElement("button");
+            document.body.appendChild(fondo);
+        }
 
         fondo.type = "button";
         fondo.className = "mobile-sidebar-backdrop";
@@ -164,8 +166,7 @@
             "Cerrar menú"
         );
 
-        // Los estilos se incorporan aquí para mantener
-        // compatibilidad con el dashboard.css existente.
+        // Fondo oscuro sin desenfoque.
         Object.assign(fondo.style, {
             position: "fixed",
             inset: "0",
@@ -176,41 +177,35 @@
             border: "0",
             borderRadius: "0",
             background: "rgba(0, 0, 0, 0.58)",
-            backdropFilter: "blur(3px)",
-            WebkitBackdropFilter: "blur(3px)",
-            zIndex: "90",
+            backdropFilter: "none",
+            WebkitBackdropFilter: "none",
+            zIndex: "100",
             cursor: "pointer"
         });
 
-        document.body.appendChild(fondo);
+        // Evitar que el fondo aparezca cuando está oculto.
+        // Se usa la propiedad hidden, sin sobrescribir display.
 
-        boton.setAttribute(
-            "aria-controls",
-            "sidebar"
-        );
+        boton.setAttribute("aria-controls", "sidebar");
+        boton.setAttribute("aria-expanded", "false");
 
         let menuAbierto = false;
         let overflowAnterior = "";
+        let elementoAnterior = null;
 
-        function establecerMenu(abierto) {
-            const mostrar =
-                Boolean(abierto && mediaMovil.matches);
+        function establecerMenu(abierto, restaurarFoco = false) {
+            const mostrar = Boolean(
+                abierto && mediaMovil.matches
+            );
 
             if (mostrar && !menuAbierto) {
-                overflowAnterior =
-                    document.body.style.overflow;
+                overflowAnterior = document.body.style.overflow;
+                elementoAnterior = document.activeElement;
             }
 
-            // Mantener compatibilidad con ambas clases.
-            sidebar.classList.toggle(
-                "open",
-                mostrar
-            );
-
-            sidebar.classList.toggle(
-                "is-open",
-                mostrar
-            );
+            // Sincronizar clases compatibles con dashboard.css.
+            sidebar.classList.toggle("open", mostrar);
+            sidebar.classList.toggle("is-open", mostrar);
 
             document.body.classList.toggle(
                 "sidebar-open",
@@ -224,83 +219,143 @@
 
             fondo.hidden = !mostrar;
 
-            // Evitar desplazamiento del contenido
-            // mientras el menú móvil está abierto.
+            // Bloquear desplazamiento del fondo.
             if (mostrar) {
                 document.body.style.overflow = "hidden";
             } else if (menuAbierto) {
-                document.body.style.overflow =
-                    overflowAnterior;
+                document.body.style.overflow = overflowAnterior;
             }
 
             menuAbierto = mostrar;
 
-            // Impedir que los elementos del menú oculto
-            // reciban el foco del teclado.
+            // Accesibilidad: impedir navegación por un menú oculto.
             if (mostrar) {
                 sidebar.removeAttribute("inert");
+                sidebar.setAttribute("aria-hidden", "false");
             } else if (mediaMovil.matches) {
                 sidebar.setAttribute("inert", "");
+                sidebar.setAttribute("aria-hidden", "true");
             } else {
                 sidebar.removeAttribute("inert");
+                sidebar.removeAttribute("aria-hidden");
+            }
+
+            if (mostrar) {
+                const primerEnlace = sidebar.querySelector(
+                    "a[href]:not([tabindex='-1'])"
+                );
+
+                if (primerEnlace) {
+                    primerEnlace.focus({
+                        preventScroll: true
+                    });
+                }
+            } else if (restaurarFoco) {
+                const destino =
+                    elementoAnterior instanceof HTMLElement &&
+                    elementoAnterior.isConnected
+                        ? elementoAnterior
+                        : boton;
+
+                destino.focus({
+                    preventScroll: true
+                });
             }
         }
 
-        // Abrir y cerrar desde el botón hamburguesa.
+        // Abrir o cerrar con el botón hamburguesa.
         boton.addEventListener("click", () => {
-            establecerMenu(!menuAbierto);
+            establecerMenu(!menuAbierto, menuAbierto);
         });
 
-        // Cerrar al tocar el fondo oscuro.
+        // Cerrar al tocar fuera del menú.
         fondo.addEventListener("click", () => {
-            establecerMenu(false);
-            boton.focus();
+            establecerMenu(false, true);
         });
 
         // Cerrar con Escape.
-        document.addEventListener(
-            "keydown",
-            (evento) => {
-                if (
-                    evento.key === "Escape" &&
-                    menuAbierto
-                ) {
-                    establecerMenu(false);
-                    boton.focus();
-                }
+        document.addEventListener("keydown", (evento) => {
+            if (
+                evento.key === "Escape" &&
+                menuAbierto
+            ) {
+                evento.preventDefault();
+                establecerMenu(false, true);
             }
-        );
-
-        // Cerrar después de seleccionar una sección.
-        sidebar.querySelectorAll(
-            "a[href]"
-        ).forEach((enlace) => {
-            enlace.addEventListener(
-                "click",
-                () => establecerMenu(false)
-            );
         });
 
-        // Al cambiar entre móvil y escritorio,
-        // restaurar el estado correcto del menú.
+        // Mantener el foco dentro del menú abierto.
+        document.addEventListener("keydown", (evento) => {
+            if (
+                evento.key !== "Tab" ||
+                !menuAbierto
+            ) {
+                return;
+            }
+
+            const elementos = Array.from(
+                sidebar.querySelectorAll(
+                    'a[href], button:not([disabled]), ' +
+                    'input:not([disabled]), ' +
+                    'select:not([disabled]), ' +
+                    '[tabindex]:not([tabindex="-1"])'
+                )
+            ).filter(elemento => {
+                return elemento.getClientRects().length > 0;
+            });
+
+            if (elementos.length === 0) {
+                evento.preventDefault();
+                return;
+            }
+
+            const primero = elementos[0];
+            const ultimo = elementos[elementos.length - 1];
+
+            if (
+                evento.shiftKey &&
+                document.activeElement === primero
+            ) {
+                evento.preventDefault();
+                ultimo.focus();
+            } else if (
+                !evento.shiftKey &&
+                document.activeElement === ultimo
+            ) {
+                evento.preventDefault();
+                primero.focus();
+            }
+        });
+
+        // Cerrar después de seleccionar una sección.
+        sidebar.querySelectorAll("a[href]").forEach(enlace => {
+            enlace.addEventListener("click", () => {
+                establecerMenu(false);
+            });
+        });
+
+        // Restaurar estado al cambiar de móvil a escritorio.
         function sincronizarPantalla() {
             establecerMenu(false);
+
+            if (!mediaMovil.matches) {
+                sidebar.removeAttribute("inert");
+                sidebar.removeAttribute("aria-hidden");
+            }
         }
 
         if (
-            typeof mediaMovil.addEventListener ===
-            "function"
+            typeof mediaMovil.addEventListener === "function"
         ) {
             mediaMovil.addEventListener(
                 "change",
                 sincronizarPantalla
             );
         } else {
-            mediaMovil.addListener(
-                sincronizarPantalla
-            );
+            mediaMovil.addListener(sincronizarPantalla);
         }
 
+        // Estado inicial.
         establecerMenu(false);
     }
 
@@ -334,10 +389,9 @@
     }
 
     function actualizarCampanita(totalActivas) {
-        const contador =
-            document.getElementById(
-                "notification-count"
-            );
+        const contador = document.getElementById(
+            "notification-count"
+        );
 
         if (!contador) return;
 
@@ -347,18 +401,14 @@
         );
 
         contador.textContent =
-            cantidad > 99
-                ? "99+"
-                : String(cantidad);
+            cantidad > 99 ? "99+" : String(cantidad);
 
         contador.setAttribute(
             "aria-label",
             `${cantidad} alertas activas`
         );
 
-        contador.dataset.count =
-            String(cantidad);
-
+        contador.dataset.count = String(cantidad);
         contador.removeAttribute("title");
     }
 
@@ -366,10 +416,9 @@
         if (consultaAlertasEnCurso) return;
         if (document.hidden) return;
 
-        const contador =
-            document.getElementById(
-                "notification-count"
-            );
+        const contador = document.getElementById(
+            "notification-count"
+        );
 
         if (!contador) return;
 
@@ -409,13 +458,12 @@
                 );
             }
 
-            const totalActivas =
-                registros.filter(
-                    alerta =>
-                        normalizarEstado(
-                            alerta.estado
-                        ) === "activa"
-                ).length;
+            const totalActivas = registros.filter(
+                alerta =>
+                    normalizarEstado(
+                        alerta.estado
+                    ) === "activa"
+            ).length;
 
             actualizarCampanita(totalActivas);
 
@@ -436,10 +484,9 @@
     }
 
     function iniciarAlertas() {
-        const contador =
-            document.getElementById(
-                "notification-count"
-            );
+        const contador = document.getElementById(
+            "notification-count"
+        );
 
         if (!contador) return;
 

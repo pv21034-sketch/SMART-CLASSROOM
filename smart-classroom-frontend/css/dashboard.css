@@ -1,4 +1,3 @@
-
 /* ==========================================================
    SMART CLASSROOM — DASHBOARD
    Universidad de El Salvador
@@ -1524,4 +1523,44 @@ body.dashboard-page {
         scroll-behavior: auto !important;
         transition-duration: .01ms !important;
     }
+}
+
+/* CORRECCIÓN: MENÚ MÓVIL POR ENCIMA DEL FONDO */
+@media (max-width: 900px) {
+  body.dashboard-page .app-shell {
+    z-index: auto;
+    isolation: auto;
+  }
+  body.dashboard-page .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 120;
+    width: min(300px, 86vw);
+    height: 100dvh;
+    background: var(--sidebar-bg-solid, #101114);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    visibility: hidden;
+    transform: translateX(-105%);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    transition: transform 260ms ease, visibility 260ms ease;
+  }
+  body.dashboard-page .sidebar.open,
+  body.dashboard-page .sidebar.is-open {
+    visibility: visible;
+    transform: translateX(0);
+  }
+  body.dashboard-page .mobile-sidebar-backdrop:not([hidden]) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(0,0,0,.58);
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  body.dashboard-page.sidebar-open { overflow: hidden; }
+  body.dashboard-page .main-wrapper { margin-left: 0; width: 100%; min-width: 0; }
 }

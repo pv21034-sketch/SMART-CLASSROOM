@@ -1,10 +1,23 @@
 
 /* ============================================================
    SMART CLASSROOM - RESPONSIVE
+   Universidad de El Salvador
    PC + TABLET + CELULAR
+
+   Compatible con:
+   - dashboard.css
+   - layout.js
+   - Dashboard
+   - Gráficas
+   - Historial
+   - Alertas
+   - Configuración
    ============================================================ */
 
-/* Ajustes generales */
+/* ============================================================
+   1. AJUSTES GENERALES
+   ============================================================ */
+
 .dashboard-page .app-shell,
 .dashboard-page .main-wrapper,
 .dashboard-page .dashboard-content {
@@ -33,7 +46,10 @@
     max-width: 100%;
 }
 
-/* Fondo del menú móvil */
+/* ============================================================
+   2. FONDO DEL MENÚ MÓVIL
+   ============================================================ */
+
 .mobile-sidebar-backdrop {
     display: none;
 }
@@ -43,10 +59,29 @@
 }
 
 /* ============================================================
-   TABLET Y CELULAR
+   3. TABLET Y CELULAR
    ============================================================ */
 
 @media (max-width: 900px) {
+
+    /*
+       CORRECCIÓN DEL CONTEXTO DE APILAMIENTO
+
+       Antes, .app-shell tenía z-index: 1.
+       Esto podía colocar todo el menú detrás del fondo
+       oscuro, aunque el sidebar tuviera z-index: 110.
+
+       Se elimina ese contexto para que el sidebar
+       pueda mostrarse correctamente.
+    */
+
+    body.dashboard-page .app-shell {
+        position: relative;
+        z-index: auto;
+        isolation: auto;
+    }
+
+    /* CONTENIDO PRINCIPAL */
 
     .dashboard-page .main-wrapper {
         margin-left: 0;
@@ -54,20 +89,35 @@
         min-width: 0;
     }
 
-    .dashboard-page .sidebar {
+    /* ========================================================
+       MENÚ LATERAL MÓVIL
+       ======================================================== */
+
+    body.dashboard-page .sidebar {
         position: fixed;
+
         top: 0;
         left: 0;
         bottom: 0;
-        z-index: 110;
+
+        z-index: 120;
 
         width: min(300px, 86vw);
         max-width: 100%;
+        height: 100dvh;
 
         background: var(
             --sidebar-bg-solid,
             #101114
         );
+
+        /*
+           El menú debe mantenerse completamente nítido.
+           No aplicamos desenfoque al sidebar móvil.
+        */
+
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
 
         transform: translateX(-105%);
         visibility: hidden;
@@ -76,38 +126,77 @@
             transform 0.25s ease,
             visibility 0.25s ease;
 
+        overflow-x: hidden;
         overflow-y: auto;
+
         overscroll-behavior: contain;
+
+        box-shadow:
+            20px 0 50px rgba(0, 0, 0, 0.3);
     }
 
-    .dashboard-page .sidebar.open,
-    .dashboard-page .sidebar.is-open {
+    /* MENÚ ABIERTO */
+
+    body.dashboard-page .sidebar.open,
+    body.dashboard-page .sidebar.is-open {
         transform: translateX(0);
         visibility: visible;
     }
+
+    /* BOTÓN HAMBURGUESA */
 
     .dashboard-page .menu-toggle {
         display: inline-grid;
         place-items: center;
     }
 
-    .mobile-sidebar-backdrop:not([hidden]) {
+    /* ========================================================
+       FONDO OSCURO
+       ======================================================== */
+
+    body.dashboard-page .mobile-sidebar-backdrop:not([hidden]) {
         display: block;
+
         position: fixed;
         inset: 0;
+
+        /*
+           Debe quedar debajo del sidebar (120)
+           y encima del contenido principal.
+        */
+
         z-index: 100;
 
         width: 100%;
         height: 100%;
 
+        padding: 0;
+        margin: 0;
+
         border: 0;
-        background: rgba(0, 0, 0, 0.6);
+        border-radius: 0;
+
+        background: rgba(0, 0, 0, 0.58);
+
+        /*
+           Oscurecemos el contenido, pero no lo desenfocamos.
+        */
+
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+
         cursor: pointer;
     }
+
+    /* BLOQUEO DE DESPLAZAMIENTO */
 
     body.dashboard-page.sidebar-open {
         overflow: hidden;
     }
+
+    /* ========================================================
+       CONTENIDO DEL DASHBOARD
+       ======================================================== */
 
     .dashboard-page .welcome-section {
         flex-direction: column;
@@ -120,19 +209,30 @@
         flex-wrap: wrap;
     }
 
+    /* ========================================================
+       PANELES Y CUADRÍCULAS
+       ======================================================== */
+
     .dashboard-page .details-section,
     .dashboard-page .graphs-charts,
     .dashboard-page .thermo-explanation-grid {
         grid-template-columns: minmax(0, 1fr);
     }
 
+    /* ========================================================
+       TABLAS CON DESPLAZAMIENTO HORIZONTAL
+       ======================================================== */
+
     .dashboard-page .history-table-scroll,
     .dashboard-page .alerts-table-scroll,
     .dashboard-page .settings-table-scroll {
         display: block;
+
         width: 100%;
         max-width: 100%;
+
         overflow-x: auto;
+
         -webkit-overflow-scrolling: touch;
     }
 
@@ -141,18 +241,28 @@
         min-width: 650px;
     }
 
+    /* ========================================================
+       PESTAÑAS DE CONFIGURACIÓN
+       ======================================================== */
+
     .dashboard-page .settings-tabs {
         max-width: 100%;
+
         overflow-x: auto;
+
         -webkit-overflow-scrolling: touch;
     }
 }
 
 /* ============================================================
-   CELULARES
+   4. CELULARES
    ============================================================ */
 
 @media (max-width: 640px) {
+
+    /* ========================================================
+       BARRA SUPERIOR
+       ======================================================== */
 
     .dashboard-page .topbar {
         min-height: 64px;
@@ -172,7 +282,9 @@
 
     .dashboard-page .breadcrumb strong {
         display: block;
+
         max-width: 34vw;
+
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -184,14 +296,23 @@
 
     .dashboard-page .icon-button {
         flex-shrink: 0;
+
         min-width: 40px;
         min-height: 40px;
     }
+
+    /* ========================================================
+       CONTENIDO PRINCIPAL
+       ======================================================== */
 
     .dashboard-page .dashboard-content {
         padding: 20px 14px;
         min-width: 0;
     }
+
+    /* ========================================================
+       BIENVENIDA
+       ======================================================== */
 
     .dashboard-page .welcome-text {
         min-width: 0;
@@ -199,7 +320,12 @@
     }
 
     .dashboard-page .welcome-text h1 {
-        font-size: clamp(1.55rem, 6vw, 2rem);
+        font-size: clamp(
+            1.55rem,
+            6vw,
+            2rem
+        );
+
         overflow-wrap: anywhere;
     }
 
@@ -208,10 +334,16 @@
         overflow-wrap: break-word;
     }
 
+    /* ========================================================
+       SELECTORES Y ACCIONES
+       ======================================================== */
+
     .dashboard-page .dashboard-actions {
         width: 100%;
         max-width: 100%;
+
         padding: 12px;
+
         flex-wrap: wrap;
     }
 
@@ -221,9 +353,14 @@
 
     .dashboard-page .aula-select {
         flex: 1 1 150px;
+
         min-width: 0;
         max-width: 100%;
     }
+
+    /* ========================================================
+       CUADRÍCULAS DE UNA COLUMNA
+       ======================================================== */
 
     .dashboard-page .metrics-grid,
     .dashboard-page .charts-grid,
@@ -237,6 +374,10 @@
         grid-template-columns: minmax(0, 1fr);
     }
 
+    /* ========================================================
+       TARJETAS
+       ======================================================== */
+
     .dashboard-page .metric-card,
     .dashboard-page .chart-card,
     .dashboard-page .detail-card,
@@ -246,23 +387,39 @@
     .dashboard-page .alerts-stat,
     .dashboard-page .settings-stat {
         width: 100%;
+
         min-width: 0;
         max-width: 100%;
     }
+
+    /* ========================================================
+       GRÁFICAS
+       ======================================================== */
 
     .dashboard-page .chart-container,
     .dashboard-page .graphs-canvas-wrap {
         width: 100%;
         max-width: 100%;
+
         min-width: 0;
+
         height: 230px;
     }
+
+    /* ========================================================
+       TÍTULOS
+       ======================================================== */
 
     .dashboard-page .section-heading {
         flex-direction: column;
         align-items: flex-start;
+
         gap: 12px;
     }
+
+    /* ========================================================
+       FILTROS
+       ======================================================== */
 
     .dashboard-page .graphs-filters,
     .dashboard-page .history-filters,
@@ -278,13 +435,27 @@
         max-width: 100%;
     }
 
+    /* ========================================================
+       CAMPOS DE FORMULARIO
+       ======================================================== */
+
     .dashboard-page input,
     .dashboard-page select,
     .dashboard-page textarea {
         max-width: 100%;
         min-width: 0;
+
+        /*
+           Evita el zoom automático de Safari
+           al enfocar campos pequeños.
+        */
+
         font-size: 16px;
     }
+
+    /* ========================================================
+       BOTONES DE FILTROS
+       ======================================================== */
 
     .dashboard-page .history-filter-actions,
     .dashboard-page .alerts-filter-actions,
@@ -292,6 +463,10 @@
         flex-wrap: wrap;
         gap: 10px;
     }
+
+    /* ========================================================
+       PAGINACIÓN
+       ======================================================== */
 
     .dashboard-page .history-pagination,
     .dashboard-page .alerts-pagination {
@@ -305,17 +480,23 @@
         gap: 8px;
     }
 
+    /* ========================================================
+       PIE DE PÁGINA
+       ======================================================== */
+
     .dashboard-page .dashboard-footer {
         flex-direction: column;
         align-items: center;
+
         text-align: center;
+
         gap: 8px;
         padding: 20px 14px;
     }
 }
 
 /* ============================================================
-   CELULARES PEQUEÑOS
+   5. CELULARES PEQUEÑOS
    ============================================================ */
 
 @media (max-width: 380px) {
@@ -337,8 +518,12 @@
     }
 }
 
-/* Accesibilidad */
+/* ============================================================
+   6. ACCESIBILIDAD
+   ============================================================ */
+
 @media (prefers-reduced-motion: reduce) {
+
     .dashboard-page .sidebar {
         transition: none;
     }
